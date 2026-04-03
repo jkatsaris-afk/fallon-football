@@ -25,12 +25,14 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid #eee;
 }
 
+/* 🔥 LOGO FIX */
 .logo {
-  height: 50px;
+  height: 60px;
+  max-width: 85%;
   object-fit: contain;
 }
 
@@ -50,13 +52,36 @@ body {
     0 2px 4px rgba(0,0,0,0.04);
 
   border-left: 4px solid #0f7a3b;
+
+  transition: all 0.2s ease;
 }
 
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 22px rgba(0,0,0,0.08),
+    0 4px 8px rgba(0,0,0,0.05);
+}
+
+/* ========================= */
 /* ACTIVE CARD */
+/* ========================= */
 .active-card {
   background: linear-gradient(145deg, #0f7a3b, #138f47);
   color: white;
   border: none;
+
+  box-shadow: 0 6px 18px rgba(15,122,59,0.25);
+
+  transform: scale(1.02);
+}
+
+.active-card .title {
+  color: white;
+}
+
+.active-card .sub {
+  color: #d9f7e3;
 }
 
 /* ========================= */
@@ -65,6 +90,7 @@ body {
 .title {
   font-size: 18px;
   font-weight: 700;
+  color: #111;
 }
 
 .sub {
@@ -87,8 +113,12 @@ body {
   margin-top: 15px;
 }
 
+.button:hover {
+  background: #0b5e2d;
+}
+
 /* ========================= */
-/* NAV */
+/* BOTTOM NAV (GLASS) */
 /* ========================= */
 .bottom-nav {
   position: fixed;
@@ -101,29 +131,45 @@ body {
 
   display: flex;
   justify-content: space-between;
+  align-items: center;
 
   padding: 6px;
 
   border-radius: 30px;
 
-  background: rgba(255,255,255,0.25);
+  background: rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
+  border: 1px solid rgba(255, 255, 255, 0.3);
 
   box-shadow: 0 10px 25px rgba(0,0,0,0.12);
 }
 
+/* NAV BUTTON */
 .nav-btn {
   flex: 1;
+
   border: none;
   background: transparent;
+
   color: #444;
-  padding: 10px;
+  font-size: 13px;
+  font-weight: 500;
+
+  padding: 10px 0;
   border-radius: 20px;
+
+  transition: all 0.2s ease;
 }
 
+/* 🔥 ACTIVE NAV BUTTON */
 .nav-btn.active {
   background: #0f7a3b;
   color: white;
+  font-weight: 600;
+
+  box-shadow: 0 4px 10px rgba(15,122,59,0.3);
 }
 
 /* ========================= */
@@ -136,7 +182,7 @@ body {
   width: 100%;
   height: 100%;
 
-  background: rgba(0,0,0,0.25);
+  background: rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(6px);
 
   display: flex;
@@ -157,27 +203,57 @@ body {
 
   padding: 20px;
 
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+
   animation: slideUp 0.25s ease;
 }
 
+/* ANIMATION */
 @keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
+/* OPTIONS */
 .modal-option {
   padding: 14px;
   margin: 8px 0;
+
   border-radius: 12px;
+
   background: white;
+
   text-align: center;
   font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
 }
 
+.modal-option:hover {
+  background: #f3f4f6;
+}
+
+/* CANCEL */
 .modal-cancel {
   margin-top: 10px;
+
   padding: 14px;
+
   border-radius: 12px;
+
   text-align: center;
+
+  font-weight: 600;
+
   color: #666;
+
+  background: rgba(255,255,255,0.7);
+
+  cursor: pointer;
 }
