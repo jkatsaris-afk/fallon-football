@@ -9,6 +9,8 @@ import AdminDashboard from "./pages/Admin/Dashboard";
 import CoachDashboard from "./pages/Coach/CoachDashboard";
 import ParentDashboard from "./pages/Parent/ParentDashboard";
 
+import logo from "./resources/logo.png"; // ✅ IMPORT LOGO
+
 import "./styles.css";
 
 export default function App() {
@@ -47,14 +49,25 @@ export default function App() {
           alignItems: "center"
         }}
       >
-        <div>Fallon Flag Football</div>
 
+        {/* 🔥 LOGO (REPLACES TEXT) */}
+        <img
+          src={logo}
+          alt="Fallon Flag Football"
+          style={{
+            height: 45,
+            objectFit: "contain"
+          }}
+        />
+
+        {/* LOGIN */}
         <button
           className="icon-btn"
           onClick={() => setShowLogin(true)}
         >
           Login
         </button>
+
       </div>
 
       {/* CONTENT */}
