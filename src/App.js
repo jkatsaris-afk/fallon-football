@@ -40,15 +40,13 @@ export default function App() {
   return (
     <div className="app">
 
-      {/* HEADER (CENTERED LOGO) */}
+      {/* HEADER */}
       <div className="header">
-
         <img
           src={logo}
           alt="Fallon Flag Football"
           className="logo"
         />
-
       </div>
 
       {/* CONTENT */}
@@ -88,7 +86,7 @@ export default function App() {
             Teams
           </button>
 
-          {/* 🔥 LOGIN MOVED HERE */}
+          {/* LOGIN */}
           <button
             className="nav-btn"
             onClick={() => setShowLogin(true)}
