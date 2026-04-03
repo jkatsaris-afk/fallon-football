@@ -263,3 +263,61 @@ body {
   background: #e5e7eb;
   margin: 12px 0;
 }
+
+/* ========================= */
+/* GAME ROW (ESPN STYLE) */
+/* ========================= */
+.game-row {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+}
+
+/* TOP ROW */
+.game-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* TEAMS */
+.team {
+  font-weight: 700;
+  color: #111;
+}
+
+/* VS */
+.vs {
+  font-size: 12px;
+  color: #999;
+  margin: 2px 0;
+}
+
+/* TIME */
+.game-time {
+  font-weight: 600;
+  color: #0f7a3b;
+  font-size: 14px;
+}
+
+/* BOTTOM ROW */
+.game-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* FIELD BADGE */
+.field-badge {
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* LIVE STYLE */
+.live {
+  color: #0f7a3b;
+  font-weight: 700;
+}
