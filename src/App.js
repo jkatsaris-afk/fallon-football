@@ -16,9 +16,15 @@ export default function App() {
   const [role, setRole] = useState("public");
   const [showLogin, setShowLogin] = useState(false);
 
+  // PAGE LOGIC
   const renderPage = () => {
     if (showLogin) {
-      return <LoginPage setRole={setRole} setShowLogin={setShowLogin} />;
+      return (
+        <LoginPage
+          setRole={setRole}
+          setShowLogin={setShowLogin}
+        />
+      );
     }
 
     if (role === "admin") return <AdminDashboard />;
@@ -34,23 +40,52 @@ export default function App() {
     <div className="app">
 
       {/* HEADER */}
-      <div className="header" style={{ display: "flex", justifyContent: "space-between" }}>
-        Fallon Football
+      <div
+        className="header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}
+      >
+        <div>Fallon Football</div>
 
-        {/* LOGIN BUTTON */}
-        <button className="icon-btn" onClick={() => setShowLogin(true)}>
+        <button
+          className="icon-btn"
+          onClick={() => setShowLogin(true)}
+        >
           Login
         </button>
       </div>
 
+      {/* CONTENT */}
       {renderPage()}
 
-      {/* BOTTOM NAV (ONLY PUBLIC) */}
+      {/* BOTTOM NAV (ONLY PUBLIC + NOT LOGIN SCREEN) */}
       {role === "public" && !showLogin && (
         <div className="bottom-nav">
-          <button className={`nav-btn ${page === "home" ? "active" : ""}`} onClick={() => setPage("home")}>Home</button>
-          <button className={`nav-btn ${page === "schedule" ? "active" : ""}`} onClick={() => setPage("schedule")}>Schedule</button>
-          <button className={`nav-btn ${page === "teams" ? "active" : ""}`} onClick={() => setPage("teams")}>Teams</button>
+
+          <button
+            className={`nav-btn ${page === "home" ? "active" : ""}`}
+            onClick={() => setPage("home")}
+          >
+            Home
+          </button>
+
+          <button
+            className={`nav-btn ${page === "schedule" ? "active" : ""}`}
+            onClick={() => setPage("schedule")}
+          >
+            Schedule
+          </button>
+
+          <button
+            className={`nav-btn ${page === "teams" ? "active" : ""}`}
+            onClick={() => setPage("teams")}
+          >
+            Teams
+          </button>
+
         </div>
       )}
 
