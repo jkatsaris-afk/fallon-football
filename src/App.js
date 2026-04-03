@@ -16,8 +16,9 @@ export default function App() {
   const [role, setRole] = useState("public");
   const [showLogin, setShowLogin] = useState(false);
 
-  // PAGE LOGIC
+  // 🔁 PAGE RENDER LOGIC
   const renderPage = () => {
+    // LOGIN SCREEN
     if (showLogin) {
       return (
         <LoginPage
@@ -27,10 +28,12 @@ export default function App() {
       );
     }
 
+    // ROLE BASED DASHBOARDS
     if (role === "admin") return <AdminDashboard />;
     if (role === "coach") return <CoachDashboard />;
     if (role === "parent") return <ParentDashboard />;
 
+    // PUBLIC PAGES
     if (page === "home") return <HomePage />;
     if (page === "schedule") return <SchedulePage />;
     if (page === "teams") return <TeamsPage />;
@@ -58,10 +61,10 @@ export default function App() {
         </button>
       </div>
 
-      {/* CONTENT */}
+      {/* MAIN CONTENT */}
       {renderPage()}
 
-      {/* BOTTOM NAV (ONLY PUBLIC + NOT LOGIN SCREEN) */}
+      {/* BOTTOM NAV (ONLY PUBLIC + NOT LOGIN PAGE) */}
       {role === "public" && !showLogin && (
         <div className="bottom-nav">
 
@@ -69,6 +72,7 @@ export default function App() {
             className={`nav-btn ${page === "home" ? "active" : ""}`}
             onClick={() => setPage("home")}
           >
+            <div className="nav-icon">🏠</div>
             Home
           </button>
 
@@ -76,6 +80,7 @@ export default function App() {
             className={`nav-btn ${page === "schedule" ? "active" : ""}`}
             onClick={() => setPage("schedule")}
           >
+            <div className="nav-icon">📅</div>
             Schedule
           </button>
 
@@ -83,6 +88,7 @@ export default function App() {
             className={`nav-btn ${page === "teams" ? "active" : ""}`}
             onClick={() => setPage("teams")}
           >
+            <div className="nav-icon">👥</div>
             Teams
           </button>
 
