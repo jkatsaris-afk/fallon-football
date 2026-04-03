@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 export default function HomePage({ setPage }) {
+  const [liveGames, setLiveGames] = useState([]);
   const [upcomingGames, setUpcomingGames] = useState([]);
 
   useEffect(() => {
     fetchGames();
 
-    // 🔥 auto refresh every minute
     const interval = setInterval(fetchGames, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -24,8 +24,7 @@ export default function HomePage({ setPage }) {
 
     const now = new Date();
 
-    const validGames = data
-      // 🚨 REMOVE PRACTICES (handles typo too)
+    const processed = data
       .filter(g => !g.event_type.toLowerCase().includes("practic"))
 
       .map(game => {
@@ -33,49 +32,69 @@ export default function HomePage({ setPage }) {
         const time24 = convertTo24Hour(game.event_time);
         const [hour, minute] = time24.split(":");
 
-        const gameStart = new Date(
-          y,
-          m - 1,
-          d,
-          parseInt(hour),
-          parseInt(minute)
-        );
-
-        // 🔥 add 15 minutes buffer
-        const gameEnd = new Date(gameStart.getTime() + 15 * 60000);
+        const start = new Date(y, m - 1, d, hour, minute);
+        const end = new Date(start.getTime() + 15 * 60000);
 
         return {
           ...game,
-          gameStart,
-          gameEnd
+          start,
+          end
         };
-      })
+      });
 
-      // 🔥 ONLY future or still-active games
-      .filter(g => g.gameEnd > now)
+    // 🔥 LIVE GAMES
+    const live = processed.filter(
+      g => g.start <= now && g.end > now
+    );
 
-      // 🔥 sort by next game
-      .sort((a, b) => a.gameStart - b.gameStart);
+    // 🔥 UPCOMING GAMES
+    const upcoming = processed
+      .filter(g => g.start > now)
+      .sort((a, b) => a.start - b.start);
 
-    setUpcomingGames(validGames);
+    setLiveGames(live);
+    setUpcomingGames(upcoming);
   };
 
   return (
     <div>
 
-      {/* SEASON TILE */}
+      {/* SEASON */}
       <div className="card">
         <div className="title">Fallon Flag Football</div>
         <div className="sub">2026 Season</div>
       </div>
 
-      {/* 🔥 UPCOMING GAMES */}
+      {/* 🔥 LIVE OR UPCOMING */}
       <div className="card">
-        <div className="title">Upcoming Games</div>
 
-        {upcomingGames.length > 0 ? (
+        <div className="title">
+          {liveGames.length > 0 ? "Live Games" : "Upcoming Games"}
+        </div>
+
+        {/* 🔥 LIVE GAMES */}
+        {liveGames.length > 0 && liveGames.map(game => (
+          <div key={game.id} style={{ marginTop: 12 }}>
+
+            <div className="sub" style={{ color: "#0f7a3b", fontWeight: 600 }}>
+              ● LIVE NOW
+            </div>
+
+            <div className="sub">
+              {game.team} vs {game.opponent}
+            </div>
+
+            <div className="sub">
+              {game.event_time} • {game.field}
+            </div>
+
+          </div>
+        ))}
+
+        {/* 🔥 UPCOMING (ONLY IF NO LIVE) */}
+        {liveGames.length === 0 && upcomingGames.length > 0 &&
           upcomingGames.slice(0, 3).map(game => (
-            <div key={game.id} style={{ marginTop: 10 }}>
+            <div key={game.id} style={{ marginTop: 12 }}>
 
               <div className="sub">
                 {game.team} vs {game.opponent}
@@ -91,7 +110,9 @@ export default function HomePage({ setPage }) {
 
             </div>
           ))
-        ) : (
+        }
+
+        {liveGames.length === 0 && upcomingGames.length === 0 && (
           <div className="sub" style={{ marginTop: 10 }}>
             No upcoming games
           </div>
@@ -103,6 +124,7 @@ export default function HomePage({ setPage }) {
         >
           View Schedule
         </button>
+
       </div>
 
       {/* ANNOUNCEMENTS */}
