@@ -3,6 +3,7 @@ import { supabase } from "../../supabase";
 
 export default function SchedulePage() {
   const [games, setGames] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   useEffect(() => {
     fetchSchedule();
@@ -15,7 +16,7 @@ export default function SchedulePage() {
       .order("event_date", { ascending: true });
 
     if (error) {
-      console.error("Error loading schedule:", error);
+      console.error(error);
     } else {
       setGames(data);
     }
@@ -28,26 +29,59 @@ export default function SchedulePage() {
     return acc;
   }, {});
 
+  const dates = Object.keys(grouped);
+
   return (
     <div>
 
+      {/* HEADER */}
       <div className="card">
         <div className="title">Schedule</div>
       </div>
 
-      {Object.keys(grouped).map((date) => (
-        <div key={date}>
+      {/* ========================= */}
+      {/* DATE VIEW */}
+      {/* ========================= */}
+      {!selectedDate && dates.map((date) => (
+        <div
+          className="card"
+          key={date}
+          onClick={() => setSelectedDate(date)}
+          style={{ cursor: "pointer" }}
+        >
+          <div className="title">{formatDate(date)}</div>
+          <div className="sub">
+            {grouped[date].length} events
+          </div>
+        </div>
+      ))}
 
-          {/* DATE HEADER */}
+      {/* ========================= */}
+      {/* DAY VIEW */}
+      {/* ========================= */}
+      {selectedDate && (
+        <div>
+
+          {/* BACK BUTTON */}
+          <div
+            className="card"
+            onClick={() => setSelectedDate(null)}
+            style={{ cursor: "pointer" }}
+          >
+            <div className="sub">← Back to Dates</div>
+          </div>
+
+          {/* DATE TITLE */}
           <div className="card">
-            <div className="title">{formatDate(date)}</div>
+            <div className="title">
+              {formatDate(selectedDate)}
+            </div>
           </div>
 
           {/* EVENTS */}
-          {grouped[date].map((game) => (
+          {grouped[selectedDate].map((game) => (
             <div className="card" key={game.id}>
 
-              {/* 🔥 GAME vs PRACTICE */}
               <div className="title">
                 {game.event_type === "practice"
                   ? `${game.team} Practice`
@@ -70,13 +104,13 @@ export default function SchedulePage() {
           ))}
 
         </div>
-      ))}
+      )}
 
     </div>
   );
 }
 
-/* 🔥 DATE FORMATTER */
+/* DATE FORMATTER */
 function formatDate(dateStr) {
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-US", {
