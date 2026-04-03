@@ -5,6 +5,9 @@ import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import LoginModal from "./components/LoginModal";
 
+// 🔥 IMPORT YOUR LOGO (THIS IS THE FIX)
+import logo from "./resources/logo.png";
+
 export default function App() {
   const [page, setPage] = useState("home");
   const [showLogin, setShowLogin] = useState(false);
@@ -14,14 +17,14 @@ export default function App() {
 
       {/* HEADER */}
       <div className="header">
-        <img src="/logo.png" className="logo" alt="Fallon Flag Football" />
+        <img src={logo} className="logo" alt="Fallon Flag Football" />
       </div>
 
       {/* PAGE CONTENT */}
       {page === "home" && <HomePage setPage={setPage} />}
       {page === "schedule" && <SchedulePage />}
 
-      {/* NAVIGATION */}
+      {/* NAV */}
       <div className="bottom-nav">
 
         <button
