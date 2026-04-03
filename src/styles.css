@@ -86,3 +86,10 @@ body {
   padding: 8px 14px;
   border-radius: 20px;
 }
+
+.icon-btn {
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+}
