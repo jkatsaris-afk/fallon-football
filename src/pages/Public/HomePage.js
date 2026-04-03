@@ -67,7 +67,7 @@ export default function HomePage({ setPage }) {
       </div>
 
       {/* ========================= */}
-      {/* LIVE / UPCOMING CARD */}
+      {/* LIVE / UPCOMING */}
       {/* ========================= */}
       <div className="card">
 
@@ -83,35 +83,9 @@ export default function HomePage({ setPage }) {
 
             {index !== 0 && <div className="divider" />}
 
-            <div className="game-row">
+            <div className="inner-tile">
 
               <div className="sub live">● LIVE</div>
-
-              <div className="game-top">
-                <div className="team">{game.team}</div>
-                <div className="game-time">{game.event_time}</div>
-              </div>
-
-              <div className="vs">vs</div>
-
-              <div className="game-bottom">
-                <div className="team">{game.opponent}</div>
-                <div className="field-badge">{game.field}</div>
-              </div>
-
-            </div>
-
-          </div>
-        ))}
-
-        {/* ========================= */}
-        {/* UPCOMING GAMES */}
-        {/* ========================= */}
-        {liveGames.length === 0 && upcomingGames.length > 0 &&
-          upcomingGames.slice(0, 3).map((game, index) => (
-            <div key={game.id}>
-
-              {index !== 0 && <div className="divider" />}
 
               <div className="game-row">
 
@@ -130,10 +104,44 @@ export default function HomePage({ setPage }) {
               </div>
 
             </div>
+
+          </div>
+        ))}
+
+        {/* ========================= */}
+        {/* UPCOMING GAMES */}
+        {/* ========================= */}
+        {liveGames.length === 0 && upcomingGames.length > 0 &&
+          upcomingGames.slice(0, 3).map((game, index) => (
+            <div key={game.id}>
+
+              {index !== 0 && <div className="divider" />}
+
+              <div className="inner-tile">
+
+                <div className="game-row">
+
+                  <div className="game-top">
+                    <div className="team">{game.team}</div>
+                    <div className="game-time">{game.event_time}</div>
+                  </div>
+
+                  <div className="vs">vs</div>
+
+                  <div className="game-bottom">
+                    <div className="team">{game.opponent}</div>
+                    <div className="field-badge">{game.field}</div>
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
           ))
         }
 
-        {/* EMPTY STATE */}
+        {/* EMPTY */}
         {liveGames.length === 0 && upcomingGames.length === 0 && (
           <div className="sub" style={{ marginTop: 10 }}>
             No upcoming games
