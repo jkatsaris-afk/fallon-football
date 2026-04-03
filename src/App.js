@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import TeamsPage from "./pages/Public/TeamsPage";
@@ -13,6 +14,16 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [role, setRole] = useState("public");
 
+  const renderPage = () => {
+    if (role === "admin") return <AdminDashboard />;
+    if (role === "coach") return <CoachDashboard />;
+    if (role === "parent") return <ParentDashboard />;
+
+    if (page === "home") return <HomePage />;
+    if (page === "schedule") return <SchedulePage />;
+    if (page === "teams") return <TeamsPage />;
+  };
+
   return (
     <div className="app">
 
@@ -21,37 +32,44 @@ export default function App() {
         Fallon Football
       </div>
 
-      {/* TEMP ROLE SWITCH */}
-      <div style={{ padding: 10 }}>
-        <button onClick={() => setRole("public")}>Public</button>
-        <button onClick={() => setRole("admin")}>Admin</button>
-        <button onClick={() => setRole("coach")}>Coach</button>
-        <button onClick={() => setRole("parent")}>Parent</button>
+      {/* ROLE SELECT (CLEAN) */}
+      <div style={{ padding: "0 15px" }}>
+        <div className="card" style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setRole("public")} className="nav-btn">Public</button>
+          <button onClick={() => setRole("coach")} className="nav-btn">Coach</button>
+          <button onClick={() => setRole("parent")} className="nav-btn">Parent</button>
+          <button onClick={() => setRole("admin")} className="nav-btn">Admin</button>
+        </div>
       </div>
 
-      {/* PUBLIC */}
+      {/* PAGE CONTENT */}
+      {renderPage()}
+
+      {/* BOTTOM NAV (ONLY PUBLIC FOR NOW) */}
       {role === "public" && (
-        <>
-          {page === "home" && <HomePage />}
-          {page === "schedule" && <SchedulePage />}
-          {page === "teams" && <TeamsPage />}
+        <div className="bottom-nav">
+          <button
+            className={`nav-btn ${page === "home" ? "active" : ""}`}
+            onClick={() => setPage("home")}
+          >
+            Home
+          </button>
 
-          <div className="bottom-nav">
-            <button onClick={() => setPage("home")}>Home</button>
-            <button onClick={() => setPage("schedule")}>Schedule</button>
-            <button onClick={() => setPage("teams")}>Teams</button>
-          </div>
-        </>
+          <button
+            className={`nav-btn ${page === "schedule" ? "active" : ""}`}
+            onClick={() => setPage("schedule")}
+          >
+            Schedule
+          </button>
+
+          <button
+            className={`nav-btn ${page === "teams" ? "active" : ""}`}
+            onClick={() => setPage("teams")}
+          >
+            Teams
+          </button>
+        </div>
       )}
-
-      {/* ADMIN */}
-      {role === "admin" && <AdminDashboard />}
-
-      {/* COACH */}
-      {role === "coach" && <CoachDashboard />}
-
-      {/* PARENT */}
-      {role === "parent" && <ParentDashboard />}
 
     </div>
   );
