@@ -2,16 +2,21 @@ export default function HomePage() {
   return (
     <div>
 
-      <h2>Welcome</h2>
-
       <div className="card">
-        <h3>Fallon Flag Football League</h3>
-        <p>Check schedules, teams, and updates for the 2026 season.</p>
+        <div className="title">Fallon Flag Football</div>
+        <div className="sub">2026 Season</div>
       </div>
 
       <div className="card">
-        <h3>Quick Links</h3>
-        <p>View schedules, team rosters, and standings.</p>
+        <div className="title">Next Game</div>
+        <div className="sub">Steelers vs Raiders</div>
+        <div className="sub">April 12 • 11:30 AM</div>
+        <button className="button">View Schedule</button>
+      </div>
+
+      <div className="card">
+        <div className="title">Announcements</div>
+        <div className="sub">Season starts this weekend!</div>
       </div>
 
     </div>
