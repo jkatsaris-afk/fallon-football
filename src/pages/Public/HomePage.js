@@ -25,6 +25,7 @@ export default function HomePage({ setPage }) {
     const now = new Date();
 
     const processed = data
+      // 🔥 REMOVE PRACTICES
       .filter(g => !g.event_type.toLowerCase().includes("practic"))
 
       .map(game => {
@@ -42,12 +43,12 @@ export default function HomePage({ setPage }) {
         };
       });
 
-    // 🔥 LIVE GAMES
+    // 🔥 LIVE
     const live = processed.filter(
       g => g.start <= now && g.end > now
     );
 
-    // 🔥 UPCOMING GAMES
+    // 🔥 UPCOMING
     const upcoming = processed
       .filter(g => g.start > now)
       .sort((a, b) => a.start - b.start);
@@ -59,59 +60,76 @@ export default function HomePage({ setPage }) {
   return (
     <div>
 
-      {/* SEASON */}
+      {/* SEASON TILE */}
       <div className="card">
         <div className="title">Fallon Flag Football</div>
         <div className="sub">2026 Season</div>
       </div>
 
-      {/* 🔥 LIVE OR UPCOMING */}
+      {/* 🔥 LIVE / UPCOMING */}
       <div className="card">
 
         <div className="title">
           {liveGames.length > 0 ? "Live Games" : "Upcoming Games"}
         </div>
 
-        {/* 🔥 LIVE GAMES */}
-        {liveGames.length > 0 && liveGames.map(game => (
-          <div key={game.id} style={{ marginTop: 12 }}>
+        {/* ========================= */}
+        {/* LIVE GAMES */}
+        {/* ========================= */}
+        {liveGames.length > 0 && liveGames.map((game, index) => (
+          <div key={game.id}>
 
-            <div className="sub" style={{ color: "#0f7a3b", fontWeight: 600 }}>
-              ● LIVE NOW
-            </div>
+            {index !== 0 && <div className="divider" />}
 
-            <div className="sub">
-              {game.team} vs {game.opponent}
-            </div>
+            <div style={{ marginTop: 10 }}>
 
-            <div className="sub">
-              {game.event_time} • {game.field}
-            </div>
-
-          </div>
-        ))}
-
-        {/* 🔥 UPCOMING (ONLY IF NO LIVE) */}
-        {liveGames.length === 0 && upcomingGames.length > 0 &&
-          upcomingGames.slice(0, 3).map(game => (
-            <div key={game.id} style={{ marginTop: 12 }}>
+              <div className="sub" style={{ color: "#0f7a3b", fontWeight: 600 }}>
+                ● LIVE NOW
+              </div>
 
               <div className="sub">
                 {game.team} vs {game.opponent}
               </div>
 
               <div className="sub">
-                {formatDate(game.event_date)} • {game.event_time}
+                {game.event_time} • {game.field}
               </div>
 
-              <div className="sub">
-                {game.field}
+            </div>
+
+          </div>
+        ))}
+
+        {/* ========================= */}
+        {/* UPCOMING GAMES */}
+        {/* ========================= */}
+        {liveGames.length === 0 && upcomingGames.length > 0 &&
+          upcomingGames.slice(0, 3).map((game, index) => (
+            <div key={game.id}>
+
+              {index !== 0 && <div className="divider" />}
+
+              <div style={{ marginTop: 10 }}>
+
+                <div className="sub">
+                  {game.team} vs {game.opponent}
+                </div>
+
+                <div className="sub">
+                  {formatDate(game.event_date)} • {game.event_time}
+                </div>
+
+                <div className="sub">
+                  {game.field}
+                </div>
+
               </div>
 
             </div>
           ))
         }
 
+        {/* EMPTY */}
         {liveGames.length === 0 && upcomingGames.length === 0 && (
           <div className="sub" style={{ marginTop: 10 }}>
             No upcoming games
