@@ -5,7 +5,6 @@ export default function SchedulePage() {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(null);
-  const [selectedTeam, setSelectedTeam] = useState(null);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
@@ -39,29 +38,8 @@ export default function SchedulePage() {
     );
   }
 
-  if (selectedTeam) {
-    filteredGames = filteredGames.filter(
-      g => g.team === selectedTeam || g.opponent === selectedTeam
-    );
-  }
-
-  // UNIQUE DIVISIONS
-  const divisions = [
-    ...new Set((grouped[selectedDate] || []).map(g => g.division))
-  ];
-
-  // UNIQUE TEAMS
-  const teams = [
-    ...new Set(filteredGames.map(g => g.team))
-  ];
-
   return (
     <div>
-
-      {/* HEADER */}
-      <div className="card">
-        <div className="title">Schedule</div>
-      </div>
 
       {/* ========================= */}
       {/* DATE VIEW */}
@@ -84,13 +62,17 @@ export default function SchedulePage() {
       {selectedDate && (
         <div>
 
-          {/* BACK */}
+          {/* DATE TILE (TOP + GREEN) */}
+          <div className="card active-card">
+            <div className="title">{formatDate(selectedDate)}</div>
+          </div>
+
+          {/* BACK BUTTON */}
           <div
             className="card"
             onClick={() => {
               setSelectedDate(null);
               setSelectedDivision(null);
-              setSelectedTeam(null);
               setShowAll(false);
             }}
             style={{ cursor: "pointer" }}
@@ -98,27 +80,24 @@ export default function SchedulePage() {
             <div className="sub">← Back</div>
           </div>
 
-          {/* DATE TITLE */}
-          <div className="card">
-            <div className="title">{formatDate(selectedDate)}</div>
-          </div>
-
           {/* ========================= */}
-          {/* STEP 1: SHOW ALL OR DIVISION */}
+          {/* STEP 1: SHOW ALL / DIVISION */}
           {/* ========================= */}
           {!showAll && !selectedDivision && (
             <div>
 
               <div
-                className="card"
+                className={`card ${showAll ? "active-card" : ""}`}
                 onClick={() => setShowAll(true)}
               >
                 <div className="title">Show All</div>
               </div>
 
-              {divisions.map(div => (
+              {getDivisions(grouped[selectedDate]).map(div => (
                 <div
-                  className="card"
+                  className={`card ${
+                    selectedDivision === div ? "active-card" : ""
+                  }`}
                   key={div}
                   onClick={() => setSelectedDivision(div)}
                 >
@@ -130,46 +109,19 @@ export default function SchedulePage() {
           )}
 
           {/* ========================= */}
-          {/* STEP 2: TEAM SELECT */}
-          {/* ========================= */}
-          {selectedDivision && !selectedTeam && (
-            <div>
-
-              <div
-                className="card"
-                onClick={() => setSelectedDivision(null)}
-              >
-                <div className="sub">← Back to Divisions</div>
-              </div>
-
-              {teams.map(team => (
-                <div
-                  className="card"
-                  key={team}
-                  onClick={() => setSelectedTeam(team)}
-                >
-                  <div className="title">{team}</div>
-                </div>
-              ))}
-
-            </div>
-          )}
-
-          {/* ========================= */}
           {/* RESULTS */}
           {/* ========================= */}
-          {(showAll || selectedTeam) && (
+          {(showAll || selectedDivision) && (
             <div>
 
               <div
                 className="card"
                 onClick={() => {
                   setSelectedDivision(null);
-                  setSelectedTeam(null);
                   setShowAll(false);
                 }}
               >
-                <div className="sub">← Reset Filters</div>
+                <div className="sub">← Change Filter</div>
               </div>
 
               {filteredGames.map(game => (
@@ -198,7 +150,12 @@ export default function SchedulePage() {
   );
 }
 
-/* FIXED DATE */
+/* GET UNIQUE DIVISIONS */
+function getDivisions(games = []) {
+  return [...new Set(games.map(g => g.division))];
+}
+
+/* DATE FIX */
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
   return new Date(y, m - 1, d).toLocaleDateString("en-US", {
