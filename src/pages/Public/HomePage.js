@@ -43,7 +43,7 @@ export default function HomePage({ setPage }) {
         };
       });
 
-    // 🔥 LIVE
+    // 🔥 LIVE GAMES
     const live = processed.filter(
       g => g.start <= now && g.end > now
     );
@@ -66,7 +66,9 @@ export default function HomePage({ setPage }) {
         <div className="sub">2026 Season</div>
       </div>
 
-      {/* 🔥 LIVE / UPCOMING */}
+      {/* ========================= */}
+      {/* LIVE / UPCOMING CARD */}
+      {/* ========================= */}
       <div className="card">
 
         <div className="title">
@@ -81,18 +83,20 @@ export default function HomePage({ setPage }) {
 
             {index !== 0 && <div className="divider" />}
 
-            <div style={{ marginTop: 10 }}>
+            <div className="game-row">
 
-              <div className="sub" style={{ color: "#0f7a3b", fontWeight: 600 }}>
-                ● LIVE NOW
+              <div className="sub live">● LIVE</div>
+
+              <div className="game-top">
+                <div className="team">{game.team}</div>
+                <div className="game-time">{game.event_time}</div>
               </div>
 
-              <div className="sub">
-                {game.team} vs {game.opponent}
-              </div>
+              <div className="vs">vs</div>
 
-              <div className="sub">
-                {game.event_time} • {game.field}
+              <div className="game-bottom">
+                <div className="team">{game.opponent}</div>
+                <div className="field-badge">{game.field}</div>
               </div>
 
             </div>
@@ -109,18 +113,18 @@ export default function HomePage({ setPage }) {
 
               {index !== 0 && <div className="divider" />}
 
-              <div style={{ marginTop: 10 }}>
+              <div className="game-row">
 
-                <div className="sub">
-                  {game.team} vs {game.opponent}
+                <div className="game-top">
+                  <div className="team">{game.team}</div>
+                  <div className="game-time">{game.event_time}</div>
                 </div>
 
-                <div className="sub">
-                  {formatDate(game.event_date)} • {game.event_time}
-                </div>
+                <div className="vs">vs</div>
 
-                <div className="sub">
-                  {game.field}
+                <div className="game-bottom">
+                  <div className="team">{game.opponent}</div>
+                  <div className="field-badge">{game.field}</div>
                 </div>
 
               </div>
@@ -129,7 +133,7 @@ export default function HomePage({ setPage }) {
           ))
         }
 
-        {/* EMPTY */}
+        {/* EMPTY STATE */}
         {liveGames.length === 0 && upcomingGames.length === 0 && (
           <div className="sub" style={{ marginTop: 10 }}>
             No upcoming games
@@ -157,7 +161,9 @@ export default function HomePage({ setPage }) {
   );
 }
 
+/* ========================= */
 /* TIME FIX */
+/* ========================= */
 function convertTo24Hour(timeStr) {
   const [time, modifier] = timeStr.split(" ");
   let [hours, minutes] = time.split(":");
@@ -171,13 +177,4 @@ function convertTo24Hour(timeStr) {
   }
 
   return `${hours}:${minutes}`;
-}
-
-/* DATE FIX */
-function formatDate(dateStr) {
-  const [y, m, d] = dateStr.split("-");
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-  });
 }
