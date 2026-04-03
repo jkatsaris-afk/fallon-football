@@ -257,3 +257,9 @@ body {
 
   cursor: pointer;
 }
+
+.divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 12px 0;
+}
