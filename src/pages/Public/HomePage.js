@@ -20,7 +20,6 @@ export default function HomePage({ setPage }) {
 
     const now = new Date();
 
-    // 🔥 Build real datetime from date + time
     const gamesWithTime = data.map(game => {
       const [y, m, d] = game.event_date.split("-");
       const time24 = convertTo24Hour(game.event_time);
@@ -40,7 +39,6 @@ export default function HomePage({ setPage }) {
       };
     });
 
-    // 🔥 Get next upcoming game
     const upcoming = gamesWithTime
       .filter(g => g.gameDate > now)
       .sort((a, b) => a.gameDate - b.gameDate)[0];
@@ -51,7 +49,13 @@ export default function HomePage({ setPage }) {
   return (
     <div>
 
-      {/* NEXT GAME CARD */}
+      {/* 🔥 SEASON TILE (RESTORED) */}
+      <div className="card">
+        <div className="title">Fallon Flag Football</div>
+        <div className="sub">2026 Season</div>
+      </div>
+
+      {/* NEXT GAME */}
       <div className="card">
         <div className="title">Next Game</div>
 
@@ -97,7 +101,7 @@ export default function HomePage({ setPage }) {
   );
 }
 
-/* 🔥 TIME FIX (AM/PM → 24HR) */
+/* TIME FIX */
 function convertTo24Hour(timeStr) {
   const [time, modifier] = timeStr.split(" ");
   let [hours, minutes] = time.split(":");
@@ -113,7 +117,7 @@ function convertTo24Hour(timeStr) {
   return `${hours}:${minutes}`;
 }
 
-/* 🔥 DATE FIX (NO TIMEZONE BUG) */
+/* DATE FIX */
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
   return new Date(y, m - 1, d).toLocaleDateString("en-US", {
