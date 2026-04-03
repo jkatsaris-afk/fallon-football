@@ -153,3 +153,12 @@ body {
   color: white;
   font-weight: 600;
 }
+.active-card {
+  background: #0f7a3b !important;
+  color: white;
+  border-left: none;
+}
+
+.active-card .sub {
+  color: #d4f5df;
+}
