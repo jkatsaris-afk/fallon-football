@@ -2,33 +2,38 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 export default function HomePage({ setPage }) {
-  const [nextGames, setNextGames] = useState([]);
+  const [upcomingGames, setUpcomingGames] = useState([]);
 
   useEffect(() => {
-    fetchNextGames();
+    fetchGames();
+
+    // 🔥 auto refresh every minute
+    const interval = setInterval(fetchGames, 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchNextGames = async () => {
+  const fetchGames = async () => {
     const { data, error } = await supabase
       .from("schedule_master")
       .select("*");
 
     if (error) {
-      console.error("Error loading schedule:", error);
+      console.error(error);
       return;
     }
 
     const now = new Date();
 
-    // 🔥 Build real datetime
-    const gamesWithTime = data
-      .filter(g => g.event_type !== "practice") // 🚨 REMOVE PRACTICES
+    const validGames = data
+      // 🚨 REMOVE PRACTICES (handles typo too)
+      .filter(g => !g.event_type.toLowerCase().includes("practic"))
+
       .map(game => {
         const [y, m, d] = game.event_date.split("-");
         const time24 = convertTo24Hour(game.event_time);
         const [hour, minute] = time24.split(":");
 
-        const gameDate = new Date(
+        const gameStart = new Date(
           y,
           m - 1,
           d,
@@ -36,18 +41,23 @@ export default function HomePage({ setPage }) {
           parseInt(minute)
         );
 
+        // 🔥 add 15 minutes buffer
+        const gameEnd = new Date(gameStart.getTime() + 15 * 60000);
+
         return {
           ...game,
-          gameDate
+          gameStart,
+          gameEnd
         };
-      });
+      })
 
-    // 🔥 Get ALL upcoming games (sorted)
-    const upcomingGames = gamesWithTime
-      .filter(g => g.gameDate > now)
-      .sort((a, b) => a.gameDate - b.gameDate);
+      // 🔥 ONLY future or still-active games
+      .filter(g => g.gameEnd > now)
 
-    setNextGames(upcomingGames);
+      // 🔥 sort by next game
+      .sort((a, b) => a.gameStart - b.gameStart);
+
+    setUpcomingGames(validGames);
   };
 
   return (
@@ -59,12 +69,12 @@ export default function HomePage({ setPage }) {
         <div className="sub">2026 Season</div>
       </div>
 
-      {/* 🔥 NEXT GAMES */}
+      {/* 🔥 UPCOMING GAMES */}
       <div className="card">
         <div className="title">Upcoming Games</div>
 
-        {nextGames.length > 0 ? (
-          nextGames.slice(0, 3).map(game => (   // 👈 limit to 3 (optional)
+        {upcomingGames.length > 0 ? (
+          upcomingGames.slice(0, 3).map(game => (
             <div key={game.id} style={{ marginTop: 10 }}>
 
               <div className="sub">
