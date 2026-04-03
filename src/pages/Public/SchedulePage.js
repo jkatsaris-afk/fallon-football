@@ -4,6 +4,9 @@ import { supabase } from "../../supabase";
 export default function SchedulePage() {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedType, setSelectedType] = useState(null); // game / practice
+  const [selectedDivision, setSelectedDivision] = useState(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     fetchSchedule();
@@ -17,34 +20,43 @@ export default function SchedulePage() {
     if (!error) setGames(data);
   };
 
-  // 🔥 GROUP BY DATE
+  // GROUP BY DATE
   const grouped = games.reduce((acc, game) => {
     if (!acc[game.event_date]) acc[game.event_date] = [];
     acc[game.event_date].push(game);
     return acc;
   }, {});
 
-  // 🔥 SORT DATES CORRECTLY
+  // SORT DATES
   const dates = Object.keys(grouped).sort(
     (a, b) => new Date(a) - new Date(b)
   );
 
-  // 🔥 SPLIT DATA
-  const dayGames = selectedDate ? grouped[selectedDate] || [] : [];
+  // BASE DATA
+  let dayData = selectedDate ? grouped[selectedDate] || [] : [];
 
-  const practiceGames = dayGames.filter(g =>
-    g.event_type.toLowerCase().includes("practic")
-  );
+  // FILTER TYPE
+  if (selectedType) {
+    dayData = dayData.filter(g =>
+      g.event_type.toLowerCase().includes(selectedType)
+    );
+  }
 
-  const actualGames = dayGames.filter(g =>
-    g.event_type.toLowerCase() === "game"
-  );
+  // FILTER DIVISION
+  if (selectedDivision) {
+    dayData = dayData.filter(g => g.division === selectedDivision);
+  }
+
+  // UNIQUE DIVISIONS
+  const divisions = [
+    ...new Set((grouped[selectedDate] || []).map(g => g.division))
+  ];
 
   return (
     <div>
 
       {/* ========================= */}
-      {/* DATE VIEW */}
+      {/* STEP 1: DATE */}
       {/* ========================= */}
       {!selectedDate && dates.map(date => (
         <div
@@ -58,7 +70,7 @@ export default function SchedulePage() {
       ))}
 
       {/* ========================= */}
-      {/* DAY VIEW */}
+      {/* FLOW AFTER DATE */}
       {/* ========================= */}
       {selectedDate && (
         <div>
@@ -71,49 +83,97 @@ export default function SchedulePage() {
           {/* BACK */}
           <div
             className="card"
-            onClick={() => setSelectedDate(null)}
+            onClick={() => {
+              setSelectedDate(null);
+              setSelectedType(null);
+              setSelectedDivision(null);
+              setShowAll(false);
+            }}
           >
             <div className="sub">← Back</div>
           </div>
 
           {/* ========================= */}
-          {/* PRACTICE SECTION */}
+          {/* STEP 2: TYPE */}
           {/* ========================= */}
-          {practiceGames.length > 0 && (
+          {!selectedType && (
             <div>
-              <div className="card">
+
+              <div
+                className={`card ${selectedType === "game" ? "active-card" : ""}`}
+                onClick={() => setSelectedType("game")}
+              >
+                <div className="title">Games</div>
+              </div>
+
+              <div
+                className={`card ${selectedType === "practic" ? "active-card" : ""}`}
+                onClick={() => setSelectedType("practic")}
+              >
                 <div className="title">Practice</div>
               </div>
 
-              {practiceGames.map(game => (
-                <div className="card" key={game.id}>
-                  <div className="title">{game.team} Practice</div>
-                  <div className="sub">{game.event_time}</div>
-                  <div className="sub">{game.field}</div>
-                </div>
-              ))}
             </div>
           )}
 
           {/* ========================= */}
-          {/* GAME SECTION */}
+          {/* STEP 3: FILTER */}
           {/* ========================= */}
-          {actualGames.length > 0 && (
+          {selectedType && !selectedDivision && !showAll && (
             <div>
-              <div className="card">
-                <div className="title">Games</div>
+
+              <div
+                className="card"
+                onClick={() => setShowAll(true)}
+              >
+                <div className="title">Show All</div>
               </div>
 
-              {actualGames.map(game => (
+              {divisions.map(div => (
+                <div
+                  className="card"
+                  key={div}
+                  onClick={() => setSelectedDivision(div)}
+                >
+                  <div className="title">{div}</div>
+                </div>
+              ))}
+
+            </div>
+          )}
+
+          {/* ========================= */}
+          {/* RESULTS */}
+          {/* ========================= */}
+          {(showAll || selectedDivision) && (
+            <div>
+
+              <div
+                className="card"
+                onClick={() => {
+                  setSelectedDivision(null);
+                  setShowAll(false);
+                }}
+              >
+                <div className="sub">← Change Filter</div>
+              </div>
+
+              {dayData.map(game => (
                 <div className="card" key={game.id}>
+
                   <div className="title">
-                    {game.team} vs {game.opponent}
+                    {game.event_type.toLowerCase().includes("practic")
+                      ? `${game.team} Practice`
+                      : `${game.team} vs ${game.opponent}`}
                   </div>
+
                   <div className="sub">{game.division}</div>
                   <div className="sub">{game.event_time}</div>
                   <div className="sub">{game.field}</div>
+
                 </div>
               ))}
+
             </div>
           )}
 
