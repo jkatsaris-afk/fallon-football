@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import TeamsPage from "./pages/Public/TeamsPage";
+import LoginPage from "./pages/Auth/LoginPage";
 
 import AdminDashboard from "./pages/Admin/Dashboard";
 import CoachDashboard from "./pages/Coach/CoachDashboard";
@@ -13,8 +14,13 @@ import "./styles.css";
 export default function App() {
   const [page, setPage] = useState("home");
   const [role, setRole] = useState("public");
+  const [showLogin, setShowLogin] = useState(false);
 
   const renderPage = () => {
+    if (showLogin) {
+      return <LoginPage setRole={setRole} setShowLogin={setShowLogin} />;
+    }
+
     if (role === "admin") return <AdminDashboard />;
     if (role === "coach") return <CoachDashboard />;
     if (role === "parent") return <ParentDashboard />;
@@ -28,46 +34,23 @@ export default function App() {
     <div className="app">
 
       {/* HEADER */}
-      <div className="header">
+      <div className="header" style={{ display: "flex", justifyContent: "space-between" }}>
         Fallon Football
+
+        {/* LOGIN BUTTON */}
+        <button className="icon-btn" onClick={() => setShowLogin(true)}>
+          Login
+        </button>
       </div>
 
-      {/* ROLE SELECT (CLEAN) */}
-      <div style={{ padding: "0 15px" }}>
-        <div className="card" style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => setRole("public")} className="nav-btn">Public</button>
-          <button onClick={() => setRole("coach")} className="nav-btn">Coach</button>
-          <button onClick={() => setRole("parent")} className="nav-btn">Parent</button>
-          <button onClick={() => setRole("admin")} className="nav-btn">Admin</button>
-        </div>
-      </div>
-
-      {/* PAGE CONTENT */}
       {renderPage()}
 
-      {/* BOTTOM NAV (ONLY PUBLIC FOR NOW) */}
-      {role === "public" && (
+      {/* BOTTOM NAV (ONLY PUBLIC) */}
+      {role === "public" && !showLogin && (
         <div className="bottom-nav">
-          <button
-            className={`nav-btn ${page === "home" ? "active" : ""}`}
-            onClick={() => setPage("home")}
-          >
-            Home
-          </button>
-
-          <button
-            className={`nav-btn ${page === "schedule" ? "active" : ""}`}
-            onClick={() => setPage("schedule")}
-          >
-            Schedule
-          </button>
-
-          <button
-            className={`nav-btn ${page === "teams" ? "active" : ""}`}
-            onClick={() => setPage("teams")}
-          >
-            Teams
-          </button>
+          <button className={`nav-btn ${page === "home" ? "active" : ""}`} onClick={() => setPage("home")}>Home</button>
+          <button className={`nav-btn ${page === "schedule" ? "active" : ""}`} onClick={() => setPage("schedule")}>Schedule</button>
+          <button className={`nav-btn ${page === "teams" ? "active" : ""}`} onClick={() => setPage("teams")}>Teams</button>
         </div>
       )}
 
