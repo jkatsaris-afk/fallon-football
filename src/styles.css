@@ -1,123 +1,46 @@
-/* RESET */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
-  background: #ffffff;
-}
-
-/* APP CONTAINER */
-.app {
-  max-width: 420px;
-  margin: auto;
-  background: white;
-  min-height: 100vh;
-  padding-bottom: 90px; /* prevents nav overlap */
-}
-
-/* HEADER */
-.header {
-  padding: 20px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f7a3b;
-  border-bottom: 1px solid #eee;
-}
-
-/* CARD */
-.card {
-  background: #f9fafb;
-  margin: 15px;
-  padding: 18px;
-  border-radius: 12px;
-  border: 1px solid #eee;
-}
-
-/* TITLE */
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #111;
-}
-
-/* SUBTEXT */
-.sub {
-  color: #666;
-  font-size: 14px;
-  margin-top: 4px;
-}
-
-/* BUTTON */
-.button {
-  width: 100%;
-  padding: 14px;
-  border-radius: 10px;
-  border: none;
-  background: #0f7a3b;
-  color: white;
-  font-weight: 600;
-  margin-top: 15px;
-}
-
-.button:hover {
-  background: #0b5e2d;
-}
-
-/* LOGIN BUTTON */
-.icon-btn {
-  border: none;
-  background: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f7a3b;
-}
-
 /* ========================= */
-/* 🔥 FLOATING PILL NAV */
+/* FLOATING TEXT-ONLY NAV */
 /* ========================= */
 
 .bottom-nav {
   position: fixed;
-  bottom: 15px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
 
   width: 90%;
-  max-width: 380px;
+  max-width: 360px;
 
   background: #111;
   border-radius: 30px;
 
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: center;
 
-  padding: 10px;
+  padding: 8px;
 
   box-shadow: 0 10px 25px rgba(0,0,0,0.25);
 }
 
 /* NAV BUTTON */
 .nav-btn {
-  background: none;
+  flex: 1;
+
   border: none;
-  color: #aaa;
+  background: none;
 
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  color: #bbb;
+  font-size: 13px;
+  font-weight: 500;
 
-  font-size: 12px;
-  padding: 6px 10px;
+  padding: 10px 0;
   border-radius: 20px;
+
+  transition: all 0.2s ease;
 }
 
-/* ICON */
-.nav-icon {
-  font-size: 18px;
-  margin-bottom: 2px;
-}
-
-/* ACTIVE (PILL EFFECT) */
+/* ACTIVE BUTTON (GREEN PILL) */
 .nav-btn.active {
   background: #0f7a3b;
   color: white;
