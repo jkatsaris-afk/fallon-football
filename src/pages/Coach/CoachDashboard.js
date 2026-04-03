@@ -2,21 +2,21 @@ export default function CoachDashboard() {
   return (
     <div>
 
-      <h2>Coach Dashboard</h2>
-
       <div className="card">
-        <h3>Your Team</h3>
-        <p>View roster and player info</p>
+        <div className="title">My Team</div>
+        <div className="sub">Steelers</div>
       </div>
 
       <div className="card">
-        <h3>Practice Schedule</h3>
-        <p>Set and manage practice times</p>
+        <div className="title">Practice</div>
+        <div className="sub">Set practice times</div>
+        <button className="button">Schedule Practice</button>
       </div>
 
       <div className="card">
-        <h3>Announcements</h3>
-        <p>Send updates to parents</p>
+        <div className="title">Announcements</div>
+        <div className="sub">Message parents</div>
+        <button className="button">Send Update</button>
       </div>
 
     </div>
