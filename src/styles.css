@@ -303,3 +303,18 @@ body {
   background: rgba(255,255,255,0.7);
   cursor: pointer;
 }
+
+/* ========================= */
+/* INNER TILE (LAYERED LOOK) */
+/* ========================= */
+.inner-tile {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+
+  border-radius: 12px;
+
+  padding: 12px;
+  margin-top: 10px;
+
+  border: 1px solid #f0f0f0;
+}
