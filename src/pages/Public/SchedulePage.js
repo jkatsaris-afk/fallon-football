@@ -16,7 +16,7 @@ export default function SchedulePage() {
       .order("event_date", { ascending: true });
 
     if (error) {
-      console.error(error);
+      console.error("Error loading schedule:", error);
     } else {
       setGames(data);
     }
@@ -82,6 +82,7 @@ export default function SchedulePage() {
           {grouped[selectedDate].map((game) => (
             <div className="card" key={game.id}>
 
+              {/* GAME / PRACTICE */}
               <div className="title">
                 {game.event_type === "practice"
                   ? `${game.team} Practice`
@@ -110,10 +111,11 @@ export default function SchedulePage() {
   );
 }
 
-/* DATE FORMATTER */
+/* 🔥 FIXED DATE FORMATTER (NO TIMEZONE BUG) */
 function formatDate(dateStr) {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", {
+  const [year, month, day] = dateStr.split("-");
+
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
   });
