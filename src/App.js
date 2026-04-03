@@ -9,7 +9,7 @@ import AdminDashboard from "./pages/Admin/Dashboard";
 import CoachDashboard from "./pages/Coach/CoachDashboard";
 import ParentDashboard from "./pages/Parent/ParentDashboard";
 
-import logo from "./resources/logo.png"; // ✅ IMPORT LOGO
+import logo from "./resources/logo.png";
 
 import "./styles.css";
 
@@ -46,16 +46,18 @@ export default function App() {
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center"
+          alignItems: "center",
+          padding: "15px 20px"
         }}
       >
 
-        {/* 🔥 LOGO (REPLACES TEXT) */}
+        {/* LOGO (BIGGER + FLEXIBLE) */}
         <img
           src={logo}
           alt="Fallon Flag Football"
           style={{
-            height: 45,
+            height: "60px",     // 🔥 bigger
+            maxWidth: "70%",    // prevents overflow
             objectFit: "contain"
           }}
         />
@@ -73,7 +75,7 @@ export default function App() {
       {/* CONTENT */}
       {renderPage()}
 
-      {/* FLOATING NAV */}
+      {/* NAV */}
       {role === "public" && !showLogin && (
         <div className="bottom-nav">
 
