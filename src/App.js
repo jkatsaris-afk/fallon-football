@@ -16,9 +16,7 @@ export default function App() {
   const [role, setRole] = useState("public");
   const [showLogin, setShowLogin] = useState(false);
 
-  // 🔁 PAGE RENDER LOGIC
   const renderPage = () => {
-    // LOGIN PAGE
     if (showLogin) {
       return (
         <LoginPage
@@ -28,12 +26,10 @@ export default function App() {
       );
     }
 
-    // ROLE DASHBOARDS
     if (role === "admin") return <AdminDashboard />;
     if (role === "coach") return <CoachDashboard />;
     if (role === "parent") return <ParentDashboard />;
 
-    // PUBLIC PAGES
     if (page === "home") return <HomePage />;
     if (page === "schedule") return <SchedulePage />;
     if (page === "teams") return <TeamsPage />;
@@ -61,10 +57,10 @@ export default function App() {
         </button>
       </div>
 
-      {/* MAIN CONTENT */}
+      {/* CONTENT */}
       {renderPage()}
 
-      {/* CLEAN FLOATING NAV */}
+      {/* FLOATING NAV */}
       {role === "public" && !showLogin && (
         <div className="bottom-nav">
 
