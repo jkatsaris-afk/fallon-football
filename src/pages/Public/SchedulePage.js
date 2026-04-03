@@ -4,7 +4,7 @@ import { supabase } from "../../supabase";
 export default function SchedulePage() {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedType, setSelectedType] = useState(null); // game / practice
+  const [selectedType, setSelectedType] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(null);
   const [showAll, setShowAll] = useState(false);
 
@@ -17,37 +17,42 @@ export default function SchedulePage() {
       .from("schedule_master")
       .select("*");
 
-    if (!error) setGames(data);
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setGames(data || []);
   };
 
-  // GROUP BY DATE
+  /* ========================= */
+  /* GROUP + SORT */
+  /* ========================= */
   const grouped = games.reduce((acc, game) => {
     if (!acc[game.event_date]) acc[game.event_date] = [];
     acc[game.event_date].push(game);
     return acc;
   }, {});
 
-  // SORT DATES
   const dates = Object.keys(grouped).sort(
     (a, b) => new Date(a) - new Date(b)
   );
 
-  // BASE DATA
+  /* ========================= */
+  /* FILTERING */
+  /* ========================= */
   let dayData = selectedDate ? grouped[selectedDate] || [] : [];
 
-  // FILTER TYPE
   if (selectedType) {
     dayData = dayData.filter(g =>
       g.event_type.toLowerCase().includes(selectedType)
     );
   }
 
-  // FILTER DIVISION
   if (selectedDivision) {
     dayData = dayData.filter(g => g.division === selectedDivision);
   }
 
-  // UNIQUE DIVISIONS
   const divisions = [
     ...new Set((grouped[selectedDate] || []).map(g => g.division))
   ];
@@ -56,7 +61,7 @@ export default function SchedulePage() {
     <div>
 
       {/* ========================= */}
-      {/* STEP 1: DATE */}
+      {/* STEP 1: DATE SELECT */}
       {/* ========================= */}
       {!selectedDate && dates.map(date => (
         <div
@@ -70,7 +75,7 @@ export default function SchedulePage() {
       ))}
 
       {/* ========================= */}
-      {/* FLOW AFTER DATE */}
+      {/* AFTER DATE SELECT */}
       {/* ========================= */}
       {selectedDate && (
         <div>
@@ -94,34 +99,31 @@ export default function SchedulePage() {
           </div>
 
           {/* ========================= */}
-          {/* STEP 2: TYPE */}
+          {/* STEP 2: TYPE SELECT */}
           {/* ========================= */}
           {!selectedType && (
-            <div>
-
+            <>
               <div
-                className={`card ${selectedType === "game" ? "active-card" : ""}`}
+                className="card"
                 onClick={() => setSelectedType("game")}
               >
                 <div className="title">Games</div>
               </div>
 
               <div
-                className={`card ${selectedType === "practic" ? "active-card" : ""}`}
+                className="card"
                 onClick={() => setSelectedType("practic")}
               >
                 <div className="title">Practice</div>
               </div>
-
-            </div>
+            </>
           )}
 
           {/* ========================= */}
           {/* STEP 3: FILTER */}
           {/* ========================= */}
           {selectedType && !selectedDivision && !showAll && (
-            <div>
-
+            <>
               <div
                 className="card"
                 onClick={() => setShowAll(true)}
@@ -138,8 +140,7 @@ export default function SchedulePage() {
                   <div className="title">{div}</div>
                 </div>
               ))}
-
-            </div>
+            </>
           )}
 
           {/* ========================= */}
@@ -148,6 +149,7 @@ export default function SchedulePage() {
           {(showAll || selectedDivision) && (
             <div>
 
+              {/* CHANGE FILTER */}
               <div
                 className="card"
                 onClick={() => {
@@ -158,18 +160,56 @@ export default function SchedulePage() {
                 <div className="sub">← Change Filter</div>
               </div>
 
-              {dayData.map(game => (
-                <div className="card" key={game.id}>
+              {dayData.map((game, index) => (
+                <div key={game.id}>
 
-                  <div className="title">
-                    {game.event_type.toLowerCase().includes("practic")
-                      ? `${game.team} Practice`
-                      : `${game.team} vs ${game.opponent}`}
+                  {index !== 0 && <div className="divider" />}
+
+                  <div className="inner-tile">
+
+                    {/* ========================= */}
+                    {/* PRACTICE */}
+                    {/* ========================= */}
+                    {game.event_type.toLowerCase().includes("practic") && (
+                      <div className="game-row">
+
+                        <div className="game-top">
+                          <div className="team">{game.team}</div>
+                          <div className="game-time">{game.event_time}</div>
+                        </div>
+
+                        <div className="vs">Practice</div>
+
+                        <div className="game-bottom">
+                          <div className="sub">{game.division}</div>
+                          <div className="field-badge">{game.field}</div>
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* ========================= */}
+                    {/* GAME */}
+                    {/* ========================= */}
+                    {game.event_type.toLowerCase() === "game" && (
+                      <div className="game-row">
+
+                        <div className="game-top">
+                          <div className="team">{game.team}</div>
+                          <div className="game-time">{game.event_time}</div>
+                        </div>
+
+                        <div className="vs">vs</div>
+
+                        <div className="game-bottom">
+                          <div className="team">{game.opponent}</div>
+                          <div className="field-badge">{game.field}</div>
+                        </div>
+
+                      </div>
+                    )}
+
                   </div>
-
-                  <div className="sub">{game.division}</div>
-                  <div className="sub">{game.event_time}</div>
-                  <div className="sub">{game.field}</div>
 
                 </div>
               ))}
@@ -184,7 +224,9 @@ export default function SchedulePage() {
   );
 }
 
-/* DATE FIX */
+/* ========================= */
+/* DATE FORMAT */
+/* ========================= */
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
   return new Date(y, m - 1, d).toLocaleDateString("en-US", {
