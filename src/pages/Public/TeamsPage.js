@@ -2,16 +2,22 @@ export default function TeamsPage() {
   return (
     <div>
 
-      <h2>Teams</h2>
-
       <div className="card">
-        <h3>Steelers</h3>
-        <p>Coach: John Smith</p>
+        <div className="title">Steelers</div>
+        <div className="sub">Coach: John Smith</div>
+        <button className="button">View Team</button>
       </div>
 
       <div className="card">
-        <h3>Raiders</h3>
-        <p>Coach: Mike Jones</p>
+        <div className="title">Raiders</div>
+        <div className="sub">Coach: Mike Jones</div>
+        <button className="button">View Team</button>
+      </div>
+
+      <div className="card">
+        <div className="title">Cowboys</div>
+        <div className="sub">Coach: Steve Brown</div>
+        <button className="button">View Team</button>
       </div>
 
     </div>
