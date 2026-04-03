@@ -19,22 +19,23 @@ body {
 }
 
 /* ========================= */
-/* HEADER (CENTERED LOGO) */
+/* HEADER */
 /* ========================= */
 .header {
   display: flex;
   justify-content: center;
   align-items: center;
 
-  padding: 20px 0;
+  padding: 12px 0;
 
   border-bottom: 1px solid #eee;
   background: white;
 }
 
-/* LOGO */
+/* LOGO (FIXED SIZE) */
 .logo {
-  height: 65px;
+  height: 45px;
+  max-width: 70%;
   object-fit: contain;
 }
 
