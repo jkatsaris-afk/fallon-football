@@ -2,21 +2,20 @@ export default function ParentDashboard() {
   return (
     <div>
 
-      <h2>Parent Dashboard</h2>
-
       <div className="card">
-        <h3>My Kids</h3>
-        <p>View your child's team and schedule</p>
+        <div className="title">My Kids</div>
+        <div className="sub">View team assignments</div>
       </div>
 
       <div className="card">
-        <h3>Team Info</h3>
-        <p>See roster, coach info, and updates</p>
+        <div className="title">Schedule</div>
+        <div className="sub">Upcoming games</div>
+        <button className="button">View Schedule</button>
       </div>
 
       <div className="card">
-        <h3>Messages</h3>
-        <p>View coach announcements</p>
+        <div className="title">Messages</div>
+        <div className="sub">Coach updates</div>
       </div>
 
     </div>
