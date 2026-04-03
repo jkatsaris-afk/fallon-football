@@ -18,7 +18,7 @@ export default function App() {
 
   // 🔁 PAGE RENDER LOGIC
   const renderPage = () => {
-    // LOGIN SCREEN
+    // LOGIN PAGE
     if (showLogin) {
       return (
         <LoginPage
@@ -28,7 +28,7 @@ export default function App() {
       );
     }
 
-    // ROLE BASED DASHBOARDS
+    // ROLE DASHBOARDS
     if (role === "admin") return <AdminDashboard />;
     if (role === "coach") return <CoachDashboard />;
     if (role === "parent") return <ParentDashboard />;
@@ -51,7 +51,7 @@ export default function App() {
           alignItems: "center"
         }}
       >
-        <div>Fallon Football</div>
+        <div>Fallon Flag Football</div>
 
         <button
           className="icon-btn"
@@ -64,7 +64,7 @@ export default function App() {
       {/* MAIN CONTENT */}
       {renderPage()}
 
-      {/* BOTTOM NAV (ONLY PUBLIC + NOT LOGIN PAGE) */}
+      {/* CLEAN FLOATING NAV */}
       {role === "public" && !showLogin && (
         <div className="bottom-nav">
 
@@ -72,7 +72,6 @@ export default function App() {
             className={`nav-btn ${page === "home" ? "active" : ""}`}
             onClick={() => setPage("home")}
           >
-            <div className="nav-icon">🏠</div>
             Home
           </button>
 
@@ -80,7 +79,6 @@ export default function App() {
             className={`nav-btn ${page === "schedule" ? "active" : ""}`}
             onClick={() => setPage("schedule")}
           >
-            <div className="nav-icon">📅</div>
             Schedule
           </button>
 
@@ -88,7 +86,6 @@ export default function App() {
             className={`nav-btn ${page === "teams" ? "active" : ""}`}
             onClick={() => setPage("teams")}
           >
-            <div className="nav-icon">👥</div>
             Teams
           </button>
 
