@@ -32,7 +32,7 @@ export default function App() {
     if (role === "coach") return <CoachDashboard />;
     if (role === "parent") return <ParentDashboard />;
 
-    if (page === "home") return <HomePage />;
+    if (page === "home") return <HomePage setPage={setPage} />;
     if (page === "schedule") return <SchedulePage />;
     if (page === "teams") return <TeamsPage />;
   };
@@ -52,7 +52,7 @@ export default function App() {
       {/* CONTENT */}
       {renderPage()}
 
-      {/* BOTTOM NAV */}
+      {/* NAV */}
       {!showLogin && (
         <div className="bottom-nav">
 
@@ -86,7 +86,6 @@ export default function App() {
             Teams
           </button>
 
-          {/* LOGIN */}
           <button
             className="nav-btn"
             onClick={() => setShowLogin(true)}
