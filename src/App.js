@@ -14,14 +14,14 @@ export default function App() {
 
       {/* HEADER */}
       <div className="header">
-        <img src="/logo.png" className="logo" alt="logo" />
+        <img src="/logo.png" className="logo" alt="Fallon Flag Football" />
       </div>
 
       {/* PAGE CONTENT */}
       {page === "home" && <HomePage setPage={setPage} />}
       {page === "schedule" && <SchedulePage />}
 
-      {/* NAV */}
+      {/* NAVIGATION */}
       <div className="bottom-nav">
 
         <button
