@@ -29,7 +29,6 @@ body {
   border-bottom: 1px solid #eee;
 }
 
-/* 🔥 LOGO FIX */
 .logo {
   height: 60px;
   max-width: 85%;
@@ -111,10 +110,71 @@ body {
   color: white;
   font-weight: 600;
   margin-top: 15px;
+  cursor: pointer;
 }
 
 .button:hover {
   background: #0b5e2d;
+}
+
+/* ========================= */
+/* DIVIDER */
+/* ========================= */
+.divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 12px 0;
+}
+
+/* ========================= */
+/* GAME ROW (ESPN STYLE) */
+/* ========================= */
+.game-row {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+}
+
+.game-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.game-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.team {
+  font-weight: 700;
+  color: #111;
+}
+
+.game-time {
+  color: #0f7a3b;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.vs {
+  font-size: 12px;
+  color: #999;
+  margin: 2px 0;
+}
+
+.field-badge {
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.live {
+  color: #0f7a3b;
+  font-weight: 700;
 }
 
 /* ========================= */
@@ -146,10 +206,8 @@ body {
   box-shadow: 0 10px 25px rgba(0,0,0,0.12);
 }
 
-/* NAV BUTTON */
 .nav-btn {
   flex: 1;
-
   border: none;
   background: transparent;
 
@@ -160,10 +218,10 @@ body {
   padding: 10px 0;
   border-radius: 20px;
 
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
-/* 🔥 ACTIVE NAV BUTTON */
 .nav-btn.active {
   background: #0f7a3b;
   color: white;
@@ -208,30 +266,22 @@ body {
   animation: slideUp 0.25s ease;
 }
 
-/* ANIMATION */
 @keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
-/* OPTIONS */
 .modal-option {
   padding: 14px;
   margin: 8px 0;
 
   border-radius: 12px;
-
   background: white;
 
   text-align: center;
   font-weight: 600;
 
   cursor: pointer;
-
   transition: all 0.2s ease;
 }
 
@@ -239,85 +289,17 @@ body {
   background: #f3f4f6;
 }
 
-/* CANCEL */
 .modal-cancel {
   margin-top: 10px;
 
   padding: 14px;
-
   border-radius: 12px;
 
   text-align: center;
-
   font-weight: 600;
 
   color: #666;
 
   background: rgba(255,255,255,0.7);
-
   cursor: pointer;
-}
-
-.divider {
-  height: 1px;
-  background: #e5e7eb;
-  margin: 12px 0;
-}
-
-/* ========================= */
-/* GAME ROW (ESPN STYLE) */
-/* ========================= */
-.game-row {
-  display: flex;
-  flex-direction: column;
-  padding: 10px 0;
-}
-
-/* TOP ROW */
-.game-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* TEAMS */
-.team {
-  font-weight: 700;
-  color: #111;
-}
-
-/* VS */
-.vs {
-  font-size: 12px;
-  color: #999;
-  margin: 2px 0;
-}
-
-/* TIME */
-.game-time {
-  font-weight: 600;
-  color: #0f7a3b;
-  font-size: 14px;
-}
-
-/* BOTTOM ROW */
-.game-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* FIELD BADGE */
-.field-badge {
-  background: #f3f4f6;
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* LIVE STYLE */
-.live {
-  color: #0f7a3b;
-  font-weight: 700;
 }
