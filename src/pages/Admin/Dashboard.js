@@ -2,21 +2,24 @@ export default function AdminDashboard() {
   return (
     <div>
 
-      <h2>Admin Dashboard</h2>
-
       <div className="card">
-        <h3>Teams</h3>
-        <p>Manage teams and rosters</p>
+        <div className="title">League Management</div>
+        <div className="sub">Control all league data</div>
       </div>
 
       <div className="card">
-        <h3>Schedule</h3>
-        <p>Manage game schedules and fields</p>
+        <div className="title">Teams</div>
+        <div className="sub">Create & manage teams</div>
       </div>
 
       <div className="card">
-        <h3>Reports</h3>
-        <p>Shirt sizes, contacts, and league data</p>
+        <div className="title">Schedule</div>
+        <div className="sub">Assign fields & times</div>
+      </div>
+
+      <div className="card">
+        <div className="title">Reports</div>
+        <div className="sub">Shirt sizes, contacts</div>
       </div>
 
     </div>
