@@ -40,64 +40,60 @@ export default function App() {
   return (
     <div className="app">
 
-      {/* HEADER */}
-      <div
-        className="header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "15px 20px"
-        }}
-      >
+      {/* HEADER (CENTERED LOGO) */}
+      <div className="header">
 
-        {/* LOGO (BIGGER + FLEXIBLE) */}
         <img
           src={logo}
           alt="Fallon Flag Football"
-          style={{
-            height: "60px",     // 🔥 bigger
-            maxWidth: "70%",    // prevents overflow
-            objectFit: "contain"
-          }}
+          className="logo"
         />
-
-        {/* LOGIN */}
-        <button
-          className="icon-btn"
-          onClick={() => setShowLogin(true)}
-        >
-          Login
-        </button>
 
       </div>
 
       {/* CONTENT */}
       {renderPage()}
 
-      {/* NAV */}
-      {role === "public" && !showLogin && (
+      {/* BOTTOM NAV */}
+      {!showLogin && (
         <div className="bottom-nav">
 
           <button
             className={`nav-btn ${page === "home" ? "active" : ""}`}
-            onClick={() => setPage("home")}
+            onClick={() => {
+              setRole("public");
+              setPage("home");
+            }}
           >
             Home
           </button>
 
           <button
             className={`nav-btn ${page === "schedule" ? "active" : ""}`}
-            onClick={() => setPage("schedule")}
+            onClick={() => {
+              setRole("public");
+              setPage("schedule");
+            }}
           >
             Schedule
           </button>
 
           <button
             className={`nav-btn ${page === "teams" ? "active" : ""}`}
-            onClick={() => setPage("teams")}
+            onClick={() => {
+              setRole("public");
+              setPage("teams");
+            }}
           >
             Teams
+          </button>
+
+          {/* 🔥 LOGIN MOVED HERE */}
+          <button
+            className="nav-btn"
+            onClick={() => setShowLogin(true)}
+          >
+            Login
           </button>
 
         </div>
