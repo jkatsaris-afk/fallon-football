@@ -28,7 +28,7 @@ export default function TeamsPage() {
   const [nflTeams, setNflTeams] = useState([]);
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
-  const [players, setPlayers] = useState([]); // ✅ ADDED
+  const [players, setPlayers] = useState([]);
 
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTeam, setActiveTeam] = useState(null);
@@ -38,7 +38,7 @@ export default function TeamsPage() {
   const [assistantCoach, setAssistantCoach] = useState("");
 
   const [confirmAuto, setConfirmAuto] = useState(false);
-  const [showAdd, setShowAdd] = useState(false); // ✅ ADDED
+  const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -46,12 +46,12 @@ export default function TeamsPage() {
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: c } = await supabase.from("coaches").select("*");
-    const { data: p } = await supabase.from("players").select("*"); // ✅ ADDED
+    const { data: p } = await supabase.from("players").select("*");
 
     setNflTeams(nfl || []);
     setTeams(t || []);
     setCoaches(c || []);
-    setPlayers(p || []); // ✅ ADDED
+    setPlayers(p || []);
   };
 
   /* ================= HELPERS ================= */
@@ -93,7 +93,36 @@ export default function TeamsPage() {
       .update({ team_id: activeTeam.id })
       .eq("id", playerId);
 
-    setShowAdd(false);
+    loadData();
+  };
+
+  /* ================= AUTO ================= */
+
+  const autoAssign = async () => {
+    const divisionTeams = teams.filter(
+      t => t.division === activeTeam.division
+    );
+
+    const available = players.filter(
+      p => p.division === activeTeam.division && !p.team_id
+    );
+
+    const perTeam = Math.ceil(available.length / divisionTeams.length);
+
+    let index = 0;
+
+    for (let team of divisionTeams) {
+      const chunk = available.slice(index, index + perTeam);
+
+      for (let p of chunk) {
+        await supabase.from("players")
+          .update({ team_id: team.id })
+          .eq("id", p.id);
+      }
+
+      index += perTeam;
+    }
+
     loadData();
   };
 
@@ -108,69 +137,108 @@ export default function TeamsPage() {
     loadData();
   };
 
+  /* ================= OVERLAY VIEW ================= */
+
+  if (activeTeam) {
+    return (
+      <div>
+
+        <button
+          style={{ marginBottom: 15 }}
+          onClick={() => setActiveTeam(null)}
+        >
+          ← Back to Teams
+        </button>
+
+        <h1>Manage Team</h1>
+
+        <div>
+          <strong>Head Coach:</strong> {getCoachName(activeTeam.coach_id)}
+        </div>
+
+        <div>
+          <strong>Assistant:</strong> {getCoachName(activeTeam.assistant_coach_id)}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
+          <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
+            Auto Roster
+          </button>
+
+          <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
+            Add Player
+          </button>
+
+          <button style={dangerBtn} onClick={removeTeam}>
+            Remove Team
+          </button>
+        </div>
+
+        {/* ADD PLAYER */}
+        {showAdd && (
+          <div style={{ marginTop: 20 }}>
+            <h3>Add Player</h3>
+
+            {players
+              .filter(p =>
+                p.division === activeTeam.division &&
+                !p.team_id
+              )
+              .map(p => (
+                <div key={p.id} style={playerRow}>
+                  {p.first_name} {p.last_name}
+
+                  <button
+                    style={smallBtn}
+                    onClick={() => addPlayerToTeam(p.id)}
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* AUTO CONFIRM */}
+        {confirmAuto && (
+          <div style={{ marginTop: 20 }}>
+            <p>
+              Make sure all teams are created in this division before running auto roster.
+            </p>
+
+            <button
+              style={primaryBtn}
+              onClick={()=>{
+                setConfirmAuto(false);
+                autoAssign();
+              }}
+            >
+              Confirm
+            </button>
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+  /* ================= MAIN VIEW ================= */
+
   return (
     <div>
 
       <h1>Teams Manager</h1>
 
-      {/* ================= SELECT ================= */}
-
       <h3>Select NFL Team</h3>
 
       <div style={grid}>
         {nflTeams.map(team => (
-          <div
-            key={team.id}
-            style={tile}
-            onClick={() => setSelectedTeam(team)}
-          >
+          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
         ))}
       </div>
-
-      {/* ================= ASSIGN PANEL ================= */}
-
-      {selectedTeam && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setSelectedTeam(null)}>✕</button>
-
-          <h3>{selectedTeam.full_name}</h3>
-
-          <select style={inputStyle} onChange={(e)=>setDivision(e.target.value)}>
-            <option value="">Division</option>
-            <option>K-1</option>
-            <option>2nd-3rd</option>
-            <option>4th-5th</option>
-            <option>6th+</option>
-          </select>
-
-          <select style={inputStyle} onChange={(e)=>setCoach(e.target.value)}>
-            <option value="">Head Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <select style={inputStyle} onChange={(e)=>setAssistantCoach(e.target.value)}>
-            <option value="">Assistant Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <button style={primaryBtn} onClick={assignTeam}>
-            Assign Team
-          </button>
-        </div>
-      )}
-
-      {/* ================= ASSIGNED ================= */}
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
@@ -179,7 +247,7 @@ export default function TeamsPage() {
         if (divTeams.length === 0) return null;
 
         return (
-          <div key={div} style={{ marginTop: 20 }}>
+          <div key={div}>
             <div style={{ fontWeight: 600 }}>{div}</div>
 
             <div style={grid}>
@@ -206,82 +274,6 @@ export default function TeamsPage() {
         );
       })}
 
-      {/* ================= MANAGE ================= */}
-
-      {activeTeam && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
-
-          <h2>Manage Team</h2>
-
-          <div>
-            <strong>Head Coach:</strong> {getCoachName(activeTeam.coach_id)}
-          </div>
-
-          <div>
-            <strong>Assistant:</strong> {getCoachName(activeTeam.assistant_coach_id)}
-          </div>
-
-          <div style={btnRow}>
-            <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
-              Auto Roster
-            </button>
-
-            <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
-              Add Player
-            </button>
-
-            <button style={dangerBtn} onClick={removeTeam}>
-              Remove Team
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ================= ADD PLAYER PANEL ================= */}
-
-      {showAdd && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setShowAdd(false)}>✕</button>
-
-          <h3>Add Player</h3>
-
-          {players
-            .filter(p =>
-              p.division === activeTeam.division &&
-              !p.team_id
-            )
-            .map(p => (
-              <div key={p.id} style={playerRow}>
-                {p.first_name} {p.last_name}
-
-                <button
-                  style={smallBtn}
-                  onClick={() => addPlayerToTeam(p.id)}
-                >
-                  Add
-                </button>
-              </div>
-            ))}
-        </div>
-      )}
-
-      {/* ================= CONFIRM ================= */}
-
-      {confirmAuto && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setConfirmAuto(false)}>✕</button>
-
-          <p>
-            Make sure all teams are created in this division before running auto roster.
-          </p>
-
-          <button style={primaryBtn} onClick={()=>setConfirmAuto(false)}>
-            Confirm
-          </button>
-        </div>
-      )}
-
     </div>
   );
 }
@@ -302,17 +294,6 @@ const tile = {
   cursor: "pointer"
 };
 
-const panel = {
-  marginTop: 20,
-  padding: 20,
-  background: "#fff",
-  borderRadius: 12,
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  position: "relative"
-};
-
 const playerRow = {
   display: "flex",
   justifyContent: "space-between",
@@ -323,26 +304,6 @@ const smallBtn = {
   padding: "6px 10px",
   borderRadius: 6,
   border: "1px solid #e2e8f0"
-};
-
-const closeBtn = {
-  position: "absolute",
-  top: 10,
-  right: 10,
-  border: "none",
-  background: "transparent",
-  cursor: "pointer"
-};
-
-const inputStyle = {
-  padding: 10,
-  borderRadius: 10,
-  border: "1px solid #e2e8f0"
-};
-
-const btnRow = {
-  display: "flex",
-  gap: 10
 };
 
 const primaryBtn = {
