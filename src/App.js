@@ -4,10 +4,9 @@ import "./styles.css";
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
-import ScoreboardManager from "./pages/Admin/ScoreboardManager";
 import LoginModal from "./components/LoginModal";
-import ViewToggle from "./pages/Admin/ViewToggle";
 import Dashboard from "./pages/Admin/Dashboard";
+
 import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
 
@@ -15,8 +14,9 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [showLogin, setShowLogin] = useState(false);
 
-  // admin view state
+  // ✅ admin layout state
   const [adminView, setAdminView] = useState("ipad");
+  const [adminPage, setAdminPage] = useState("dashboard");
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -36,28 +36,21 @@ export default function App() {
 
   return (
     <>
-      {(page === "dashboard" || page === "scoreManager") ? (
-        // ✅ FULL SCREEN ADMIN MODE
+      {(page === "dashboard") ? (
+        // ✅ FULL SCREEN ADMIN
         <div
           style={{
             width: "100vw",
             height: "100vh",
-            background: "#0f172a",
+            background: "#f8fafc",
           }}
         >
-          {page === "dashboard" && (
-            <Dashboard setPage={setPage} />
-          )}
-
-          {page === "scoreManager" && (
-            <>
-              <ViewToggle
-                adminView={adminView}
-                setAdminView={setAdminView}
-              />
-              <ScoreboardManager adminView={adminView} />
-            </>
-          )}
+          <Dashboard
+            adminPage={adminPage}
+            setAdminPage={setAdminPage}
+            adminView={adminView}
+            setAdminView={setAdminView}
+          />
         </div>
       ) : (
         <div className="app">
@@ -96,7 +89,6 @@ export default function App() {
               Scores
             </button>
 
-            {/* ADMIN BUTTON */}
             <button
               className={`nav-btn ${page === "dashboard" ? "active" : ""}`}
               onClick={() => setPage("dashboard")}
