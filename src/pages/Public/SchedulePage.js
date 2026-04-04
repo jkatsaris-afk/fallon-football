@@ -1,6 +1,42 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+// ===== LOGOS =====
+import sf from "../../resources/San Francisco 49ers.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
+import bills from "../../resources/Buffalo Bills.png";
+import broncos from "../../resources/Denver Broncos.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
+import jets from "../../resources/New York Jets.png";
+import lions from "../../resources/Detroit Lions.png";
+import raiders from "../../resources/Las Vegas Raiders.png";
+import rams from "../../resources/Los Angeles Rams.png";
+import steelers from "../../resources/Pittsburgh Steelers.png";
+
+// ===== MAP (DB → FILE) =====
+const teamLogos = {
+  "49ers": sf,
+  "Bengals": bengals,
+  "Bills": bills,
+  "Broncos": broncos,
+  "Chiefs": chiefs,
+  "Colts": colts,
+  "Eagles": eagles,
+  "Jets": jets,
+  "Lions": lions,
+  "Raiders": raiders,
+  "Rams": rams,
+  "Steelers": steelers,
+};
+
+// ===== SAFE LOOKUP =====
+function getLogo(name) {
+  if (!name) return null;
+  return teamLogos[name.trim()] || null;
+}
+
 export default function SchedulePage() {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -23,14 +59,12 @@ export default function SchedulePage() {
     setGames(data);
   };
 
-  /* CLEAN DATA */
   const cleanGames = games.map(g => ({
     ...g,
     clean_date: normalizeDate(g.event_date),
     clean_type: (g.event_type || "").toLowerCase().trim()
   }));
 
-  /* GROUP BY DATE */
   const grouped = cleanGames.reduce((acc, game) => {
     if (!game.clean_date) return acc;
 
@@ -40,7 +74,6 @@ export default function SchedulePage() {
     return acc;
   }, {});
 
-  /* SORT DATES */
   const dates = Object.keys(grouped).sort(
     (a, b) => new Date(a) - new Date(b)
   );
@@ -48,7 +81,6 @@ export default function SchedulePage() {
   return (
     <div>
 
-      {/* ================= DATE LIST ================= */}
       {!selectedDate &&
         dates.map(date => (
           <div
@@ -63,16 +95,13 @@ export default function SchedulePage() {
           </div>
         ))}
 
-      {/* ================= TYPE SELECT ================= */}
       {selectedDate && !selectedType && (
         <div>
 
-          {/* DATE TILE */}
           <div className="card active-card">
             <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
-          {/* BACK BUTTON (NOW UNDER DATE) */}
           <div
             className="card"
             onClick={() => {
@@ -83,7 +112,6 @@ export default function SchedulePage() {
             <div className="sub">← Back</div>
           </div>
 
-          {/* TYPE OPTIONS */}
           <div
             className="card"
             onClick={() => setSelectedType("game")}
@@ -101,18 +129,15 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* ================= RESULTS ================= */}
       {selectedDate && selectedType && (
         <div>
 
-          {/* DATE TILE */}
           <div className="card active-card">
             <div className="title">
               {formatDate(selectedDate)} - {selectedType.toUpperCase()}
             </div>
           </div>
 
-          {/* BACK BUTTON (NOW UNDER DATE) */}
           <div
             className="card"
             onClick={() => setSelectedType(null)}
@@ -120,7 +145,6 @@ export default function SchedulePage() {
             <div className="sub">← Back</div>
           </div>
 
-          {/* RESULTS */}
           {grouped[selectedDate]
             .filter(g => g.clean_type.includes(selectedType))
             .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
@@ -135,14 +159,24 @@ export default function SchedulePage() {
                     <div className="game-row">
 
                       <div className="game-top">
-                        <div className="team">{item.team}</div>
+                        <div className="team-row">
+                          {getLogo(item.team) && (
+                            <img src={getLogo(item.team)} style={logo} />
+                          )}
+                          <span>{item.team}</span>
+                        </div>
                         <div className="game-time">{item.event_time}</div>
                       </div>
 
                       <div className="vs">vs</div>
 
                       <div className="game-bottom">
-                        <div className="team">{item.opponent}</div>
+                        <div className="team-row">
+                          {getLogo(item.opponent) && (
+                            <img src={getLogo(item.opponent)} style={logo} />
+                          )}
+                          <span>{item.opponent || "TBD"}</span>
+                        </div>
                         <div className="field-badge">{item.field}</div>
                       </div>
 
@@ -169,7 +203,7 @@ export default function SchedulePage() {
   );
 }
 
-/* ================= HELPERS ================= */
+/* ===== HELPERS ===== */
 
 function normalizeDate(dateStr) {
   if (!dateStr) return null;
@@ -202,3 +236,11 @@ function toTime(timeStr) {
 
   return parseInt(h) * 60 + parseInt(m);
 }
+
+/* ===== STYLE ===== */
+
+const logo = {
+  width: 20,
+  height: 20,
+  marginRight: 6
+};
