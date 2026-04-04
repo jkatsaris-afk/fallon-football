@@ -1,49 +1,81 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import "./styles.css";
 
-// PUBLIC
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
-
-// ADMIN (⚠️ THIS IS YOUR ISSUE LINE)
+import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import ScoreboardManager from "./pages/Admin/ScoreboardManager";
+import LoginModal from "./components/LoginModal";
 
-// COMPONENTS
-import DeviceToggle from "./components/DeviceToggle";
+import { supabase } from "./supabase";
+import logo from "./resources/logo.png";
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [deviceMode, setDeviceMode] = useState("ipad");
+  const [showLogin, setShowLogin] = useState(false);
+
+  useEffect(() => {
+    const path = window.location.pathname;
+
+    if (path === "/admin") setPage("admin");
+
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (path === "/admin" && !data.user) {
+        window.location.href = "/";
+      }
+    };
+
+    checkUser();
+  }, []);
 
   return (
     <div className="app">
 
-      {/* TEMP ADMIN BUTTON */}
-      <div style={{ padding: 10 }}>
-        <button onClick={() => setIsAdmin(!isAdmin)}>
-          Toggle Admin ({isAdmin ? "ON" : "OFF"})
-        </button>
+      {/* HEADER */}
+      <div className="header">
+        <img src={logo} className="logo" alt="logo" />
       </div>
 
-      {/* ADMIN TOGGLE */}
-      {isAdmin && (
-        <DeviceToggle
-          deviceMode={deviceMode}
-          setDeviceMode={setDeviceMode}
-        />
-      )}
+      {/* PAGES */}
+      {page === "home" && <HomePage setPage={setPage} />}
+      {page === "schedule" && <SchedulePage />}
+      {page === "scoreboard" && <ScoreboardPage />}
+      {page === "admin" && <ScoreboardManager />}
 
-      {/* PUBLIC */}
-      {!isAdmin && (
-        <>
-          {page === "home" && <HomePage setPage={setPage} />}
-          {page === "schedule" && <SchedulePage />}
-        </>
-      )}
+      {/* NAV */}
+      <div className="bottom-nav">
 
-      {/* ADMIN */}
-      {isAdmin && (
-        <ScoreboardManager deviceMode={deviceMode} />
+        <button
+          className={`nav-btn ${page === "home" ? "active" : ""}`}
+          onClick={() => setPage("home")}
+        >
+          Home
+        </button>
+
+        <button
+          className={`nav-btn ${page === "schedule" ? "active" : ""}`}
+          onClick={() => setPage("schedule")}
+        >
+          Schedule
+        </button>
+
+        <button
+          className={`nav-btn ${page === "scoreboard" ? "active" : ""}`}
+          onClick={() => setPage("scoreboard")}
+        >
+          Scores
+        </button>
+
+        <button onClick={() => setShowLogin(true)} className="nav-btn">
+          Login
+        </button>
+
+      </div>
+
+      {showLogin && (
+        <LoginModal onClose={() => setShowLogin(false)} />
       )}
 
     </div>
