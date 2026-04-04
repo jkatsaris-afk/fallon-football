@@ -4,7 +4,7 @@ import "./styles.css";
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
-import SignUpPage from "./pages/Public/SignUpPage"; // ✅ ADDED
+import SignUpPage from "./pages/Public/SignUpPage";
 
 import LoginModal from "./components/LoginModal";
 import Dashboard from "./pages/Admin/Dashboard";
@@ -13,22 +13,26 @@ import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
 
 export default function App() {
-  const [page, setPage] = useState("home"); // ✅ KEEP THIS EXACT
+  const [page, setPage] = useState("home");
   const [showLogin, setShowLogin] = useState(false);
-
   const [adminPage, setAdminPage] = useState("dashboard");
 
+  // ✅ FIXED ROUTING
   useEffect(() => {
-    const path = window.location.pathname;
+    const path = window.location.pathname.toLowerCase();
 
-    if (path === "/admin") setPage("dashboard");
-
-    if (path === "/sign-up") setPage("signup"); // ✅ ADDED
+    if (path.includes("/admin")) {
+      setPage("dashboard");
+    } else if (path.includes("/sign-up")) {
+      setPage("signup");
+    } else {
+      setPage("home");
+    }
 
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
 
-      if (path === "/admin" && !data.user) {
+      if (path.includes("/admin") && !data.user) {
         window.location.href = "/";
       }
     };
@@ -59,11 +63,11 @@ export default function App() {
             <img src={logo} className="logo" alt="logo" />
           </div>
 
-          {/* PUBLIC PAGES */}
+          {/* PAGES */}
           {page === "home" && <HomePage setPage={setPage} />}
           {page === "schedule" && <SchedulePage />}
           {page === "scoreboard" && <ScoreboardPage />}
-          {page === "signup" && <SignUpPage />} {/* ✅ ADDED */}
+          {page === "signup" && <SignUpPage />}
 
           {/* NAV (UNCHANGED) */}
           <div className="bottom-nav">
