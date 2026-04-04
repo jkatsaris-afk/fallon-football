@@ -4,7 +4,9 @@ import { supabase } from "../../supabase";
 export default function ScoreboardManager() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
+  const [liveGame, setLiveGame] = useState(null);
 
+  // ================= LOAD GAMES =================
   useEffect(() => {
     loadGames();
   }, []);
@@ -17,32 +19,52 @@ export default function ScoreboardManager() {
       .order("event_time", { ascending: true });
 
     if (error) {
-      console.error("LOAD ERROR:", error);
+      console.error(error);
       return;
     }
 
-    console.log("SCHEDULE DATA:", data);
-
-    // 🔥 MAP YOUR FIELDS HERE
     const mapped = data.map((g) => ({
       ...g,
 
+      // FIX DATE OFFSET
       display_date: new Date(g.event_date + "T00:00:00")
         .toLocaleDateString(undefined, {
-          month: "short",
+          month: "long",
           day: "numeric",
         }),
 
       display_time: g.event_time,
 
-      team1: g.home_team || g.team1 || "Team A",
-      team2: g.away_team || g.team2 || "Team B",
-
+      team1: g.team,
+      team2: g.opponent,
       field: g.field,
-      division: g.division,
     }));
 
     setGames(mapped);
+  }
+
+  // ================= START GAME =================
+  async function startGame(game) {
+    setSelectedGame(game);
+
+    const { data: existing } = await supabase
+      .from("live_games")
+      .select("*")
+      .eq("game_id", game.id)
+      .maybeSingle();
+
+    if (existing) {
+      setLiveGame(existing);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("live_games")
+      .insert([{ game_id: game.id, status: "live" }])
+      .select()
+      .single();
+
+    setLiveGame(data);
   }
 
   // ================= GROUP DATE → TIME =================
@@ -65,73 +87,111 @@ export default function ScoreboardManager() {
   return (
     <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
-      {/* LEFT PANEL */}
-      <div style={{ flex: 2, background: "#fff", borderRadius: 16, padding: 20 }}>
-        <h2>Scoreboard</h2>
-      </div>
-
-      {/* ================= RIGHT PANEL ================= */}
+      {/* ================= LEFT PANEL ================= */}
       <div
         style={{
-          flex: 1,
+          flex: 2,
           background: "#ffffff",
           borderRadius: 16,
           padding: 20,
-          overflowY: "auto",
         }}
       >
-        <h3>Games</h3>
+        {!selectedGame && <h2>Select a Game</h2>}
+
+        {selectedGame && (
+          <>
+            <h2>
+              {selectedGame.team1} vs {selectedGame.team2}
+            </h2>
+
+            <p style={{ color: "#64748b" }}>
+              {selectedGame.display_time} • {selectedGame.field}
+            </p>
+
+            {liveGame && (
+              <div style={{ marginTop: 20 }}>
+                <p>Status: {liveGame.status}</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ================= RIGHT PANEL ================= */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
+
+        <h3 style={{ marginBottom: 10 }}>Games</h3>
 
         {grouped.map((day) => (
-          <div key={day.date} style={{ marginBottom: 20 }}>
-            <h4>{day.date}</h4>
+          <div key={day.date}>
+
+            {/* DATE HEADER */}
+            <div className="card active-card">
+              <div className="title">{day.date}</div>
+            </div>
 
             {Object.entries(day.times).map(([time, gamesAtTime]) => (
-              <div key={time} style={{ marginBottom: 10 }}>
+              <div key={time}>
 
                 {/* TIME HEADER */}
-                <div style={{ fontWeight: "600", color: "#64748b" }}>
-                  {time}
+                <div className="card">
+                  <div className="title">{time}</div>
                 </div>
 
                 {/* GAMES */}
-                {gamesAtTime.map((g) => (
-                  <div
-                    key={g.id}
-                    style={{
-                      padding: 12,
-                      marginBottom: 8,
-                      borderRadius: 10,
-                      background: "#f1f5f9",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setSelectedGame(g)}
-                  >
-                    <strong>
-                      {g.team1} vs {g.team2}
-                    </strong>
+                {gamesAtTime.map((g, i) => (
+                  <div key={g.id}>
 
-                    <div style={{ fontSize: 12, color: "#64748b" }}>
-                      {g.field || ""} {g.division ? `• ${g.division}` : ""}
+                    {i !== 0 && <div className="divider" />}
+
+                    <div className="inner-tile">
+
+                      <div
+                        className="game-row"
+                        onClick={() => setSelectedGame(g)}
+                        style={{ cursor: "pointer" }}
+                      >
+
+                        {/* TOP TEAM */}
+                        <div className="game-top">
+                          <div className="team">{g.team1}</div>
+                          <div className="game-time">{g.display_time}</div>
+                        </div>
+
+                        <div className="vs">vs</div>
+
+                        {/* BOTTOM TEAM */}
+                        <div className="game-bottom">
+                          <div className="team">{g.team2}</div>
+                          <div className="field-badge">{g.field}</div>
+                        </div>
+
+                      </div>
+
+                      {/* START BUTTON */}
+                      <div style={{ marginTop: 10 }}>
+                        <button
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            borderRadius: 8,
+                            border: "none",
+                            background: "#2f6ea6",
+                            color: "#fff",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startGame(g);
+                          }}
+                        >
+                          Start Game
+                        </button>
+                      </div>
+
                     </div>
 
-                    <button
-                      style={{
-                        marginTop: 6,
-                        padding: "6px 10px",
-                        borderRadius: 6,
-                        border: "none",
-                        background: "#2f6ea6",
-                        color: "#fff",
-                        cursor: "pointer",
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedGame(g);
-                      }}
-                    >
-                      Start Game
-                    </button>
                   </div>
                 ))}
               </div>
