@@ -36,117 +36,94 @@ function getLogo(name) {
 }
 
 export default function TeamsPage() {
-  const [data, setData] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
-    loadTeams();
+    load();
   }, []);
 
-  async function loadTeams() {
-    // divisions
-    const { data: divisions } = await supabase
-      .from("divisions")
-      .select("*");
+  async function load() {
+    const { data: divisions } = await supabase.from("divisions").select("*");
+    const { data: t } = await supabase.from("teams").select("*");
+    const { data: coaches } = await supabase.from("coaches").select("*");
+    const { data: links } = await supabase.from("team_coaches").select("*");
+    const { data: players } = await supabase.from("players").select("*");
 
-    // teams
-    const { data: teams } = await supabase
-      .from("teams")
-      .select("*");
+    const built = t.map(team => {
+      const division = divisions.find(d => d.id === team.division_id);
 
-    // coaches
-    const { data: coaches } = await supabase
-      .from("coaches")
-      .select("*");
+      const teamLinks = links.filter(l => l.team_id === team.id);
 
-    // team_coaches
-    const { data: links } = await supabase
-      .from("team_coaches")
-      .select("*");
+      const teamCoaches = teamLinks.map(l =>
+        coaches.find(c => c.id === l.coach_id)
+      );
 
-    // players
-    const { data: players } = await supabase
-      .from("players")
-      .select("*");
-
-    // ===== BUILD STRUCTURE =====
-    const structured = divisions.map(d => {
-      const divisionTeams = teams
-        .filter(t => t.division_id === d.id)
-        .map(team => {
-          const coachLinks = links.filter(l => l.team_id === team.id);
-
-          const teamCoaches = coachLinks.map(l =>
-            coaches.find(c => c.id === l.coach_id)
-          );
-
-          const teamPlayers = players.filter(p => p.team_id === team.id);
-
-          return {
-            ...team,
-            coaches: teamCoaches,
-            players: teamPlayers,
-          };
-        });
+      const teamPlayers = players.filter(p => p.team_id === team.id);
 
       return {
-        ...d,
-        teams: divisionTeams,
+        ...team,
+        division: division?.name,
+        coaches: teamCoaches,
+        players: teamPlayers
       };
     });
 
-    setData(structured);
+    setTeams(built);
   }
 
   return (
     <div style={container}>
+
       <h1 style={{ marginBottom: 20 }}>Teams</h1>
 
-      {data.map((division) => (
-        <div key={division.id} style={{ marginBottom: 30 }}>
-          <h2 style={divisionTitle}>{division.name}</h2>
+      <div style={grid}>
+        {teams.map(team => (
+          <div
+            key={team.id}
+            style={card}
+            onClick={() =>
+              setExpanded(expanded === team.id ? null : team.id)
+            }
+          >
 
-          <div style={teamGrid}>
-            {division.teams.map((team) => (
-              <div key={team.id} style={teamCard}>
-
-                {/* LOGO + NAME */}
-                <div style={teamHeader}>
-                  {getLogo(team.name) && (
-                    <img src={getLogo(team.name)} style={logo} />
-                  )}
-                  <div style={teamName}>{team.name}</div>
-                </div>
-
-                {/* COACHES */}
-                <div style={section}>
-                  <div style={sectionTitle}>Coach</div>
-                  {team.coaches.map((c, i) => (
-                    <div key={i} style={text}>
-                      {c?.name} {c?.phone && `• ${c.phone}`}
-                    </div>
-                  ))}
-                </div>
-
-                {/* PLAYERS */}
-                <div style={section}>
-                  <div style={sectionTitle}>Players ({team.players.length})</div>
-
-                  {team.players.length === 0 && (
-                    <div style={sub}>No players yet</div>
-                  )}
-
-                  {team.players.map((p) => (
-                    <div key={p.id} style={text}>
-                      {p.name}
-                    </div>
-                  ))}
-                </div>
-
+            {/* HEADER */}
+            <div style={header}>
+              {getLogo(team.name) && (
+                <img src={getLogo(team.name)} style={logo} />
+              )}
+              <div>
+                <div style={teamName}>{team.name}</div>
+                <div style={division}>{team.division}</div>
               </div>
-            ))}
+            </div>
+
+            {/* COACH */}
+            <div style={coach}>
+              {team.coaches.map(c => c?.name).join(", ") || "No coach"}
+            </div>
+
+            {/* EXPANDED PLAYERS */}
+            {expanded === team.id && (
+              <div style={players}>
+                <div style={playerHeader}>Players</div>
+
+                {team.players.length === 0 && (
+                  <div style={empty}>No players</div>
+                )}
+
+                {team.players.map(p => (
+                  <div key={p.id} style={player}>
+                    {p.name}
+                  </div>
+                ))}
+              </div>
+            )}
+
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+
     </div>
   );
 }
@@ -155,58 +132,68 @@ export default function TeamsPage() {
 
 const container = {
   padding: 20,
-  overflowY: "auto",
+  overflowY: "auto"
 };
 
-const divisionTitle = {
-  marginBottom: 10,
-};
-
-const teamGrid = {
+const grid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-  gap: 15,
+  gap: 15
 };
 
-const teamCard = {
+const card = {
   background: "#ffffff",
   borderRadius: 16,
   padding: 15,
   boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+  cursor: "pointer",
+  transition: "0.2s"
 };
 
-const teamHeader = {
+const header = {
   display: "flex",
   alignItems: "center",
-  gap: 10,
-  marginBottom: 10,
-};
-
-const teamName = {
-  fontSize: 18,
-  fontWeight: "600",
+  gap: 10
 };
 
 const logo = {
-  width: 28,
-  height: 28,
+  width: 32,
+  height: 32
 };
 
-const section = {
+const teamName = {
+  fontWeight: "600",
+  fontSize: 16
+};
+
+const division = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+const coach = {
   marginTop: 10,
+  fontSize: 13
 };
 
-const sectionTitle = {
+const players = {
+  marginTop: 12,
+  borderTop: "1px solid #e5e7eb",
+  paddingTop: 10
+};
+
+const playerHeader = {
   fontSize: 12,
   color: "#64748b",
-  marginBottom: 4,
+  marginBottom: 5
 };
 
-const text = {
+const player = {
   fontSize: 13,
+  padding: "2px 0"
 };
 
-const sub = {
+const empty = {
   fontSize: 12,
-  color: "#94a3b8",
+  color: "#94a3b8"
 };
