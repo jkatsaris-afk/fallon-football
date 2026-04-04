@@ -95,6 +95,48 @@ export default function ScoreboardManager() {
     setLiveGame(data);
   }
 
+  async function updateDown(down) {
+    if (!liveGame) return;
+
+    const { data } = await supabase
+      .from("live_games")
+      .update({ down })
+      .eq("id", liveGame.id)
+      .select()
+      .single();
+
+    setLiveGame(data);
+  }
+
+  async function togglePossession() {
+    if (!liveGame) return;
+
+    const newPos =
+      liveGame.possession === "home" ? "away" : "home";
+
+    const { data } = await supabase
+      .from("live_games")
+      .update({ possession: newPos })
+      .eq("id", liveGame.id)
+      .select()
+      .single();
+
+    setLiveGame(data);
+  }
+
+  async function nextQuarter() {
+    if (!liveGame) return;
+
+    const { data } = await supabase
+      .from("live_games")
+      .update({ quarter: (liveGame.quarter || 1) + 1 })
+      .eq("id", liveGame.id)
+      .select()
+      .single();
+
+    setLiveGame(data);
+  }
+
   // ================= CLOCK =================
   function startClock() {
     if (!liveGame) return;
@@ -154,89 +196,82 @@ export default function ScoreboardManager() {
         {!selectedGame && <h2>Select a Game</h2>}
 
         {selectedGame && (
-          <>
+          <div>
+
             <h2 style={{ textAlign: "center" }}>
               {selectedGame.team1} vs {selectedGame.team2}
             </h2>
 
             {/* SCOREBOARD */}
-            <div
-              style={{
-                marginTop: 10,
-                padding: 20,
-                borderRadius: 16,
-                background: "#f8fafc",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
+            <div style={scoreboardBox}>
 
-                {/* TEAM 1 */}
-                <div style={{ textAlign: "center" }}>
-                  <h3>{selectedGame.team1}</h3>
-                  <h1>{liveGame?.home_score ?? 0}</h1>
+              {/* TEAM A */}
+              <div style={teamBox}>
+                <h3>{selectedGame.team1}</h3>
+                <h1 style={scoreText}>{liveGame?.home_score ?? 0}</h1>
 
-                  <div style={btnRow}>
-                    <button style={btnPrimary} onClick={() => updateScore(1, "home")}>+1</button>
-                    <button style={btnPrimary} onClick={() => updateScore(2, "home")}>+2</button>
-                    <button style={btnPrimary} onClick={() => updateScore(6, "home")}>+6</button>
-                    <button style={btnDanger} onClick={() => updateScore(-1, "home")}>-</button>
-                  </div>
+                <div style={btnRow}>
+                  <button style={btnPrimary} onClick={() => updateScore(1, "home")}>+</button>
+                  <button style={btnDanger} onClick={() => updateScore(-1, "home")}>-</button>
                 </div>
-
-                {/* CLOCK */}
-                <div style={{ textAlign: "center" }}>
-                  <h1>{liveGame?.clock ?? "20:00"}</h1>
-                  <div>Q{liveGame?.quarter ?? 1}</div>
-                  <div>Down {liveGame?.down ?? 1}</div>
-                </div>
-
-                {/* TEAM 2 */}
-                <div style={{ textAlign: "center" }}>
-                  <h3>{selectedGame.team2}</h3>
-                  <h1>{liveGame?.away_score ?? 0}</h1>
-
-                  <div style={btnRow}>
-                    <button style={btnPrimary} onClick={() => updateScore(1, "away")}>+1</button>
-                    <button style={btnPrimary} onClick={() => updateScore(2, "away")}>+2</button>
-                    <button style={btnPrimary} onClick={() => updateScore(6, "away")}>+6</button>
-                    <button style={btnDanger} onClick={() => updateScore(-1, "away")}>-</button>
-                  </div>
-                </div>
-
               </div>
+
+              {/* CENTER */}
+              <div style={centerBox}>
+                <h1 style={clockText}>{liveGame?.clock ?? "20:00"}</h1>
+                <div>Q{liveGame?.quarter ?? 1}</div>
+                <div>Down {liveGame?.down ?? 1}</div>
+              </div>
+
+              {/* TEAM B */}
+              <div style={teamBox}>
+                <h3>{selectedGame.team2}</h3>
+                <h1 style={scoreText}>{liveGame?.away_score ?? 0}</h1>
+
+                <div style={btnRow}>
+                  <button style={btnPrimary} onClick={() => updateScore(1, "away")}>+</button>
+                  <button style={btnDanger} onClick={() => updateScore(-1, "away")}>-</button>
+                </div>
+              </div>
+
             </div>
 
-            {/* CLOCK CONTROLS */}
-            <div style={{ textAlign: "center", marginTop: 20 }}>
-              <button style={btnPrimary} onClick={startClock}>Start Clock</button>
-              <button style={btnSecondary} onClick={stopClock}>Stop Clock</button>
+            {/* SCORING */}
+            <div style={sectionBox}>
+              <button style={btnPrimary} onClick={() => updateScore(6, "home")}>TD</button>
+              <button style={btnPrimary} onClick={() => updateScore(1, "home")}>+1</button>
+              <button style={btnPrimary} onClick={() => updateScore(2, "home")}>+2</button>
             </div>
 
-          </>
+            {/* CONTROLS */}
+            <div style={sectionBox}>
+              <button style={btnSecondary} onClick={togglePossession}>
+                Poss: {liveGame?.possession}
+              </button>
+              <button style={btnSecondary} onClick={() => updateDown(1)}>1st</button>
+              <button style={btnSecondary} onClick={() => updateDown(2)}>2nd</button>
+              <button style={btnSecondary} onClick={() => updateDown(3)}>3rd</button>
+              <button style={btnSecondary} onClick={() => updateDown(4)}>4th</button>
+            </div>
+
+            {/* CLOCK */}
+            <div style={sectionBox}>
+              <button style={btnPrimary} onClick={startClock}>Start</button>
+              <button style={btnSecondary} onClick={stopClock}>Stop</button>
+              <button style={btnSecondary} onClick={nextQuarter}>Next Q</button>
+            </div>
+
+          </div>
         )}
       </div>
 
       {/* ================= RIGHT PANEL ================= */}
       <div style={{ flex: 1, overflowY: "auto" }}>
 
-        <h3>Games</h3>
-
         {grouped.map((day) => (
           <div key={day.date}>
 
-            <div
-              className={`card ${openDate === day.date ? "active-card" : ""}`}
-              onClick={() => {
-                setOpenDate(openDate === day.date ? null : day.date);
-                setOpenTime(null);
-              }}
-            >
+            <div className="card" onClick={() => setOpenDate(day.date)}>
               <div className="title">{day.date}</div>
             </div>
 
@@ -244,33 +279,19 @@ export default function ScoreboardManager() {
               Object.entries(day.times).map(([time, gamesAtTime]) => (
                 <div key={time}>
 
-                  <div
-                    className="card"
-                    style={{ background: "#e8f5e9" }}
-                    onClick={() =>
-                      setOpenTime(openTime === time ? null : time)
-                    }
-                  >
+                  <div className="card" style={{ background: "#e8f5e9" }}
+                       onClick={() => setOpenTime(time)}>
                     <div className="title">{time}</div>
                   </div>
 
                   {openTime === time &&
                     gamesAtTime.map((g) => (
                       <div key={g.id} className="inner-tile">
+                        <div>{g.team1} vs {g.team2}</div>
 
-                        <div className="game-row">
-                          <div className="team">{g.team1}</div>
-                          <div className="vs">vs</div>
-                          <div className="team">{g.team2}</div>
-                        </div>
-
-                        <button
-                          style={startBtn}
-                          onClick={() => startGame(g)}
-                        >
+                        <button style={startBtn} onClick={() => startGame(g)}>
                           Start Game
                         </button>
-
                       </div>
                     ))}
                 </div>
@@ -282,43 +303,16 @@ export default function ScoreboardManager() {
   );
 }
 
-// ================= STYLES =================
-const btnRow = {
-  display: "flex",
-  gap: 6,
-  marginTop: 8,
-};
+// ===== STYLES =====
+const scoreboardBox = { display: "flex", justifyContent: "space-between", padding: 20, background: "#f8fafc", borderRadius: 16 };
+const teamBox = { textAlign: "center", flex: 1 };
+const centerBox = { textAlign: "center", flex: 1 };
+const scoreText = { fontSize: 48 };
+const clockText = { fontSize: 42 };
+const sectionBox = { display: "flex", gap: 10, justifyContent: "center", marginTop: 15, flexWrap: "wrap" };
+const btnRow = { display: "flex", gap: 6, justifyContent: "center", marginTop: 8 };
 
-const btnPrimary = {
-  padding: "8px 10px",
-  borderRadius: 6,
-  border: "none",
-  background: "#2f6ea6",
-  color: "#fff",
-  cursor: "pointer",
-};
-
-const btnSecondary = {
-  padding: "8px 10px",
-  borderRadius: 6,
-  border: "1px solid #ccc",
-  background: "#fff",
-};
-
-const btnDanger = {
-  padding: "8px 10px",
-  borderRadius: 6,
-  border: "none",
-  background: "#dc2626",
-  color: "#fff",
-};
-
-const startBtn = {
-  marginTop: 10,
-  width: "100%",
-  padding: "10px",
-  borderRadius: 8,
-  border: "none",
-  background: "#2f6ea6",
-  color: "#fff",
-};
+const btnPrimary = { padding: "10px", borderRadius: 8, border: "none", background: "#2f6ea6", color: "#fff" };
+const btnSecondary = { padding: "10px", borderRadius: 8, border: "1px solid #ccc", background: "#fff" };
+const btnDanger = { padding: "10px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff" };
+const startBtn = { marginTop: 10, width: "100%", padding: "10px", borderRadius: 8, background: "#2f6ea6", color: "#fff" };
