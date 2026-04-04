@@ -4,7 +4,6 @@ import { supabase } from "../../supabase";
 export default function ScoreboardManager() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
-  const [liveGame, setLiveGame] = useState(null);
 
   useEffect(() => {
     loadGames();
@@ -12,37 +11,38 @@ export default function ScoreboardManager() {
 
   async function loadGames() {
     const { data, error } = await supabase
-      .from("games")
+      .from("schedule_master")
       .select("*")
-      .order("game_date", { ascending: true })
-      .order("game_time", { ascending: true });
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true });
 
     if (error) {
-      console.error(error);
+      console.error("LOAD ERROR:", error);
       return;
     }
 
-    console.log("GAMES FROM DB:", data);
+    console.log("SCHEDULE DATA:", data);
 
-    // 🔥 FIX DATE + TEAM NAMES
-    const fixed = data.map((g) => ({
+    // 🔥 MAP YOUR FIELDS HERE
+    const mapped = data.map((g) => ({
       ...g,
 
-      // FIX DATE SHIFT
-      display_date: new Date(g.game_date + "T00:00:00")
+      display_date: new Date(g.event_date + "T00:00:00")
         .toLocaleDateString(undefined, {
           month: "short",
           day: "numeric",
         }),
 
-      display_time: g.game_time,
+      display_time: g.event_time,
 
-      // HANDLE DIFFERENT COLUMN NAMES
-      team1: g.team1 || g.home_team || g.team_1 || "Team A",
-      team2: g.team2 || g.away_team || g.team_2 || "Team B",
+      team1: g.home_team || g.team1 || "Team A",
+      team2: g.away_team || g.team2 || "Team B",
+
+      field: g.field,
+      division: g.division,
     }));
 
-    setGames(fixed);
+    setGames(mapped);
   }
 
   // ================= GROUP DATE → TIME =================
@@ -65,7 +65,7 @@ export default function ScoreboardManager() {
   return (
     <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
-      {/* LEFT PANEL (leave your scoreboard here) */}
+      {/* LEFT PANEL */}
       <div style={{ flex: 2, background: "#fff", borderRadius: 16, padding: 20 }}>
         <h2>Scoreboard</h2>
       </div>
@@ -84,19 +84,13 @@ export default function ScoreboardManager() {
 
         {grouped.map((day) => (
           <div key={day.date} style={{ marginBottom: 20 }}>
-            <h4 style={{ marginBottom: 10 }}>{day.date}</h4>
+            <h4>{day.date}</h4>
 
             {Object.entries(day.times).map(([time, gamesAtTime]) => (
               <div key={time} style={{ marginBottom: 10 }}>
 
                 {/* TIME HEADER */}
-                <div
-                  style={{
-                    fontWeight: "600",
-                    marginBottom: 5,
-                    color: "#64748b",
-                  }}
-                >
+                <div style={{ fontWeight: "600", color: "#64748b" }}>
                   {time}
                 </div>
 
