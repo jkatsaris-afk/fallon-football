@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-export default function ScoreboardManager() {
+export default function ScoreboardManager({ deviceMode }) {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedDivision, setSelectedDivision] = useState(null);
+  const [selectedTime, setSelectedTime] = useState(null);
+  const [selectedGame, setSelectedGame] = useState(null);
 
   useEffect(() => {
     load();
@@ -18,20 +19,16 @@ export default function ScoreboardManager() {
     setGames(data || []);
   };
 
-  /* ========================= */
-  /* CLEAN DATA */
-  /* ========================= */
+  /* CLEAN */
   const cleanGames = games
     .map(g => ({
       ...g,
       clean_date: normalizeDate(g.event_date),
-      clean_type: (g.event_type || "").toLowerCase().trim()
+      clean_type: (g.event_type || "").toLowerCase()
     }))
     .filter(g => g.clean_type.includes("game"));
 
-  /* ========================= */
   /* GROUP BY DATE */
-  /* ========================= */
   const groupedDates = cleanGames.reduce((acc, g) => {
     if (!acc[g.clean_date]) acc[g.clean_date] = [];
     acc[g.clean_date].push(g);
@@ -42,161 +39,125 @@ export default function ScoreboardManager() {
     (a, b) => new Date(a) - new Date(b)
   );
 
-  /* ========================= */
-  /* DIVISIONS */
-  /* ========================= */
-  const divisions = selectedDate
-    ? [...new Set(groupedDates[selectedDate].map(g => g.division))]
+  /* TIME SLOTS */
+  const timeSlots = selectedDate
+    ? [...new Set(groupedDates[selectedDate].map(g => g.event_time))]
     : [];
 
-  /* ========================= */
-  /* GAMES */
-  /* ========================= */
+  /* FILTERED GAMES */
   const filteredGames =
-    selectedDate && selectedDivision
+    selectedDate && selectedTime
       ? groupedDates[selectedDate]
-          .filter(g => g.division === selectedDivision)
-          .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
+          .filter(g => g.event_time === selectedTime)
+          .sort((a, b) => a.field.localeCompare(b.field))
       : [];
 
-  /* ========================= */
-  /* ACTION */
-  /* ========================= */
-  const startGame = async (g) => {
-    await supabase.from("scoreboard_live").insert({
-      game_id: g.id,
-      team: g.team,
-      opponent: g.opponent,
-      division: g.division,
-      game_time: g.event_time,
-      field: g.field,
-      is_live: true
-    });
-  };
-
   return (
-    <div>
+    <div className={`layout ${deviceMode}`}>
 
-      <div className="card">
-        <div className="title">Scoreboard Manager</div>
-      </div>
+      {/* LEFT PANEL */}
+      <div className="score-panel">
 
-      {/* ========================= */}
-      {/* STEP 1: DATE */}
-      {/* ========================= */}
-      {!selectedDate &&
-        dates.map(date => (
-          <div
-            key={date}
-            className="card"
-            onClick={() => setSelectedDate(date)}
-          >
-            <div className="title">{formatDate(date)}</div>
+        {!selectedGame && (
+          <div className="card">
+            <div className="title">Select a Game</div>
           </div>
-        ))}
+        )}
 
-      {/* ========================= */}
-      {/* STEP 2: DIVISION */}
-      {/* ========================= */}
-      {selectedDate && !selectedDivision && (
-        <div>
+        {selectedGame && (
+          <div className="card">
 
-          <div className="card active-card">
-            <div className="title">{formatDate(selectedDate)}</div>
-          </div>
-
-          <div
-            className="card"
-            onClick={() => setSelectedDate(null)}
-          >
-            <div className="sub">← Back</div>
-          </div>
-
-          {divisions.map(div => (
-            <div
-              key={div}
-              className="card"
-              onClick={() => setSelectedDivision(div)}
-            >
-              <div className="title">{div}</div>
-            </div>
-          ))}
-
-        </div>
-      )}
-
-      {/* ========================= */}
-      {/* STEP 3: GAMES */}
-      {/* ========================= */}
-      {selectedDate && selectedDivision && (
-        <div>
-
-          <div className="card active-card">
             <div className="title">
-              {formatDate(selectedDate)} - {selectedDivision}
+              {selectedGame.team} vs {selectedGame.opponent}
             </div>
-          </div>
 
-          <div
-            className="card"
-            onClick={() => setSelectedDivision(null)}
-          >
-            <div className="sub">← Back</div>
-          </div>
+            <div className="sub">
+              {selectedGame.event_time} • {selectedGame.field}
+            </div>
 
-          {filteredGames.map((g, i) => (
-            <div key={g.id}>
+            <div className="score-controls">
 
-              {i !== 0 && <div className="divider" />}
+              <div className="score-box">
+                <div>{selectedGame.team}</div>
+                <input className="score-input" type="number" />
+              </div>
 
-              <div className="inner-tile">
-
-                <div className="game-row">
-
-                  <div className="game-top">
-                    <div className="team">{g.team}</div>
-                    <div className="game-time">{g.event_time}</div>
-                  </div>
-
-                  <div className="vs">vs</div>
-
-                  <div className="game-bottom">
-                    <div className="team">{g.opponent}</div>
-                    <div className="field-badge">{g.field}</div>
-                  </div>
-
-                </div>
-
-                <button
-                  className="button"
-                  onClick={() => startGame(g)}
-                >
-                  Start Game
-                </button>
-
+              <div className="score-box">
+                <div>{selectedGame.opponent}</div>
+                <input className="score-input" type="number" />
               </div>
 
             </div>
+
+          </div>
+        )}
+
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div className="list-panel">
+
+        {!selectedDate &&
+          dates.map(date => (
+            <div
+              key={date}
+              className="card"
+              onClick={() => setSelectedDate(date)}
+            >
+              <div className="title">{formatDate(date)}</div>
+            </div>
           ))}
 
-        </div>
-      )}
+        {selectedDate && !selectedTime && (
+          <>
+            <div className="card active-card">
+              <div className="title">{formatDate(selectedDate)}</div>
+            </div>
+
+            <div
+              className="card"
+              onClick={() => setSelectedDate(null)}
+            >
+              <div className="sub">← Back</div>
+            </div>
+
+            {timeSlots.map(time => (
+              <div
+                key={time}
+                className="card"
+                onClick={() => setSelectedTime(time)}
+              >
+                <div className="title">{time}</div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {selectedTime &&
+          filteredGames.map(g => (
+            <div
+              key={g.id}
+              className="card"
+              onClick={() => setSelectedGame(g)}
+            >
+              <div className="title">
+                {g.team} vs {g.opponent}
+              </div>
+              <div className="sub">{g.field}</div>
+            </div>
+          ))}
+
+      </div>
 
     </div>
   );
 }
 
-/* ========================= */
 /* HELPERS */
-/* ========================= */
-
 function normalizeDate(dateStr) {
-  if (!dateStr) return null;
-
   if (dateStr.includes("-")) return dateStr;
-
   const [m, d, y] = dateStr.split("/");
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  return `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
 }
 
 function formatDate(dateStr) {
@@ -205,16 +166,4 @@ function formatDate(dateStr) {
     month: "long",
     day: "numeric"
   });
-}
-
-function toTime(timeStr) {
-  if (!timeStr) return 0;
-
-  const [time, mod] = timeStr.split(" ");
-  let [h, m] = time.split(":");
-
-  if (mod === "PM" && h !== "12") h = +h + 12;
-  if (mod === "AM" && h === "12") h = "00";
-
-  return parseInt(h) * 60 + parseInt(m);
 }
