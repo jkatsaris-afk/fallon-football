@@ -5,7 +5,8 @@ import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import SignUpPage from "./pages/Public/SignUpPage";
-import CoachSignUpPage from "./pages/Public/CoachSignUpPage"; // ✅ ADDED
+import CoachSignUpPage from "./pages/Public/CoachSignUpPage";
+import RefSignUpPage from "./pages/Public/RefSignUpPage"; // ✅ ADDED
 
 import LoginModal from "./components/LoginModal";
 import Dashboard from "./pages/Admin/Dashboard";
@@ -24,7 +25,8 @@ export default function App() {
 
     if (path.includes("/admin")) setPage("dashboard");
     if (path.includes("/sign-up")) setPage("signup");
-    if (path.includes("/coach-signup")) setPage("coachSignup"); // ✅ ADDED
+    if (path.includes("/coach-signup")) setPage("coachSignup");
+    if (path.includes("/ref-signup")) setPage("refSignup"); // ✅ ADDED
 
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -65,7 +67,8 @@ export default function App() {
           {page === "schedule" && <SchedulePage />}
           {page === "scoreboard" && <ScoreboardPage />}
           {page === "signup" && <SignUpPage />}
-          {page === "coachSignup" && <CoachSignUpPage />} {/* ✅ ADDED */}
+          {page === "coachSignup" && <CoachSignUpPage />}
+          {page === "refSignup" && <RefSignUpPage />} {/* ✅ ADDED */}
 
           {/* NAV (UNCHANGED) */}
           <div className="bottom-nav">
