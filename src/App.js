@@ -4,107 +4,85 @@ import "./styles.css";
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
-import SignUpPage from "./pages/Public/SignUpPage"; // ✅ ADDED
+import SignUpPage from "./pages/Public/SignUpPage";
+
+import AdminSettings from "./pages/Admin/AdminSettings";
+import Dashboard from "./pages/Admin/Dashboard";
 
 import LoginModal from "./components/LoginModal";
-import Dashboard from "./pages/Admin/Dashboard";
 
 import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [showLogin, setShowLogin] = useState(false);
-
   const [adminPage, setAdminPage] = useState("dashboard");
+  const [showLogin, setShowLogin] = useState(false);
+  const [signupsOpen, setSignupsOpen] = useState(false);
 
   useEffect(() => {
+    loadSettings();
+
     const path = window.location.pathname;
 
     if (path === "/admin") setPage("dashboard");
-    if (path === "/sign-up") setPage("signup"); // ✅ ADDED
+    if (path === "/settings") setAdminPage("settings");
 
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-
-      if (path === "/admin" && !data.user) {
-        window.location.href = "/";
-      }
-    };
-
-    checkUser();
+    if (path === "/sign-up") {
+      setPage("signup");
+    }
   }, []);
+
+  const loadSettings = async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("*")
+      .eq("id", 1)
+      .single();
+
+    if (data) setSignupsOpen(data.signups_open);
+  };
 
   return (
     <>
       {page === "dashboard" ? (
-        <div
-          style={{
-            width: "100vw",
-            height: "100vh",
-            background: "#f8fafc",
-          }}
-        >
-          <Dashboard
-            adminPage={adminPage}
-            setAdminPage={setAdminPage}
-          />
+        <div style={{ width: "100vw", height: "100vh" }}>
+          {adminPage === "dashboard" && (
+            <Dashboard
+              adminPage={adminPage}
+              setAdminPage={setAdminPage}
+            />
+          )}
+
+          {adminPage === "settings" && <AdminSettings />}
         </div>
       ) : (
         <div className="app">
 
-          {/* HEADER */}
           <div className="header">
             <img src={logo} className="logo" alt="logo" />
           </div>
 
-          {/* PUBLIC PAGES */}
           {page === "home" && <HomePage setPage={setPage} />}
           {page === "schedule" && <SchedulePage />}
           {page === "scoreboard" && <ScoreboardPage />}
-          {page === "signup" && <SignUpPage />} {/* ✅ ADDED */}
 
-          {/* NAV (hide on signup for clean flow) */}
+          {page === "signup" && signupsOpen && <SignUpPage />}
+
           {page !== "signup" && (
             <div className="bottom-nav">
 
-              <button
-                className={`nav-btn ${page === "home" ? "active" : ""}`}
-                onClick={() => setPage("home")}
-              >
-                Home
-              </button>
-
-              <button
-                className={`nav-btn ${page === "schedule" ? "active" : ""}`}
-                onClick={() => setPage("schedule")}
-              >
-                Schedule
-              </button>
-
-              <button
-                className={`nav-btn ${page === "scoreboard" ? "active" : ""}`}
-                onClick={() => setPage("scoreboard")}
-              >
-                Scores
-              </button>
-
-              <button
-                className={`nav-btn ${page === "dashboard" ? "active" : ""}`}
-                onClick={() => setPage("dashboard")}
-              >
-                Admin
-              </button>
-
-              <button onClick={() => setShowLogin(true)} className="nav-btn">
-                Login
-              </button>
+              <button onClick={()=>setPage("home")}>Home</button>
+              <button onClick={()=>setPage("schedule")}>Schedule</button>
+              <button onClick={()=>setPage("scoreboard")}>Scores</button>
+              <button onClick={()=>setPage("dashboard")}>Admin</button>
+              <button onClick={()=>setShowLogin(true)}>Login</button>
 
             </div>
           )}
 
           {showLogin && (
-            <LoginModal onClose={() => setShowLogin(false)} />
+            <LoginModal onClose={()=>setShowLogin(false)} />
           )}
 
         </div>
