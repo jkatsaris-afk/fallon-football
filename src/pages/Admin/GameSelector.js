@@ -67,33 +67,35 @@ export default function GameSelector({ onGameStart }) {
     setGames(clean);
   }
 
+  // ===== FIXED START GAME =====
   async function startGame(game) {
-    console.log("START GAME RUNNING", game);
+    console.log("🚀 START GAME FUNCTION", game);
 
     if (!game?.id) {
       console.error("❌ game.id missing");
       return;
     }
 
-    // check existing
+    // ===== CHECK EXISTING =====
     const { data: existing, error: checkError } = await supabase
       .from("games_live")
       .select("*")
       .eq("schedule_id", game.id)
       .maybeSingle();
 
+    console.log("CHECK EXISTING:", existing, checkError);
+
     if (checkError) {
-      console.error("CHECK ERROR:", checkError);
+      console.error("❌ CHECK ERROR:", checkError);
       return;
     }
 
     if (existing) {
-      console.log("Loaded existing game:", existing);
-      onGameStart(existing, game);
+      console.log("⚡ GAME ALREADY EXISTS");
       return;
     }
 
-    // insert
+    // ===== INSERT =====
     const { data, error } = await supabase
       .from("games_live")
       .insert([
@@ -103,19 +105,28 @@ export default function GameSelector({ onGameStart }) {
           away_score: 0,
           half: 1,
           clock: "24:00",
+          status: "live",
         },
       ])
       .select();
 
-    console.log("INSERT DATA:", data);
-    console.log("INSERT ERROR:", error);
+    console.log("🔥 INSERT RESULT:", data);
+    console.log("🔥 INSERT ERROR:", error);
 
-    if (error) return;
+    if (error) {
+      console.error("❌ INSERT FAILED:", error);
+      return;
+    }
 
-    if (data && data.length > 0) {
+    if (!data || data.length === 0) {
+      console.error("❌ NO ROW RETURNED (RLS ISSUE)");
+      return;
+    }
+
+    console.log("✅ GAME CREATED:", data[0]);
+
+    if (onGameStart) {
       onGameStart(data[0], game);
-    } else {
-      console.error("❌ Insert returned no data (likely RLS)");
     }
   }
 
@@ -221,7 +232,6 @@ export default function GameSelector({ onGameStart }) {
                       )}
                       <span>{item.team}</span>
                     </div>
-
                     <div className="game-time">{item.event_time}</div>
                   </div>
 
@@ -235,7 +245,6 @@ export default function GameSelector({ onGameStart }) {
                       )}
                       <span>{item.opponent || "TBD"}</span>
                     </div>
-
                     <div className="field-badge">{item.field}</div>
                   </div>
 
@@ -246,7 +255,7 @@ export default function GameSelector({ onGameStart }) {
                   style={startBtn}
                   onClick={(e) => {
                     e.stopPropagation();
-                    console.log("CLICK WORKED", item);
+                    console.log("✅ BUTTON CLICKED", item);
                     startGame(item);
                   }}
                 >
