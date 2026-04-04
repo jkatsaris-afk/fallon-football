@@ -26,7 +26,6 @@ export default function TeamsPage() {
   const [nflTeams, setNflTeams] = useState([]);
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
-  const [players, setPlayers] = useState([]);
 
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTeam, setActiveTeam] = useState(null);
@@ -34,14 +33,6 @@ export default function TeamsPage() {
   const [division, setDivision] = useState("");
   const [coach, setCoach] = useState("");
   const [assistantCoach, setAssistantCoach] = useState("");
-
-  const [showMove, setShowMove] = useState(false);
-  const [targetTeam, setTargetTeam] = useState("");
-
-  const [showAdd, setShowAdd] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState("");
-
-  const [confirmAuto, setConfirmAuto] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -51,13 +42,13 @@ export default function TeamsPage() {
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: c } = await supabase.from("coaches").select("*");
-    const { data: p } = await supabase.from("players").select("*");
 
     setNflTeams(nfl || []);
     setTeams(t || []);
     setCoaches(c || []);
-    setPlayers(p || []);
   };
+
+  /* ================= ASSIGN TEAM ================= */
 
   const assignTeam = async () => {
     if (!selectedTeam || !division || !coach) {
@@ -65,7 +56,7 @@ export default function TeamsPage() {
       return;
     }
 
-    await supabase.from("teams").insert([{
+    const { error } = await supabase.from("teams").insert([{
       nfl_team_id: selectedTeam.id,
       division,
       coach_id: coach,
@@ -73,43 +64,18 @@ export default function TeamsPage() {
       season_id: 2026
     }]);
 
-    loadData();
-    setSelectedTeam(null);
-  };
-
-  const autoAssign = async () => {
-    if (!activeTeam) return;
-
-    const divisionTeams = teams.filter(
-      t => t.division === activeTeam.division
-    );
-
-    if (divisionTeams.length < 2) {
-      alert("Need at least 2 teams");
+    if (error) {
+      alert("❌ Team already assigned in this division");
       return;
     }
 
-    const available = players.filter(
-      p => p.division === activeTeam.division && !p.team_id
-    );
+    // ✅ RESET UI CLEANLY
+    setSelectedTeam(null);
+    setDivision("");
+    setCoach("");
+    setAssistantCoach("");
 
-    const perTeam = Math.ceil(available.length / divisionTeams.length);
-
-    let index = 0;
-
-    for (let team of divisionTeams) {
-      const chunk = available.slice(index, index + perTeam);
-
-      for (let p of chunk) {
-        await supabase.from("players")
-          .update({ team_id: team.id })
-          .eq("id", p.id);
-      }
-
-      index += perTeam;
-    }
-
-    loadData();
+    await loadData();
   };
 
   return (
@@ -117,24 +83,40 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
-      {/* TEAM SELECT */}
+      {/* ================= SELECT TEAMS ================= */}
+
+      <h3>Select NFL Team</h3>
+
       <div style={grid}>
-        {nflTeams.map(team => (
-          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
-            <img src={teamLogos[team.short_name]} width={60}/>
-            <div>{team.full_name}</div>
-          </div>
-        ))}
+        {nflTeams
+          .filter(nfl =>
+            !teams.some(t => t.nfl_team_id === nfl.id)
+          )
+          .map(team => (
+            <div
+              key={team.id}
+              style={tile}
+              onClick={() => setSelectedTeam(team)}
+            >
+              <img src={teamLogos[team.short_name]} width={60}/>
+              <div>{team.full_name}</div>
+            </div>
+          ))}
       </div>
 
-      {/* ASSIGN PANEL */}
+      {/* ================= ASSIGN PANEL ================= */}
+
       {selectedTeam && (
         <div style={panel}>
-          <button style={closeBtn} onClick={()=>setSelectedTeam(null)}>✕</button>
+          <button style={closeBtn} onClick={() => setSelectedTeam(null)}>✕</button>
 
           <h3>{selectedTeam.full_name}</h3>
 
-          <select style={inputStyle} onChange={(e)=>setDivision(e.target.value)}>
+          <select
+            style={inputStyle}
+            value={division}
+            onChange={(e)=>setDivision(e.target.value)}
+          >
             <option value="">Division</option>
             <option>K-1</option>
             <option>2nd-3rd</option>
@@ -142,8 +124,11 @@ export default function TeamsPage() {
             <option>6th+</option>
           </select>
 
-          {/* SAFE coach list */}
-          <select style={inputStyle} onChange={(e)=>setCoach(e.target.value)}>
+          <select
+            style={inputStyle}
+            value={coach}
+            onChange={(e)=>setCoach(e.target.value)}
+          >
             <option value="">Head Coach</option>
             {coaches.map(c => (
               <option key={c.id} value={c.id}>
@@ -152,8 +137,11 @@ export default function TeamsPage() {
             ))}
           </select>
 
-          {/* SAFE assistant */}
-          <select style={inputStyle} onChange={(e)=>setAssistantCoach(e.target.value)}>
+          <select
+            style={inputStyle}
+            value={assistantCoach}
+            onChange={(e)=>setAssistantCoach(e.target.value)}
+          >
             <option value="">Assistant Coach</option>
             {coaches.map(c => (
               <option key={c.id} value={c.id}>
@@ -168,48 +156,41 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* TEAMS */}
+      {/* ================= ASSIGNED TEAMS ================= */}
+
+      <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
+
       <div style={grid}>
         {teams.map(t => {
           const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
           return (
-            <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+            <div
+              key={t.id}
+              style={tile}
+              onClick={() => setActiveTeam(t)}
+            >
               <img src={teamLogos[nfl?.short_name]} width={50}/>
               <div>{nfl?.full_name}</div>
-              <div>{t.division}</div>
+              <div style={{ fontSize: 12, color: "#64748b" }}>
+                {t.division}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* TEAM PANEL */}
+      {/* ================= TEAM MANAGER ================= */}
+
       {activeTeam && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
 
           <h2>Manage Team</h2>
 
-          <div style={btnRow}>
-            <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
-              Auto Roster
-            </button>
+          <div style={{ fontSize: 14, color: "#64748b" }}>
+            Division: {activeTeam.division}
           </div>
-        </div>
-      )}
-
-      {/* CONFIRM */}
-      {confirmAuto && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setConfirmAuto(false)}>✕</button>
-
-          <h3>Confirm Auto Roster</h3>
-
-          <button style={primaryBtn} onClick={()=>{
-            setConfirmAuto(false);
-            autoAssign();
-          }}>
-            Confirm
-          </button>
         </div>
       )}
 
@@ -222,7 +203,8 @@ export default function TeamsPage() {
 const grid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-  gap: 15
+  gap: 15,
+  marginTop: 15
 };
 
 const tile = {
@@ -230,7 +212,8 @@ const tile = {
   borderRadius: 12,
   padding: 10,
   textAlign: "center",
-  cursor: "pointer"
+  cursor: "pointer",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
 };
 
 const panel = {
@@ -260,13 +243,7 @@ const inputStyle = {
   border: "1px solid #e2e8f0"
 };
 
-const btnRow = {
-  display: "flex",
-  gap: 10
-};
-
 const primaryBtn = {
-  flex: 1,
   padding: 12,
   background: "#2f6ea6",
   color: "#fff",
