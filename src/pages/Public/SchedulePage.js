@@ -4,6 +4,7 @@ import { supabase } from "../../supabase";
 export default function SchedulePage() {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedType, setSelectedType] = useState(null);
 
   useEffect(() => {
     load();
@@ -29,7 +30,7 @@ export default function SchedulePage() {
     clean_type: (g.event_type || "").toLowerCase().trim()
   }));
 
-  /* GROUP */
+  /* GROUP BY DATE */
   const grouped = cleanGames.reduce((acc, game) => {
     if (!game.clean_date) return acc;
 
@@ -47,7 +48,7 @@ export default function SchedulePage() {
   return (
     <div>
 
-      {/* DATE LIST */}
+      {/* ================= DATE LIST ================= */}
       {!selectedDate &&
         dates.map(date => (
           <div
@@ -56,12 +57,14 @@ export default function SchedulePage() {
             onClick={() => setSelectedDate(date)}
           >
             <div className="title">{formatDate(date)}</div>
-            <div className="sub">{grouped[date].length} games</div>
+            <div className="sub">
+              {grouped[date].length} events
+            </div>
           </div>
         ))}
 
-      {/* SELECTED DATE */}
-      {selectedDate && (
+      {/* ================= TYPE SELECT ================= */}
+      {selectedDate && !selectedType && (
         <div>
 
           <div className="card active-card">
@@ -70,37 +73,83 @@ export default function SchedulePage() {
 
           <div
             className="card"
-            onClick={() => setSelectedDate(null)}
+            onClick={() => setSelectedType("game")}
+          >
+            <div className="title">Games</div>
+          </div>
+
+          <div
+            className="card"
+            onClick={() => setSelectedType("practice")}
+          >
+            <div className="title">Practices</div>
+          </div>
+
+          <div
+            className="card"
+            onClick={() => {
+              setSelectedDate(null);
+              setSelectedType(null);
+            }}
+          >
+            <div className="sub">← Back</div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ================= RESULTS ================= */}
+      {selectedDate && selectedType && (
+        <div>
+
+          <div className="card active-card">
+            <div className="title">
+              {formatDate(selectedDate)} - {selectedType.toUpperCase()}
+            </div>
+          </div>
+
+          <div
+            className="card"
+            onClick={() => setSelectedType(null)}
           >
             <div className="sub">← Back</div>
           </div>
 
           {grouped[selectedDate]
-            .filter(g => g.clean_type.includes("game"))
+            .filter(g => g.clean_type.includes(selectedType))
             .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
-
-            .map((game, i) => (
-              <div key={game.id}>
+            .map((item, i) => (
+              <div key={item.id}>
 
                 {i !== 0 && <div className="divider" />}
 
                 <div className="inner-tile">
 
-                  <div className="game-row">
+                  {selectedType === "game" ? (
+                    <div className="game-row">
 
-                    <div className="game-top">
-                      <div className="team">{game.team}</div>
-                      <div className="game-time">{game.event_time}</div>
+                      <div className="game-top">
+                        <div className="team">{item.team}</div>
+                        <div className="game-time">{item.event_time}</div>
+                      </div>
+
+                      <div className="vs">vs</div>
+
+                      <div className="game-bottom">
+                        <div className="team">{item.opponent}</div>
+                        <div className="field-badge">{item.field}</div>
+                      </div>
+
                     </div>
+                  ) : (
+                    <div className="practice-row">
 
-                    <div className="vs">vs</div>
+                      <div className="team">{item.team}</div>
+                      <div className="game-time">{item.event_time}</div>
+                      <div className="field-badge">{item.field}</div>
 
-                    <div className="game-bottom">
-                      <div className="team">{game.opponent}</div>
-                      <div className="field-badge">{game.field}</div>
                     </div>
-
-                  </div>
+                  )}
 
                 </div>
 
@@ -114,7 +163,8 @@ export default function SchedulePage() {
   );
 }
 
-/* HELPERS */
+/* ================= HELPERS ================= */
+
 function normalizeDate(dateStr) {
   if (!dateStr) return null;
 
