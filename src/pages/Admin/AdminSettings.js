@@ -39,7 +39,6 @@ export default function AdminSettings() {
         Manage league configuration
       </p>
 
-      {/* GRID */}
       <div
         style={{
           display: "grid",
@@ -48,7 +47,7 @@ export default function AdminSettings() {
         }}
       >
 
-        {/* 🔥 REGISTRATION TILE */}
+        {/* REGISTRATION */}
         <Tile title="Registration">
 
           <ToggleRow
@@ -57,13 +56,21 @@ export default function AdminSettings() {
             onChange={(val) => update("signups_open", val)}
           />
 
-          {/* ✅ ADDED (coach toggle) */}
           <div style={{ height: 10 }} />
 
           <ToggleRow
             label="Coach Signups Open"
             value={settings.coach_signups_open}
             onChange={(val) => update("coach_signups_open", val)}
+          />
+
+          {/* ✅ ADDED */}
+          <div style={{ height: 10 }} />
+
+          <ToggleRow
+            label="Ref Signups Open"
+            value={settings.ref_signups_open}
+            onChange={(val) => update("ref_signups_open", val)}
           />
 
         </Tile>
@@ -91,87 +98,15 @@ export default function AdminSettings() {
   );
 }
 
-/* ================= TILE ================= */
-
-function Tile({ title, children }) {
-  return (
-    <div
-      style={{
-        background: "#ffffff",
-        borderRadius: 16,
-        padding: 20,
-        boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 15
-      }}
-    >
-      <div style={{ fontWeight: 600, fontSize: 16 }}>{title}</div>
-      {children}
-    </div>
-  );
-}
-
-/* ================= INPUT ================= */
-
-function InputRow({ label, value, onChange }) {
-  return (
-    <div>
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>
-        {label}
-      </div>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 10,
-          borderRadius: 10,
-          border: "1px solid #e2e8f0"
-        }}
-      />
-    </div>
-  );
-}
-
-/* ================= TOGGLE SWITCH ================= */
-
+/* (unchanged UI helpers below) */
+function Tile({ title, children }) { return <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 6px 18px rgba(0,0,0,0.06)",display:"flex",flexDirection:"column",gap:15}}><div style={{fontWeight:600,fontSize:16}}>{title}</div>{children}</div>; }
+function InputRow({ label, value, onChange }) { return <div><div style={{fontSize:13,color:"#64748b",marginBottom:6}}>{label}</div><input value={value} onChange={(e)=>onChange(e.target.value)} style={{width:"100%",padding:10,borderRadius:10,border:"1px solid #e2e8f0"}}/></div>; }
 function ToggleRow({ label, value, onChange }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center"
-      }}
-    >
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <div>{label}</div>
-
-      <div
-        onClick={() => onChange(!value)}
-        style={{
-          width: 50,
-          height: 26,
-          borderRadius: 20,
-          background: value ? "#2f6ea6" : "#cbd5f5",
-          position: "relative",
-          cursor: "pointer",
-          transition: "all 0.2s ease"
-        }}
-      >
-        <div
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: "50%",
-            background: "#ffffff",
-            position: "absolute",
-            top: 2,
-            left: value ? 26 : 2,
-            transition: "all 0.2s ease",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
-          }}
-        />
+      <div onClick={()=>onChange(!value)} style={{width:50,height:26,borderRadius:20,background:value?"#2f6ea6":"#cbd5f5",position:"relative",cursor:"pointer"}}>
+        <div style={{width:22,height:22,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:value?26:2}}/>
       </div>
     </div>
   );
