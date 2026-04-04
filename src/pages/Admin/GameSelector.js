@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ===== LOGO IMPORTS =====
+// ===== LOGOS =====
 import sf from "../../resources/San Francisco 49ers.png";
 import bengals from "../../resources/Cincinnati Bengals.png";
 import bills from "../../resources/Buffalo Bills.png";
@@ -15,21 +15,27 @@ import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
 
-// ===== LOGO MAP =====
+// ===== FIXED MAP (DB → FILE) =====
 const teamLogos = {
-  "San Francisco 49ers": sf,
-  "Cincinnati Bengals": bengals,
-  "Buffalo Bills": bills,
-  "Denver Broncos": broncos,
-  "Kansas City Chiefs": chiefs,
-  "Indianapolis Colts": colts,
-  "Philadelphia Eagles": eagles,
-  "New York Jets": jets,
-  "Detroit Lions": lions,
-  "Las Vegas Raiders": raiders,
-  "Los Angeles Rams": rams,
-  "Pittsburgh Steelers": steelers,
+  "49ers": sf,
+  "Bengals": bengals,
+  "Bills": bills,
+  "Broncos": broncos,
+  "Chiefs": chiefs,
+  "Colts": colts,
+  "Eagles": eagles,
+  "Jets": jets,
+  "Lions": lions,
+  "Raiders": raiders,
+  "Rams": rams,
+  "Steelers": steelers,
 };
+
+// ===== SAFE LOOKUP =====
+function getLogo(name) {
+  if (!name) return null;
+  return teamLogos[name.trim()] || null;
+}
 
 export default function GameSelector({ onGameStart }) {
   const [games, setGames] = useState([]);
@@ -87,7 +93,7 @@ export default function GameSelector({ onGameStart }) {
     if (!error) onGameStart(data, game);
   }
 
-  // ===== GROUP BY DATE + TIME =====
+  // ===== GROUP =====
   const grouped = games.reduce((acc, g) => {
     if (!g.clean_date) return acc;
 
@@ -106,7 +112,7 @@ export default function GameSelector({ onGameStart }) {
   return (
     <div style={container}>
 
-      {/* ================= DATE LIST ================= */}
+      {/* ===== DATE ===== */}
       {!selectedDate &&
         dates.map(date => (
           <div
@@ -121,7 +127,7 @@ export default function GameSelector({ onGameStart }) {
           </div>
         ))}
 
-      {/* ================= TIME LIST ================= */}
+      {/* ===== TIME ===== */}
       {selectedDate && !selectedTime && (
         <div>
 
@@ -129,13 +135,7 @@ export default function GameSelector({ onGameStart }) {
             <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
-          <div
-            className="card"
-            onClick={() => {
-              setSelectedDate(null);
-              setSelectedTime(null);
-            }}
-          >
+          <div className="card" onClick={() => setSelectedDate(null)}>
             <div className="sub">← Back</div>
           </div>
 
@@ -155,7 +155,7 @@ export default function GameSelector({ onGameStart }) {
         </div>
       )}
 
-      {/* ================= GAMES ================= */}
+      {/* ===== GAMES ===== */}
       {selectedDate && selectedTime && (
         <div>
 
@@ -165,10 +165,7 @@ export default function GameSelector({ onGameStart }) {
             </div>
           </div>
 
-          <div
-            className="card"
-            onClick={() => setSelectedTime(null)}
-          >
+          <div className="card" onClick={() => setSelectedTime(null)}>
             <div className="sub">← Back</div>
           </div>
 
@@ -177,16 +174,16 @@ export default function GameSelector({ onGameStart }) {
 
               {i !== 0 && <div className="divider" />}
 
-              <div
-                className="inner-tile"
-                onClick={() => startGame(item)}
-              >
+              <div className="inner-tile">
+
                 <div className="game-row">
 
                   {/* TEAM 1 */}
                   <div className="game-top">
                     <div className="team-row">
-                      <img src={teamLogos[item.team]} alt="" style={logo} />
+                      {getLogo(item.team) && (
+                        <img src={getLogo(item.team)} style={logo} />
+                      )}
                       <span>{item.team}</span>
                     </div>
 
@@ -198,14 +195,24 @@ export default function GameSelector({ onGameStart }) {
                   {/* TEAM 2 */}
                   <div className="game-bottom">
                     <div className="team-row">
-                      <img src={teamLogos[item.opponent]} alt="" style={logo} />
-                      <span>{item.opponent}</span>
+                      {getLogo(item.opponent) && (
+                        <img src={getLogo(item.opponent)} style={logo} />
+                      )}
+                      <span>{item.opponent || "TBD"}</span>
                     </div>
 
                     <div className="field-badge">{item.field}</div>
                   </div>
 
                 </div>
+
+                {/* ✅ START BUTTON BACK */}
+                <button
+                  style={startBtn}
+                  onClick={() => startGame(item)}
+                >
+                  Start Game
+                </button>
 
               </div>
 
@@ -219,11 +226,10 @@ export default function GameSelector({ onGameStart }) {
   );
 }
 
-/* ================= HELPERS ================= */
+/* ===== HELPERS ===== */
 
 function normalizeDate(dateStr) {
   if (!dateStr) return null;
-
   if (dateStr.includes("-")) return dateStr;
 
   const [m, d, y] = dateStr.split("/");
@@ -250,7 +256,7 @@ function toTime(timeStr) {
   return parseInt(h) * 60 + parseInt(m);
 }
 
-/* ================= STYLE ================= */
+/* ===== STYLE ===== */
 
 const container = {
   width: 300,
@@ -262,6 +268,17 @@ const container = {
 const logo = {
   width: 22,
   height: 22,
-  objectFit: "contain",
   marginRight: 6
+};
+
+const startBtn = {
+  marginTop: 8,
+  width: "100%",
+  padding: "6px",
+  borderRadius: 6,
+  border: "none",
+  background: "#2f6ea6",
+  color: "#fff",
+  fontSize: 12,
+  cursor: "pointer"
 };
