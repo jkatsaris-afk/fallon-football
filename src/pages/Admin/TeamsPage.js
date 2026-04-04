@@ -54,38 +54,10 @@ export default function TeamsPage() {
     setPlayers(p || []);
   };
 
-  /* ================= HELPERS ================= */
-
   const getCoachName = (id) => {
     const c = coaches.find(x => x.id === id);
     return c ? `${c.first_name} ${c.last_name}` : "—";
   };
-
-  /* ================= ASSIGN ================= */
-
-  const assignTeam = async () => {
-    if (!selectedTeam || !division || !coach) {
-      alert("Select division and coach");
-      return;
-    }
-
-    await supabase.from("teams").insert([{
-      nfl_team_id: selectedTeam.id,
-      division,
-      coach_id: coach,
-      assistant_coach_id: assistantCoach || null,
-      season_id: 2026
-    }]);
-
-    setSelectedTeam(null);
-    setDivision("");
-    setCoach("");
-    setAssistantCoach("");
-
-    loadData();
-  };
-
-  /* ================= ADD PLAYER ================= */
 
   const addPlayerToTeam = async (playerId) => {
     await supabase
@@ -95,8 +67,6 @@ export default function TeamsPage() {
 
     loadData();
   };
-
-  /* ================= AUTO ================= */
 
   const autoAssign = async () => {
     const divisionTeams = teams.filter(
@@ -126,8 +96,6 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= REMOVE ================= */
-
   const removeTeam = async () => {
     await supabase.from("teams")
       .delete()
@@ -140,17 +108,26 @@ export default function TeamsPage() {
   /* ================= OVERLAY VIEW ================= */
 
   if (activeTeam) {
+    const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
+
     return (
       <div>
 
-        <button
-          style={{ marginBottom: 15 }}
-          onClick={() => setActiveTeam(null)}
-        >
-          ← Back to Teams
-        </button>
+        {/* 🔥 HEADER */}
+        <div style={headerBar}>
+          <button style={backBtn} onClick={() => setActiveTeam(null)}>
+            ← Back to Teams
+          </button>
+        </div>
 
-        <h1>Manage Team</h1>
+        {/* TEAM INFO */}
+        <div style={teamHeader}>
+          <img src={teamLogos[nfl?.short_name]} width={80}/>
+          <div>
+            <h2 style={{ margin: 0 }}>{nfl?.full_name}</h2>
+            <div style={{ color: "#64748b" }}>{activeTeam.division}</div>
+          </div>
+        </div>
 
         <div>
           <strong>Head Coach:</strong> {getCoachName(activeTeam.coach_id)}
@@ -279,6 +256,24 @@ export default function TeamsPage() {
 }
 
 /* ================= STYLES ================= */
+
+const headerBar = {
+  marginBottom: 15
+};
+
+const backBtn = {
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  cursor: "pointer"
+};
+
+const teamHeader = {
+  display: "flex",
+  alignItems: "center",
+  gap: 15,
+  marginBottom: 20
+};
 
 const grid = {
   display: "grid",
