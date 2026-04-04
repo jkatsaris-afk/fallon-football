@@ -46,18 +46,7 @@ export default function ScoreboardManager() {
   async function startGame(game) {
     setSelectedGame(game);
 
-    const { data: existing } = await supabase
-      .from("live_games")
-      .select("*")
-      .eq("game_id", game.id)
-      .maybeSingle();
-
-    if (existing) {
-      setLiveGame(existing);
-      return;
-    }
-
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("live_games")
       .insert([
         {
@@ -74,12 +63,20 @@ export default function ScoreboardManager() {
       .select()
       .single();
 
+    if (error) {
+      console.error("Start Game Error:", error);
+      return;
+    }
+
     setLiveGame(data);
   }
 
-  // ================= SCORE (WORKING) =================
+  // ================= SCORE =================
   async function updateScore(team, points) {
-    if (!liveGame) return;
+    if (!liveGame?.id) {
+      console.log("No game ID");
+      return;
+    }
 
     const field = team === "home" ? "home_score" : "away_score";
     const newScore = Math.max(0, (liveGame[field] || 0) + points);
@@ -92,7 +89,7 @@ export default function ScoreboardManager() {
       .single();
 
     if (error) {
-      console.error("Score update error:", error);
+      console.error("Update error:", error);
       return;
     }
 
@@ -170,6 +167,7 @@ export default function ScoreboardManager() {
               {selectedGame.team1} vs {selectedGame.team2}
             </h2>
 
+            {/* SCOREBOARD */}
             <div style={board}>
 
               {/* HOME */}
