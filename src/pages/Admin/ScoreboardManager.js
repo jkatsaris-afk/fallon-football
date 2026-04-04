@@ -42,10 +42,23 @@ export default function ScoreboardManager() {
     setGames(mapped);
   }
 
-  // ================= START GAME =================
+  // ================= START GAME (FIXED) =================
   async function startGame(game) {
     setSelectedGame(game);
 
+    // check existing
+    const { data: existing } = await supabase
+      .from("live_games")
+      .select("*")
+      .eq("game_id", game.id)
+      .maybeSingle();
+
+    if (existing) {
+      setLiveGame(existing);
+      return;
+    }
+
+    // create new
     const { data, error } = await supabase
       .from("live_games")
       .insert([
@@ -64,7 +77,7 @@ export default function ScoreboardManager() {
       .single();
 
     if (error) {
-      console.error("Start Game Error:", error);
+      console.error(error);
       return;
     }
 
@@ -73,10 +86,7 @@ export default function ScoreboardManager() {
 
   // ================= SCORE =================
   async function updateScore(team, points) {
-    if (!liveGame?.id) {
-      console.log("No game ID");
-      return;
-    }
+    if (!liveGame?.id) return;
 
     const field = team === "home" ? "home_score" : "away_score";
     const newScore = Math.max(0, (liveGame[field] || 0) + points);
@@ -88,12 +98,7 @@ export default function ScoreboardManager() {
       .select()
       .single();
 
-    if (error) {
-      console.error("Update error:", error);
-      return;
-    }
-
-    setLiveGame(data);
+    if (!error) setLiveGame(data);
   }
 
   // ================= CLOCK =================
@@ -151,13 +156,13 @@ export default function ScoreboardManager() {
   return (
     <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
-      {/* LEFT PANEL */}
+      {/* LEFT SIDE */}
       <div style={leftPanel}>
 
         {!selectedGame && (
           <div style={empty}>
             <h2>No Game Active</h2>
-            <p>Select and start a game</p>
+            <p>Select a game to begin</p>
           </div>
         )}
 
@@ -167,8 +172,7 @@ export default function ScoreboardManager() {
               {selectedGame.team1} vs {selectedGame.team2}
             </h2>
 
-            {/* SCOREBOARD */}
-            <div style={board}>
+            <div style={scoreboard}>
 
               {/* HOME */}
               <div style={team}>
@@ -212,7 +216,7 @@ export default function ScoreboardManager() {
         )}
       </div>
 
-      {/* RIGHT PANEL */}
+      {/* RIGHT SIDE */}
       <div style={rightPanel}>
         {grouped.map((day) => (
           <div key={day.date}>
@@ -250,7 +254,7 @@ const leftPanel = { flex: 2, background: "#fff", padding: 20, borderRadius: 12 }
 const rightPanel = { flex: 1, overflowY: "auto" };
 const empty = { textAlign: "center", marginTop: "30%" };
 
-const board = {
+const scoreboard = {
   display: "flex",
   justifyContent: "space-between",
   background: "#f1f5f9",
