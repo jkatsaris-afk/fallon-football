@@ -1,28 +1,48 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./styles.css";
 
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
+import ScoreboardPage from "./pages/Public/ScoreboardPage";
+import ScoreboardManager from "./pages/Admin/ScoreboardManager";
 import LoginModal from "./components/LoginModal";
 
-// 🔥 IMPORT YOUR LOGO (THIS IS THE FIX)
+import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
 
 export default function App() {
   const [page, setPage] = useState("home");
   const [showLogin, setShowLogin] = useState(false);
 
+  useEffect(() => {
+    const path = window.location.pathname;
+
+    if (path === "/admin") setPage("admin");
+
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (path === "/admin" && !data.user) {
+        window.location.href = "/";
+      }
+    };
+
+    checkUser();
+  }, []);
+
   return (
     <div className="app">
 
       {/* HEADER */}
       <div className="header">
-        <img src={logo} className="logo" alt="Fallon Flag Football" />
+        <img src={logo} className="logo" alt="logo" />
       </div>
 
-      {/* PAGE CONTENT */}
+      {/* PAGES */}
       {page === "home" && <HomePage setPage={setPage} />}
       {page === "schedule" && <SchedulePage />}
+      {page === "scoreboard" && <ScoreboardPage />}
+      {page === "admin" && <ScoreboardManager />}
 
       {/* NAV */}
       <div className="bottom-nav">
@@ -42,15 +62,18 @@ export default function App() {
         </button>
 
         <button
-          className="nav-btn"
-          onClick={() => setShowLogin(true)}
+          className={`nav-btn ${page === "scoreboard" ? "active" : ""}`}
+          onClick={() => setPage("scoreboard")}
         >
+          Scores
+        </button>
+
+        <button onClick={() => setShowLogin(true)} className="nav-btn">
           Login
         </button>
 
       </div>
 
-      {/* LOGIN MODAL */}
       {showLogin && (
         <LoginModal onClose={() => setShowLogin(false)} />
       )}
