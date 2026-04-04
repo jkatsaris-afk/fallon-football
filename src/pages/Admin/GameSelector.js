@@ -1,10 +1,40 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+// ===== LOGO IMPORTS =====
+import sf from "../../resources/San Francisco 49ers.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
+import bills from "../../resources/Buffalo Bills.png";
+import broncos from "../../resources/Denver Broncos.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
+import jets from "../../resources/New York Jets.png";
+import lions from "../../resources/Detroit Lions.png";
+import raiders from "../../resources/Las Vegas Raiders.png";
+import rams from "../../resources/Los Angeles Rams.png";
+import steelers from "../../resources/Pittsburgh Steelers.png";
+
+// ===== LOGO MAP =====
+const teamLogos = {
+  "San Francisco 49ers": sf,
+  "Cincinnati Bengals": bengals,
+  "Buffalo Bills": bills,
+  "Denver Broncos": broncos,
+  "Kansas City Chiefs": chiefs,
+  "Indianapolis Colts": colts,
+  "Philadelphia Eagles": eagles,
+  "New York Jets": jets,
+  "Detroit Lions": lions,
+  "Las Vegas Raiders": raiders,
+  "Los Angeles Rams": rams,
+  "Pittsburgh Steelers": steelers,
+};
+
 export default function GameSelector({ onGameStart }) {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedTime, setSelectedTime] = useState(null); // ✅ ADDED
+  const [selectedTime, setSelectedTime] = useState(null);
 
   useEffect(() => {
     loadGames();
@@ -57,7 +87,7 @@ export default function GameSelector({ onGameStart }) {
     if (!error) onGameStart(data, game);
   }
 
-  // ===== GROUP BY DATE + TIME ===== ✅ UPDATED
+  // ===== GROUP BY DATE + TIME =====
   const grouped = games.reduce((acc, g) => {
     if (!g.clean_date) return acc;
 
@@ -115,7 +145,7 @@ export default function GameSelector({ onGameStart }) {
               <div
                 key={time}
                 className="card"
-                style={{ background: "#e8f5e9" }} // light green
+                style={{ background: "#e8f5e9" }}
                 onClick={() => setSelectedTime(time)}
               >
                 <div className="title">{time}</div>
@@ -153,15 +183,25 @@ export default function GameSelector({ onGameStart }) {
               >
                 <div className="game-row">
 
+                  {/* TEAM 1 */}
                   <div className="game-top">
-                    <div className="team">{item.team}</div>
+                    <div className="team-row">
+                      <img src={teamLogos[item.team]} alt="" style={logo} />
+                      <span>{item.team}</span>
+                    </div>
+
                     <div className="game-time">{item.event_time}</div>
                   </div>
 
                   <div className="vs">vs</div>
 
+                  {/* TEAM 2 */}
                   <div className="game-bottom">
-                    <div className="team">{item.opponent}</div>
+                    <div className="team-row">
+                      <img src={teamLogos[item.opponent]} alt="" style={logo} />
+                      <span>{item.opponent}</span>
+                    </div>
+
                     <div className="field-badge">{item.field}</div>
                   </div>
 
@@ -217,4 +257,11 @@ const container = {
   padding: 10,
   overflowY: "auto",
   borderRight: "1px solid #e5e7eb"
+};
+
+const logo = {
+  width: 22,
+  height: 22,
+  objectFit: "contain",
+  marginRight: 6
 };
