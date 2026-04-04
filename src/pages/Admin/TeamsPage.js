@@ -15,20 +15,19 @@ import jets from "../../resources/New York Jets.png";
 import eagles from "../../resources/Philadelphia Eagles.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
 import niners from "../../resources/San Francisco 49ers.png";
-import ravens from "../../resources/Baltimore Ravens.png"; // ✅ ADDED
+import ravens from "../../resources/Baltimore Ravens.png";
 
 const teamLogos = {
   bills, bengals, broncos, lions, colts,
   chiefs, raiders, rams, jets, eagles,
   steelers, "49ers": niners,
-  ravens // ✅ ADDED
+  ravens
 };
 
 export default function TeamsPage() {
   const [nflTeams, setNflTeams] = useState([]);
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
-  const [players, setPlayers] = useState([]);
 
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTeam, setActiveTeam] = useState(null);
@@ -37,29 +36,16 @@ export default function TeamsPage() {
   const [coach, setCoach] = useState("");
   const [assistantCoach, setAssistantCoach] = useState("");
 
-  const [showAdd, setShowAdd] = useState(false);
-  const [confirmAuto, setConfirmAuto] = useState(false);
-
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: c } = await supabase.from("coaches").select("*");
-    const { data: p } = await supabase.from("players").select("*");
 
     setNflTeams(nfl || []);
     setTeams(t || []);
     setCoaches(c || []);
-    setPlayers(p || []);
-  };
-
-  /* ================= HELPER ================= */
-
-  const getCoachName = (id) => {
-    const c = coaches.find(coach => coach.id === id);
-    if (!c) return "—";
-    return `${c.first_name || ""} ${c.last_name || ""}`.trim();
   };
 
   /* ================= ASSIGN ================= */
@@ -86,70 +72,81 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= AUTO ================= */
-
-  const autoAssign = async () => {
-    const divisionTeams = teams.filter(
-      t => t.division === activeTeam.division
-    );
-
-    const available = players.filter(
-      p => p.division === activeTeam.division && !p.team_id
-    );
-
-    const perTeam = Math.ceil(available.length / divisionTeams.length);
-
-    let index = 0;
-
-    for (let team of divisionTeams) {
-      const chunk = available.slice(index, index + perTeam);
-
-      for (let p of chunk) {
-        await supabase.from("players")
-          .update({ team_id: team.id })
-          .eq("id", p.id);
-      }
-
-      index += perTeam;
-    }
-
-    loadData();
-  };
-
-  /* ================= REMOVE ================= */
-
-  const removeTeam = async () => {
-    await supabase
-      .from("players")
-      .update({ team_id: null })
-      .eq("team_id", activeTeam.id);
-
-    await supabase
-      .from("teams")
-      .delete()
-      .eq("id", activeTeam.id);
-
-    setActiveTeam(null);
-    loadData();
-  };
-
   return (
     <div>
 
       <h1>Teams Manager</h1>
 
-      {/* ================= SELECT ================= */}
+      {/* ================= SELECT TEAM ================= */}
+
+      <h3>Select NFL Team</h3>
 
       <div style={grid}>
         {nflTeams.map(team => (
-          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
+          <div
+            key={team.id}
+            style={tile}
+            onClick={() => setSelectedTeam(team)} // ✅ THIS WAS KEY
+          >
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
         ))}
       </div>
 
-      {/* ================= ASSIGNED ================= */}
+      {/* ================= ASSIGN PANEL (RESTORED) ================= */}
+
+      {selectedTeam && (
+        <div style={panel}>
+          <button style={closeBtn} onClick={()=>setSelectedTeam(null)}>✕</button>
+
+          <h3>{selectedTeam.full_name}</h3>
+
+          <select
+            style={inputStyle}
+            value={division}
+            onChange={(e)=>setDivision(e.target.value)}
+          >
+            <option value="">Select Division</option>
+            <option>K-1</option>
+            <option>2nd-3rd</option>
+            <option>4th-5th</option>
+            <option>6th+</option>
+          </select>
+
+          <select
+            style={inputStyle}
+            value={coach}
+            onChange={(e)=>setCoach(e.target.value)}
+          >
+            <option value="">Head Coach</option>
+            {coaches.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.first_name} {c.last_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            style={inputStyle}
+            value={assistantCoach}
+            onChange={(e)=>setAssistantCoach(e.target.value)}
+          >
+            <option value="">Assistant Coach</option>
+            {coaches.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.first_name} {c.last_name}
+              </option>
+            ))}
+          </select>
+
+          <button style={primaryBtn} onClick={assignTeam}>
+            Assign Team
+          </button>
+        </div>
+      )}
+
+      {/* ================= ASSIGNED TEAMS ================= */}
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
@@ -158,7 +155,7 @@ export default function TeamsPage() {
         if (divTeams.length === 0) return null;
 
         return (
-          <div key={div}>
+          <div key={div} style={{ marginTop: 15 }}>
             <div style={{ fontWeight: 600 }}>{div}</div>
 
             <div style={grid}>
@@ -175,58 +172,6 @@ export default function TeamsPage() {
           </div>
         );
       })}
-
-      {/* ================= MANAGE ================= */}
-
-      {activeTeam && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
-
-          <h2>Manage Team</h2>
-
-          {/* ✅ FIXED COACH DISPLAY */}
-          <div>
-            <strong>Head Coach:</strong> {getCoachName(activeTeam.coach_id)}
-          </div>
-
-          <div>
-            <strong>Assistant:</strong> {getCoachName(activeTeam.assistant_coach_id)}
-          </div>
-
-          <div style={btnRow}>
-            <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
-              Auto Roster
-            </button>
-
-            <button style={secondaryBtn}>
-              Add Player
-            </button>
-
-            <button style={dangerBtn} onClick={removeTeam}>
-              Remove Team
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ================= CONFIRM ================= */}
-
-      {confirmAuto && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setConfirmAuto(false)}>✕</button>
-
-          <p>
-            Make sure all teams are created in this division before running auto roster.
-          </p>
-
-          <button style={primaryBtn} onClick={()=>{
-            setConfirmAuto(false);
-            autoAssign();
-          }}>
-            Confirm
-          </button>
-        </div>
-      )}
 
     </div>
   );
@@ -268,28 +213,15 @@ const closeBtn = {
   cursor: "pointer"
 };
 
-const btnRow = {
-  display: "flex",
-  gap: 10
+const inputStyle = {
+  padding: 10,
+  borderRadius: 10,
+  border: "1px solid #e2e8f0"
 };
 
 const primaryBtn = {
   padding: 10,
   background: "#2f6ea6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 10
-};
-
-const secondaryBtn = {
-  padding: 10,
-  border: "1px solid #e2e8f0",
-  borderRadius: 10
-};
-
-const dangerBtn = {
-  padding: 10,
-  background: "#dc2626",
   color: "#fff",
   border: "none",
   borderRadius: 10
