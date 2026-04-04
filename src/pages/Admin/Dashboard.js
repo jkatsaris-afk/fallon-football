@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 import ScoreboardManager from "./ScoreboardManager";
-import GameSelector from "./GameSelector"; // ✅ ADDED
+import GameSelector from "./GameSelector";
+import TeamsPage from "./TeamsPage"; // ✅ ADDED
 
 export default function Dashboard({
   adminPage,
@@ -17,20 +18,14 @@ export default function Dashboard({
   }, []);
 
   const loadStats = async () => {
-    // ================= PLAYERS =================
-    const { count: playerCount, error: playerError } = await supabase
+    const { count: playerCount } = await supabase
       .from("players")
       .select("*", { count: "exact", head: true });
 
-    if (playerError) console.error("Player count error:", playerError);
-
-    // ================= GAMES ONLY =================
-    const { count: gameCount, error: gameError } = await supabase
+    const { count: gameCount } = await supabase
       .from("schedule_master")
       .select("*", { count: "exact", head: true })
       .ilike("event_type", "%game%");
-
-    if (gameError) console.error("Game count error:", gameError);
 
     setStats({
       players: playerCount || 0,
@@ -69,7 +64,6 @@ export default function Dashboard({
           Scoreboard Manager
         </button>
 
-        {/* ✅ NEW BUTTON */}
         <button
           style={navBtn(adminPage === "gameSelector")}
           onClick={() => setAdminPage("gameSelector")}
@@ -77,8 +71,15 @@ export default function Dashboard({
           Game Selector
         </button>
 
+        {/* ✅ TEAMS BUTTON FIXED */}
+        <button
+          style={navBtn(adminPage === "teams")}
+          onClick={() => setAdminPage("teams")}
+        >
+          Teams
+        </button>
+
         <button style={navBtn(false)}>Schedule</button>
-        <button style={navBtn(false)}>Teams</button>
         <button style={navBtn(false)}>Reports</button>
       </div>
 
@@ -92,7 +93,6 @@ export default function Dashboard({
               League overview and quick actions
             </p>
 
-            {/* ================= STATS TILES ================= */}
             <div
               style={{
                 display: "grid",
@@ -111,9 +111,13 @@ export default function Dashboard({
           <ScoreboardManager />
         )}
 
-        {/* ✅ NEW PAGE */}
         {adminPage === "gameSelector" && (
           <GameSelector />
+        )}
+
+        {/* ✅ TEAMS PAGE RENDER */}
+        {adminPage === "teams" && (
+          <TeamsPage />
         )}
 
       </div>
