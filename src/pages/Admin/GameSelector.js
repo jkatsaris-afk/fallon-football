@@ -1,61 +1,37 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-export default function GameSelector() {
+export default function GameSelector({ onGameStart }) {
   const [games, setGames] = useState([]);
+  const [openDate, setOpenDate] = useState(null);
 
   useEffect(() => {
     loadGames();
   }, []);
 
   async function loadGames() {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("schedule_master")
       .select("*")
+      .ilike("event_type", "%game%")
       .order("event_date")
       .order("event_time");
 
-    if (error) {
-      console.error("Load error:", error);
-      return;
-    }
-
-    // only games (not practices)
-    const filtered = (data || []).filter(
-      (g) => (g.event_type || "").toLowerCase() === "game"
-    );
-
-    console.log("Loaded games:", filtered);
-
-    setGames(filtered);
+    setGames(data || []);
   }
 
   async function startGame(game) {
-    console.log("START CLICKED:", game);
-
-    if (!game?.id) {
-      console.error("❌ Missing game.id");
-      return;
-    }
-
-    // check if already exists
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing } = await supabase
       .from("games_live")
       .select("*")
       .eq("schedule_id", game.id)
       .maybeSingle();
 
-    if (checkError) {
-      console.error("Check error:", checkError);
-      return;
-    }
-
     if (existing) {
-      console.log("✅ Already exists:", existing);
+      onGameStart(existing, game);
       return;
     }
 
-    // insert new game
     const { data, error } = await supabase
       .from("games_live")
       .insert([
@@ -65,38 +41,68 @@ export default function GameSelector() {
           away_score: 0,
           half: 1,
           clock: "24:00",
-          status: "live",
         },
       ])
-      .select();
+      .select()
+      .single();
 
-    if (error) {
-      console.error("INSERT ERROR:", error);
-      return;
-    }
-
-    console.log("✅ INSERT SUCCESS:", data);
+    if (!error) onGameStart(data, game);
   }
+
+  // group by date (like your schedule page)
+  const grouped = Object.values(
+    games.reduce((acc, g) => {
+      const date = new Date(g.event_date).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+
+      if (!acc[date]) acc[date] = { date, games: [] };
+
+      acc[date].games.push(g);
+      return acc;
+    }, {})
+  );
 
   return (
     <div style={container}>
-      <h2>Game Selector</h2>
 
-      {games.length === 0 && <p>No games found</p>}
+      <h3 style={{ marginBottom: 10 }}>Games</h3>
 
-      {games.map((g) => (
-        <div key={g.id} style={card}>
-          <div style={title}>
-            {g.team} vs {g.opponent}
+      {grouped.map((day) => (
+        <div key={day.date}>
+
+          {/* DATE HEADER */}
+          <div
+            style={dateHeader}
+            onClick={() =>
+              setOpenDate(openDate === day.date ? null : day.date)
+            }
+          >
+            {day.date}
           </div>
 
-          <div style={sub}>
-            {g.event_date} — {g.event_time}
-          </div>
+          {/* GAMES */}
+          {openDate === day.date &&
+            day.games.map((g) => (
+              <div key={g.id} style={gameRow}>
 
-          <button style={btn} onClick={() => startGame(g)}>
-            Start Game
-          </button>
+                <div style={teams}>
+                  {g.team} vs {g.opponent}
+                </div>
+
+                <div style={time}>
+                  {g.event_time}
+                </div>
+
+                <button
+                  style={startBtn}
+                  onClick={() => startGame(g)}
+                >
+                  Start
+                </button>
+              </div>
+            ))}
         </div>
       ))}
     </div>
@@ -104,32 +110,45 @@ export default function GameSelector() {
 }
 
 // ===== STYLES =====
+
 const container = {
-  padding: 20,
-};
-
-const card = {
-  background: "#fff",
+  width: 280,
   padding: 15,
-  borderRadius: 10,
-  marginBottom: 10,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+  background: "#ffffff",
+  borderRight: "1px solid #e5e7eb",
+  overflowY: "auto",
 };
 
-const title = {
-  fontWeight: "bold",
+const dateHeader = {
+  fontWeight: "600",
+  padding: "10px 5px",
+  cursor: "pointer",
+  color: "#0f172a",
 };
 
-const sub = {
-  fontSize: 12,
-  color: "#666",
+const gameRow = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "8px 5px",
+  borderBottom: "1px solid #f1f5f9",
 };
 
-const btn = {
-  marginTop: 10,
-  padding: "8px 12px",
+const teams = {
+  fontSize: 13,
+  fontWeight: 500,
+};
+
+const time = {
+  fontSize: 11,
+  color: "#64748b",
+};
+
+const startBtn = {
+  padding: "6px 10px",
   borderRadius: 6,
   border: "none",
   background: "#2f6ea6",
   color: "#fff",
+  fontSize: 12,
 };
