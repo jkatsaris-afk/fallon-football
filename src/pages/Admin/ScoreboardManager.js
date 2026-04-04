@@ -93,11 +93,11 @@ export default function ScoreboardManager() {
   return (
     <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
-      {/* ================= LEFT ================= */}
+      {/* ================= LEFT PANEL ================= */}
       <div
         style={{
           flex: 2,
-          background: "#fff",
+          background: "#ffffff",
           borderRadius: 16,
           padding: 20,
         }}
@@ -113,14 +113,20 @@ export default function ScoreboardManager() {
             <p style={{ color: "#64748b" }}>
               {selectedGame.display_time} • {selectedGame.field}
             </p>
+
+            {liveGame && (
+              <p style={{ marginTop: 10 }}>
+                Status: {liveGame.status}
+              </p>
+            )}
           </>
         )}
       </div>
 
-      {/* ================= RIGHT ================= */}
+      {/* ================= RIGHT PANEL ================= */}
       <div style={{ flex: 1, overflowY: "auto" }}>
 
-        <h3>Games</h3>
+        <h3 style={{ marginBottom: 10 }}>Games</h3>
 
         {grouped.map((day) => (
           <div key={day.date}>
@@ -143,11 +149,26 @@ export default function ScoreboardManager() {
               Object.entries(day.times).map(([time, gamesAtTime]) => (
                 <div key={time}>
 
-                  {/* TIME CARD */}
+                  {/* TIME CARD (GREEN STYLE) */}
                   <div
                     className="card"
                     onClick={() =>
                       setOpenTime(openTime === time ? null : time)
+                    }
+                    style={{
+                      background: "#e8f5e9",
+                      border:
+                        openTime === time
+                          ? "2px solid #2e7d32"
+                          : "1px solid #e5e7eb",
+                      transition: "all 0.2s ease",
+                      cursor: "pointer",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.transform = "scale(1.02)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.transform = "scale(1)")
                     }
                   >
                     <div className="title">{time}</div>
@@ -167,16 +188,22 @@ export default function ScoreboardManager() {
                             onClick={() => setSelectedGame(g)}
                             style={{ cursor: "pointer" }}
                           >
+                            {/* TOP TEAM */}
                             <div className="game-top">
                               <div className="team">{g.team1}</div>
-                              <div className="game-time">{g.display_time}</div>
+                              <div className="game-time">
+                                {g.display_time}
+                              </div>
                             </div>
 
                             <div className="vs">vs</div>
 
+                            {/* BOTTOM TEAM */}
                             <div className="game-bottom">
                               <div className="team">{g.team2}</div>
-                              <div className="field-badge">{g.field}</div>
+                              <div className="field-badge">
+                                {g.field}
+                              </div>
                             </div>
                           </div>
 
