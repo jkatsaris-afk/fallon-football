@@ -36,6 +36,8 @@ export default function TeamsPage() {
   const [coach, setCoach] = useState("");
   const [assistantCoach, setAssistantCoach] = useState("");
 
+  const [confirmAuto, setConfirmAuto] = useState(false);
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
@@ -46,6 +48,13 @@ export default function TeamsPage() {
     setNflTeams(nfl || []);
     setTeams(t || []);
     setCoaches(c || []);
+  };
+
+  /* ================= HELPERS ================= */
+
+  const getCoachName = (id) => {
+    const c = coaches.find(x => x.id === id);
+    return c ? `${c.first_name} ${c.last_name}` : "—";
   };
 
   /* ================= ASSIGN ================= */
@@ -72,12 +81,23 @@ export default function TeamsPage() {
     loadData();
   };
 
+  /* ================= REMOVE ================= */
+
+  const removeTeam = async () => {
+    await supabase.from("teams")
+      .delete()
+      .eq("id", activeTeam.id);
+
+    setActiveTeam(null);
+    loadData();
+  };
+
   return (
     <div>
 
       <h1>Teams Manager</h1>
 
-      {/* ================= SELECT TEAM ================= */}
+      {/* ================= SELECT ================= */}
 
       <h3>Select NFL Team</h3>
 
@@ -86,7 +106,7 @@ export default function TeamsPage() {
           <div
             key={team.id}
             style={tile}
-            onClick={() => setSelectedTeam(team)} // ✅ THIS WAS KEY
+            onClick={() => setSelectedTeam(team)}
           >
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
@@ -94,7 +114,7 @@ export default function TeamsPage() {
         ))}
       </div>
 
-      {/* ================= ASSIGN PANEL (RESTORED) ================= */}
+      {/* ================= ASSIGN PANEL ================= */}
 
       {selectedTeam && (
         <div style={panel}>
@@ -102,23 +122,15 @@ export default function TeamsPage() {
 
           <h3>{selectedTeam.full_name}</h3>
 
-          <select
-            style={inputStyle}
-            value={division}
-            onChange={(e)=>setDivision(e.target.value)}
-          >
-            <option value="">Select Division</option>
+          <select style={inputStyle} onChange={(e)=>setDivision(e.target.value)}>
+            <option value="">Division</option>
             <option>K-1</option>
             <option>2nd-3rd</option>
             <option>4th-5th</option>
             <option>6th+</option>
           </select>
 
-          <select
-            style={inputStyle}
-            value={coach}
-            onChange={(e)=>setCoach(e.target.value)}
-          >
+          <select style={inputStyle} onChange={(e)=>setCoach(e.target.value)}>
             <option value="">Head Coach</option>
             {coaches.map(c => (
               <option key={c.id} value={c.id}>
@@ -127,11 +139,7 @@ export default function TeamsPage() {
             ))}
           </select>
 
-          <select
-            style={inputStyle}
-            value={assistantCoach}
-            onChange={(e)=>setAssistantCoach(e.target.value)}
-          >
+          <select style={inputStyle} onChange={(e)=>setAssistantCoach(e.target.value)}>
             <option value="">Assistant Coach</option>
             {coaches.map(c => (
               <option key={c.id} value={c.id}>
@@ -155,23 +163,86 @@ export default function TeamsPage() {
         if (divTeams.length === 0) return null;
 
         return (
-          <div key={div} style={{ marginTop: 15 }}>
+          <div key={div} style={{ marginTop: 20 }}>
+
             <div style={{ fontWeight: 600 }}>{div}</div>
 
             <div style={grid}>
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
                 return (
-                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+                  <div
+                    key={t.id}
+                    style={tile}
+                    onClick={()=>setActiveTeam(t)}
+                  >
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
+
+                    <div style={{ fontSize: 11 }}>
+                      {getCoachName(t.coach_id)}
+                    </div>
+
+                    <div style={{ fontSize: 11, color:"#64748b" }}>
+                      {getCoachName(t.assistant_coach_id)}
+                    </div>
                   </div>
                 );
               })}
             </div>
+
           </div>
         );
       })}
+
+      {/* ================= MANAGE TEAM ================= */}
+
+      {activeTeam && (
+        <div style={panel}>
+          <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
+
+          <h2>Manage Team</h2>
+
+          <div>
+            <strong>Head Coach:</strong> {getCoachName(activeTeam.coach_id)}
+          </div>
+
+          <div>
+            <strong>Assistant:</strong> {getCoachName(activeTeam.assistant_coach_id)}
+          </div>
+
+          <div style={btnRow}>
+            <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
+              Auto Roster
+            </button>
+
+            <button style={secondaryBtn}>
+              Add Player
+            </button>
+
+            <button style={dangerBtn} onClick={removeTeam}>
+              Remove Team
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= CONFIRM ================= */}
+
+      {confirmAuto && (
+        <div style={panel}>
+          <button style={closeBtn} onClick={()=>setConfirmAuto(false)}>✕</button>
+
+          <p>
+            Make sure all teams are created in this division before running auto roster.
+          </p>
+
+          <button style={primaryBtn} onClick={()=>setConfirmAuto(false)}>
+            Confirm
+          </button>
+        </div>
+      )}
 
     </div>
   );
@@ -219,9 +290,28 @@ const inputStyle = {
   border: "1px solid #e2e8f0"
 };
 
+const btnRow = {
+  display: "flex",
+  gap: 10
+};
+
 const primaryBtn = {
   padding: 10,
   background: "#2f6ea6",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10
+};
+
+const secondaryBtn = {
+  padding: 10,
+  border: "1px solid #e2e8f0",
+  borderRadius: 10
+};
+
+const dangerBtn = {
+  padding: 10,
+  background: "#dc2626",
   color: "#fff",
   border: "none",
   borderRadius: 10
