@@ -1,199 +1,222 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ===== LOGOS =====
-import sf from "../../resources/San Francisco 49ers.png";
-import bengals from "../../resources/Cincinnati Bengals.png";
+/* ================= LOGOS ================= */
+
 import bills from "../../resources/Buffalo Bills.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
 import broncos from "../../resources/Denver Broncos.png";
-import chiefs from "../../resources/Kansas City Chiefs.png";
-import colts from "../../resources/Indianapolis Colts.png";
-import eagles from "../../resources/Philadelphia Eagles.png";
-import jets from "../../resources/New York Jets.png";
 import lions from "../../resources/Detroit Lions.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
 import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
+import jets from "../../resources/New York Jets.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
+import niners from "../../resources/San Francisco 49ers.png";
 
-// ===== MAP =====
-const logos = {
-  "49ers": sf,
-  "Bengals": bengals,
-  "Bills": bills,
-  "Broncos": broncos,
-  "Chiefs": chiefs,
-  "Colts": colts,
-  "Eagles": eagles,
-  "Jets": jets,
-  "Lions": lions,
-  "Raiders": raiders,
-  "Rams": rams,
-  "Steelers": steelers,
+const teamLogos = {
+  bills,
+  bengals,
+  broncos,
+  lions,
+  colts,
+  chiefs,
+  raiders,
+  rams,
+  jets,
+  eagles,
+  steelers,
+  "49ers": niners
 };
 
-function getLogo(name) {
-  return logos[name] || null;
-}
-
 export default function TeamsPage() {
+  const [nflTeams, setNflTeams] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [expanded, setExpanded] = useState(null);
+  const [coaches, setCoaches] = useState([]);
+
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [division, setDivision] = useState("");
+  const [coach, setCoach] = useState("");
 
   useEffect(() => {
-    load();
+    loadData();
   }, []);
 
-  async function load() {
-    const { data: divisions } = await supabase.from("divisions").select("*");
+  const loadData = async () => {
+    const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: t } = await supabase.from("teams").select("*");
-    const { data: coaches } = await supabase.from("coaches").select("*");
-    const { data: links } = await supabase.from("team_coaches").select("*");
-    const { data: players } = await supabase.from("players").select("*");
+    const { data: c } = await supabase.from("coaches").select("*");
 
-    const built = t.map(team => {
-      const division = divisions.find(d => d.id === team.division_id);
+    setNflTeams(nfl || []);
+    setTeams(t || []);
+    setCoaches(c || []);
+  };
 
-      const teamLinks = links.filter(l => l.team_id === team.id);
+  const assignTeam = async () => {
+    if (!selectedTeam || !division) return;
 
-      const teamCoaches = teamLinks.map(l =>
-        coaches.find(c => c.id === l.coach_id)
-      );
+    const { error } = await supabase.from("teams").insert([
+      {
+        nfl_team_id: selectedTeam.id,
+        division,
+        coach_id: coach || null,
+        season_id: 2026
+      }
+    ]);
 
-      const teamPlayers = players.filter(p => p.team_id === team.id);
+    if (error) {
+      alert("❌ Team already used in this division");
+      return;
+    }
 
-      return {
-        ...team,
-        division: division?.name,
-        coaches: teamCoaches,
-        players: teamPlayers
-      };
-    });
+    setSelectedTeam(null);
+    setDivision("");
+    setCoach("");
 
-    setTeams(built);
-  }
+    loadData();
+  };
 
   return (
-    <div style={container}>
+    <div>
+      <h1>Teams Manager</h1>
+      <p style={{ color: "#64748b" }}>
+        Assign NFL teams to divisions and coaches
+      </p>
 
-      <h1 style={{ marginBottom: 20 }}>Teams</h1>
+      {/* ================= TEAM TILE GRID ================= */}
 
-      <div style={grid}>
-        {teams.map(team => (
+      <div style={gridStyle}>
+        {nflTeams.map((team) => (
           <div
             key={team.id}
-            style={card}
-            onClick={() =>
-              setExpanded(expanded === team.id ? null : team.id)
-            }
+            style={{
+              ...tileStyle,
+              border:
+                selectedTeam?.id === team.id
+                  ? "2px solid #2f6ea6"
+                  : "2px solid transparent"
+            }}
+            onClick={() => setSelectedTeam(team)}
           >
-
-            {/* HEADER */}
-            <div style={header}>
-              {getLogo(team.name) && (
-                <img src={getLogo(team.name)} style={logo} />
-              )}
-              <div>
-                <div style={teamName}>{team.name}</div>
-                <div style={division}>{team.division}</div>
-              </div>
+            <img
+              src={teamLogos[team.short_name]}
+              alt={team.full_name}
+              style={{ width: 60, height: 60 }}
+            />
+            <div style={{ marginTop: 8, fontSize: 12 }}>
+              {team.full_name}
             </div>
-
-            {/* COACH */}
-            <div style={coach}>
-              {team.coaches.map(c => c?.name).join(", ") || "No coach"}
-            </div>
-
-            {/* EXPANDED PLAYERS */}
-            {expanded === team.id && (
-              <div style={players}>
-                <div style={playerHeader}>Players</div>
-
-                {team.players.length === 0 && (
-                  <div style={empty}>No players</div>
-                )}
-
-                {team.players.map(p => (
-                  <div key={p.id} style={player}>
-                    {p.name}
-                  </div>
-                ))}
-              </div>
-            )}
-
           </div>
         ))}
       </div>
 
+      {/* ================= ASSIGN PANEL ================= */}
+
+      {selectedTeam && (
+        <div style={panelStyle}>
+          <h3>{selectedTeam.full_name}</h3>
+
+          <select
+            value={division}
+            onChange={(e) => setDivision(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Select Division</option>
+            <option>K-1</option>
+            <option>2nd-3rd</option>
+            <option>4th-5th</option>
+            <option>6th+</option>
+          </select>
+
+          <select
+            value={coach}
+            onChange={(e) => setCoach(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Assign Coach</option>
+            {coaches.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.first_name} {c.last_name}
+              </option>
+            ))}
+          </select>
+
+          <button onClick={assignTeam} style={btnStyle}>
+            Assign Team
+          </button>
+        </div>
+      )}
+
+      {/* ================= CREATED TEAMS ================= */}
+
+      <div style={{ marginTop: 30 }}>
+        <h3>Assigned Teams</h3>
+
+        <div style={gridStyle}>
+          {teams.map((t) => {
+            const nfl = nflTeams.find((n) => n.id === t.nfl_team_id);
+
+            return (
+              <div key={t.id} style={tileStyle}>
+                <img
+                  src={teamLogos[nfl?.short_name]}
+                  style={{ width: 50 }}
+                />
+                <div>{nfl?.full_name}</div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  {t.division}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ===== STYLES ===== */
+/* ================= STYLES ================= */
 
-const container = {
-  padding: 20,
-  overflowY: "auto"
-};
-
-const grid = {
+const gridStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-  gap: 15
+  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+  gap: 15,
+  marginTop: 20
 };
 
-const card = {
-  background: "#ffffff",
+const tileStyle = {
+  background: "#fff",
   borderRadius: 16,
-  padding: 15,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+  padding: 12,
+  textAlign: "center",
   cursor: "pointer",
-  transition: "0.2s"
+  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
 };
 
-const header = {
+const panelStyle = {
+  marginTop: 20,
+  padding: 20,
+  background: "#fff",
+  borderRadius: 16,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
   display: "flex",
-  alignItems: "center",
+  flexDirection: "column",
   gap: 10
 };
 
-const logo = {
-  width: 32,
-  height: 32
+const inputStyle = {
+  padding: 10,
+  borderRadius: 10,
+  border: "1px solid #e2e8f0"
 };
 
-const teamName = {
-  fontWeight: "600",
-  fontSize: 16
-};
-
-const division = {
-  fontSize: 12,
-  color: "#64748b"
-};
-
-const coach = {
-  marginTop: 10,
-  fontSize: 13
-};
-
-const players = {
-  marginTop: 12,
-  borderTop: "1px solid #e5e7eb",
-  paddingTop: 10
-};
-
-const playerHeader = {
-  fontSize: 12,
-  color: "#64748b",
-  marginBottom: 5
-};
-
-const player = {
-  fontSize: 13,
-  padding: "2px 0"
-};
-
-const empty = {
-  fontSize: 12,
-  color: "#94a3b8"
+const btnStyle = {
+  padding: 12,
+  borderRadius: 12,
+  background: "#2f6ea6",
+  color: "#fff",
+  border: "none",
+  cursor: "pointer"
 };
