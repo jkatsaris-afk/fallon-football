@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 import ScoreboardManager from "./ScoreboardManager";
+import GameSelector from "./GameSelector"; // ✅ ADDED
 
 export default function Dashboard({
   adminPage,
@@ -68,6 +69,14 @@ export default function Dashboard({
           Scoreboard Manager
         </button>
 
+        {/* ✅ NEW BUTTON */}
+        <button
+          style={navBtn(adminPage === "gameSelector")}
+          onClick={() => setAdminPage("gameSelector")}
+        >
+          Game Selector
+        </button>
+
         <button style={navBtn(false)}>Schedule</button>
         <button style={navBtn(false)}>Teams</button>
         <button style={navBtn(false)}>Reports</button>
@@ -100,6 +109,11 @@ export default function Dashboard({
 
         {adminPage === "scoreManager" && (
           <ScoreboardManager />
+        )}
+
+        {/* ✅ NEW PAGE */}
+        {adminPage === "gameSelector" && (
+          <GameSelector />
         )}
 
       </div>
