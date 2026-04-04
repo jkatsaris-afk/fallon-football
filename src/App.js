@@ -15,7 +15,6 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
 
   // ✅ admin layout state
-  const [adminView, setAdminView] = useState("ipad");
   const [adminPage, setAdminPage] = useState("dashboard");
 
   useEffect(() => {
@@ -36,7 +35,7 @@ export default function App() {
 
   return (
     <>
-      {(page === "dashboard") ? (
+      {page === "dashboard" ? (
         // ✅ FULL SCREEN ADMIN
         <div
           style={{
@@ -48,8 +47,6 @@ export default function App() {
           <Dashboard
             adminPage={adminPage}
             setAdminPage={setAdminPage}
-            adminView={adminView}
-            setAdminView={setAdminView}
           />
         </div>
       ) : (
