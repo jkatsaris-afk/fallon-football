@@ -74,11 +74,12 @@ export default function Dashboard({
           Game Selector
         </button>
 
+        {/* ✅ ONLY CHANGE HERE */}
         <button
           style={navBtn(adminPage === "teams")}
           onClick={() => setAdminPage("teams")}
         >
-          Teams
+          Teams Manager
         </button>
 
         <button style={navBtn(false)}>Schedule</button>
@@ -100,7 +101,6 @@ export default function Dashboard({
       {/* ================= RIGHT PANEL ================= */}
       <div style={{ flex: 1, padding: 25, overflow: "hidden" }}>
 
-        {/* ===== DASHBOARD ===== */}
         {adminPage === "dashboard" && (
           <>
             <h1>Dashboard</h1>
@@ -122,25 +122,10 @@ export default function Dashboard({
           </>
         )}
 
-        {/* ===== SCOREBOARD ===== */}
-        {adminPage === "scoreManager" && (
-          <ScoreboardManager />
-        )}
-
-        {/* ===== GAME SELECTOR ===== */}
-        {adminPage === "gameSelector" && (
-          <GameSelector />
-        )}
-
-        {/* ===== TEAMS ===== */}
-        {adminPage === "teams" && (
-          <TeamsPage />
-        )}
-
-        {/* ===== SETTINGS (NEW) ===== */}
-        {adminPage === "settings" && (
-          <AdminSettings />
-        )}
+        {adminPage === "scoreManager" && <ScoreboardManager />}
+        {adminPage === "gameSelector" && <GameSelector />}
+        {adminPage === "teams" && <TeamsPage />}
+        {adminPage === "settings" && <AdminSettings />}
 
       </div>
     </div>
