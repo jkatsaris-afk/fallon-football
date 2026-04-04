@@ -66,20 +66,16 @@ export default function App() {
           {page === "home" && <HomePage setPage={setPage} />}
           {page === "schedule" && <SchedulePage />}
           {page === "scoreboard" && <ScoreboardPage />}
+          {page === "signup" && <SignUpPage />} {/* ✅ FIXED */}
 
-          {page === "signup" && signupsOpen && <SignUpPage />}
-
-          {page !== "signup" && (
-            <div className="bottom-nav">
-
-              <button onClick={()=>setPage("home")}>Home</button>
-              <button onClick={()=>setPage("schedule")}>Schedule</button>
-              <button onClick={()=>setPage("scoreboard")}>Scores</button>
-              <button onClick={()=>setPage("dashboard")}>Admin</button>
-              <button onClick={()=>setShowLogin(true)}>Login</button>
-
-            </div>
-          )}
+          {/* ✅ NAV ALWAYS VISIBLE */}
+          <div className="bottom-nav">
+            <button onClick={()=>setPage("home")}>Home</button>
+            <button onClick={()=>setPage("schedule")}>Schedule</button>
+            <button onClick={()=>setPage("scoreboard")}>Scores</button>
+            <button onClick={()=>setPage("dashboard")}>Admin</button>
+            <button onClick={()=>setShowLogin(true)}>Login</button>
+          </div>
 
           {showLogin && (
             <LoginModal onClose={()=>setShowLogin(false)} />
