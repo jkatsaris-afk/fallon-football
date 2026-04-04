@@ -55,13 +55,17 @@ export default function TeamsPage() {
   };
 
   const assignTeam = async () => {
-    if (!selectedTeam || !division) return;
+    // ✅ UPDATED VALIDATION
+    if (!selectedTeam || !division || !coach) {
+      alert("Please select division and coach");
+      return;
+    }
 
     const { error } = await supabase.from("teams").insert([
       {
         nfl_team_id: selectedTeam.id,
         division,
-        coach_id: coach || null,
+        coach_id: coach,
         season_id: 2026
       }
     ]);
@@ -158,6 +162,9 @@ export default function TeamsPage() {
           {teams.map((t) => {
             const nfl = nflTeams.find((n) => n.id === t.nfl_team_id);
 
+            // ✅ ADDED COACH LOOKUP
+            const coachData = coaches.find((c) => c.id === t.coach_id);
+
             return (
               <div key={t.id} style={tileStyle}>
                 <img
@@ -165,8 +172,16 @@ export default function TeamsPage() {
                   style={{ width: 50 }}
                 />
                 <div>{nfl?.full_name}</div>
+
                 <div style={{ fontSize: 12, color: "#64748b" }}>
                   {t.division}
+                </div>
+
+                {/* ✅ SHOW COACH */}
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  {coachData
+                    ? `${coachData.first_name} ${coachData.last_name}`
+                    : "No Coach"}
                 </div>
               </div>
             );
