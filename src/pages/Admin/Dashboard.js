@@ -24,10 +24,16 @@ export default function Dashboard({ setPage }) {
       >
         <h2 style={{ marginBottom: 20 }}>Admin</h2>
 
-        <button style={navBtn(true)}>Dashboard</button>
+        <button style={navBtn(true)} onClick={() => setPage("dashboard")}>
+          Dashboard
+        </button>
 
-        <button style={navBtn()} onClick={() => setPage("scoreManager")}>
-          Score Manager
+        {/* ✅ ADDED / RENAMED */}
+        <button
+          style={navBtn()}
+          onClick={() => setPage("scoreManager")}
+        >
+          Scoreboard Manager
         </button>
 
         <button style={navBtn()}>Schedule</button>
