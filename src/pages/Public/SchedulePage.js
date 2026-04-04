@@ -67,10 +67,23 @@ export default function SchedulePage() {
       {selectedDate && !selectedType && (
         <div>
 
+          {/* DATE TILE */}
           <div className="card active-card">
             <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
+          {/* BACK BUTTON (NOW UNDER DATE) */}
+          <div
+            className="card"
+            onClick={() => {
+              setSelectedDate(null);
+              setSelectedType(null);
+            }}
+          >
+            <div className="sub">← Back</div>
+          </div>
+
+          {/* TYPE OPTIONS */}
           <div
             className="card"
             onClick={() => setSelectedType("game")}
@@ -85,16 +98,6 @@ export default function SchedulePage() {
             <div className="title">Practices</div>
           </div>
 
-          <div
-            className="card"
-            onClick={() => {
-              setSelectedDate(null);
-              setSelectedType(null);
-            }}
-          >
-            <div className="sub">← Back</div>
-          </div>
-
         </div>
       )}
 
@@ -102,12 +105,14 @@ export default function SchedulePage() {
       {selectedDate && selectedType && (
         <div>
 
+          {/* DATE TILE */}
           <div className="card active-card">
             <div className="title">
               {formatDate(selectedDate)} - {selectedType.toUpperCase()}
             </div>
           </div>
 
+          {/* BACK BUTTON (NOW UNDER DATE) */}
           <div
             className="card"
             onClick={() => setSelectedType(null)}
@@ -115,6 +120,7 @@ export default function SchedulePage() {
             <div className="sub">← Back</div>
           </div>
 
+          {/* RESULTS */}
           {grouped[selectedDate]
             .filter(g => g.clean_type.includes(selectedType))
             .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
