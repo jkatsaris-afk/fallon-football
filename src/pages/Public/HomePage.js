@@ -17,13 +17,16 @@ export default function HomePage({ setPage }) {
       .from("schedule_master")
       .select("*");
 
-    if (error) return;
+    if (error) {
+      console.error(error);
+      return;
+    }
 
     const now = new Date();
 
     const processed = data
-      // 🔥 ONLY GAMES
-      .filter(g => g.event_type === "game")
+      // 🔥 REMOVE PRACTICES
+      .filter(g => !g.event_type.toLowerCase().includes("practic"))
 
       .map(game => {
         const [y, m, d] = game.event_date.split("-");
@@ -40,8 +43,12 @@ export default function HomePage({ setPage }) {
         };
       });
 
-    const live = processed.filter(g => g.start <= now && g.end > now);
+    // 🔥 LIVE GAMES
+    const live = processed.filter(
+      g => g.start <= now && g.end > now
+    );
 
+    // 🔥 UPCOMING
     const upcoming = processed
       .filter(g => g.start > now)
       .sort((a, b) => a.start - b.start);
@@ -59,14 +66,18 @@ export default function HomePage({ setPage }) {
         <div className="sub">2026 Season</div>
       </div>
 
+      {/* ========================= */}
       {/* LIVE / UPCOMING */}
+      {/* ========================= */}
       <div className="card">
 
         <div className="title">
           {liveGames.length > 0 ? "Live Games" : "Upcoming Games"}
         </div>
 
-        {/* LIVE */}
+        {/* ========================= */}
+        {/* LIVE GAMES */}
+        {/* ========================= */}
         {liveGames.length > 0 && liveGames.map((game, index) => (
           <div key={game.id}>
 
@@ -77,6 +88,7 @@ export default function HomePage({ setPage }) {
               <div className="sub live">● LIVE</div>
 
               <div className="game-row">
+
                 <div className="game-top">
                   <div className="team">{game.team}</div>
                   <div className="game-time">{game.event_time}</div>
@@ -88,6 +100,7 @@ export default function HomePage({ setPage }) {
                   <div className="team">{game.opponent}</div>
                   <div className="field-badge">{game.field}</div>
                 </div>
+
               </div>
 
             </div>
@@ -95,7 +108,9 @@ export default function HomePage({ setPage }) {
           </div>
         ))}
 
-        {/* UPCOMING */}
+        {/* ========================= */}
+        {/* UPCOMING GAMES */}
+        {/* ========================= */}
         {liveGames.length === 0 && upcomingGames.length > 0 &&
           upcomingGames.slice(0, 3).map((game, index) => (
             <div key={game.id}>
@@ -105,6 +120,7 @@ export default function HomePage({ setPage }) {
               <div className="inner-tile">
 
                 <div className="game-row">
+
                   <div className="game-top">
                     <div className="team">{game.team}</div>
                     <div className="game-time">{game.event_time}</div>
@@ -116,6 +132,7 @@ export default function HomePage({ setPage }) {
                     <div className="team">{game.opponent}</div>
                     <div className="field-badge">{game.field}</div>
                   </div>
+
                 </div>
 
               </div>
@@ -126,20 +143,35 @@ export default function HomePage({ setPage }) {
 
         {/* EMPTY */}
         {liveGames.length === 0 && upcomingGames.length === 0 && (
-          <div className="sub">No games found</div>
+          <div className="sub" style={{ marginTop: 10 }}>
+            No upcoming games
+          </div>
         )}
 
-        <button className="button" onClick={() => setPage("schedule")}>
+        <button
+          className="button"
+          onClick={() => setPage("schedule")}
+        >
           View Schedule
         </button>
 
+      </div>
+
+      {/* ANNOUNCEMENTS */}
+      <div className="card">
+        <div className="title">Announcements</div>
+        <div className="sub" style={{ marginTop: 10 }}>
+          Season starts April 11th!
+        </div>
       </div>
 
     </div>
   );
 }
 
+/* ========================= */
 /* TIME FIX */
+/* ========================= */
 function convertTo24Hour(timeStr) {
   const [time, modifier] = timeStr.split(" ");
   let [hours, minutes] = time.split(":");
