@@ -15,11 +15,13 @@ import jets from "../../resources/New York Jets.png";
 import eagles from "../../resources/Philadelphia Eagles.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
 import niners from "../../resources/San Francisco 49ers.png";
+import ravens from "../../resources/Baltimore Ravens.png"; // ✅ ADDED
 
 const teamLogos = {
   bills, bengals, broncos, lions, colts,
   chiefs, raiders, rams, jets, eagles,
-  steelers, "49ers": niners
+  steelers, "49ers": niners,
+  ravens // ✅ ADDED
 };
 
 export default function TeamsPage() {
@@ -50,6 +52,14 @@ export default function TeamsPage() {
     setTeams(t || []);
     setCoaches(c || []);
     setPlayers(p || []);
+  };
+
+  /* ================= HELPER ================= */
+
+  const getCoachName = (id) => {
+    const c = coaches.find(coach => coach.id === id);
+    if (!c) return "—";
+    return `${c.first_name || ""} ${c.last_name || ""}`.trim();
   };
 
   /* ================= ASSIGN ================= */
@@ -106,7 +116,7 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= REMOVE TEAM ================= */
+  /* ================= REMOVE ================= */
 
   const removeTeam = async () => {
     await supabase
@@ -130,80 +140,30 @@ export default function TeamsPage() {
 
       {/* ================= SELECT ================= */}
 
-      <h3>Select NFL Team</h3>
-
       <div style={grid}>
-        {nflTeams
-          .filter(nfl =>
-            !teams.some(t =>
-              t.nfl_team_id === nfl.id &&
-              t.division === division
-            )
-          )
-          .map(team => (
-            <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
-              <img src={teamLogos[team.short_name]} width={60}/>
-              <div>{team.full_name}</div>
-            </div>
-          ))}
+        {nflTeams.map(team => (
+          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
+            <img src={teamLogos[team.short_name]} width={60}/>
+            <div>{team.full_name}</div>
+          </div>
+        ))}
       </div>
 
-      {/* ================= ASSIGN ================= */}
-
-      {selectedTeam && (
-        <div style={panel}>
-          <button style={closeBtn} onClick={()=>setSelectedTeam(null)}>✕</button>
-
-          <select style={inputStyle} onChange={(e)=>setDivision(e.target.value)}>
-            <option value="">Division</option>
-            <option>K-1</option>
-            <option>2nd-3rd</option>
-            <option>4th-5th</option>
-            <option>6th+</option>
-          </select>
-
-          <select style={inputStyle} onChange={(e)=>setCoach(e.target.value)}>
-            <option value="">Head Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <select style={inputStyle} onChange={(e)=>setAssistantCoach(e.target.value)}>
-            <option value="">Assistant Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <button style={primaryBtn} onClick={assignTeam}>
-            Assign Team
-          </button>
-        </div>
-      )}
-
-      {/* ================= ASSIGNED TEAMS ================= */}
+      {/* ================= ASSIGNED ================= */}
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
-      {["K-1", "2nd-3rd", "4th-5th", "6th+"].map((div) => {
-        const divisionTeams = teams.filter(t => t.division === div);
-
-        if (divisionTeams.length === 0) return null;
+      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
+        const divTeams = teams.filter(t => t.division === div);
+        if (divTeams.length === 0) return null;
 
         return (
-          <div key={div} style={{ marginTop: 20 }}>
-
+          <div key={div}>
             <div style={{ fontWeight: 600 }}>{div}</div>
 
             <div style={grid}>
-              {divisionTeams.map(t => {
+              {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
-
                 return (
                   <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
@@ -212,7 +172,6 @@ export default function TeamsPage() {
                 );
               })}
             </div>
-
           </div>
         );
       })}
@@ -225,12 +184,21 @@ export default function TeamsPage() {
 
           <h2>Manage Team</h2>
 
+          {/* ✅ FIXED COACH DISPLAY */}
+          <div>
+            <strong>Head Coach:</strong> {getCoachName(activeTeam.coach_id)}
+          </div>
+
+          <div>
+            <strong>Assistant:</strong> {getCoachName(activeTeam.assistant_coach_id)}
+          </div>
+
           <div style={btnRow}>
             <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
               Auto Roster
             </button>
 
-            <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
+            <button style={secondaryBtn}>
               Add Player
             </button>
 
@@ -298,12 +266,6 @@ const closeBtn = {
   border: "none",
   background: "transparent",
   cursor: "pointer"
-};
-
-const inputStyle = {
-  padding: 10,
-  borderRadius: 10,
-  border: "1px solid #e2e8f0"
 };
 
 const btnRow = {
