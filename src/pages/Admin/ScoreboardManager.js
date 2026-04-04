@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function ScoreboardManager({ adminView }) {
+export default function ScoreboardManager() {
   const games = [
     { id: 1, time: "9:00 AM", team1: "Steelers", team2: "Raiders" },
     { id: 2, time: "9:00 AM", team1: "Cowboys", team2: "Eagles" },
@@ -22,7 +22,7 @@ export default function ScoreboardManager({ adminView }) {
   return (
     <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
-      {/* LEFT */}
+      {/* LEFT PANEL */}
       <div
         style={{
           flex: 2,
@@ -49,7 +49,7 @@ export default function ScoreboardManager({ adminView }) {
         )}
       </div>
 
-      {/* RIGHT */}
+      {/* RIGHT PANEL */}
       <div
         style={{
           flex: 1,
