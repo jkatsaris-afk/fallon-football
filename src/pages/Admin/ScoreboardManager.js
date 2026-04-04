@@ -45,7 +45,6 @@ export default function ScoreboardManager() {
   async function startGame(game) {
     setSelectedGame(game);
 
-    // Try to load existing
     const { data: existing } = await supabase
       .from("live_games")
       .select("*")
@@ -57,7 +56,6 @@ export default function ScoreboardManager() {
       return;
     }
 
-    // Create new safe default
     const { data } = await supabase
       .from("live_games")
       .insert([
@@ -72,6 +70,69 @@ export default function ScoreboardManager() {
           status: "live",
         },
       ])
+      .select()
+      .single();
+
+    setLiveGame(data);
+  }
+
+  // ================= SCORE =================
+  async function updateScore(points) {
+    if (!liveGame) return;
+
+    const field =
+      liveGame.possession === "home"
+        ? "home_score"
+        : "away_score";
+
+    const newScore = Math.max(0, (liveGame[field] || 0) + points);
+
+    const { data } = await supabase
+      .from("live_games")
+      .update({ [field]: newScore })
+      .eq("id", liveGame.id)
+      .select()
+      .single();
+
+    setLiveGame(data);
+  }
+
+  async function updateDown(down) {
+    if (!liveGame) return;
+
+    const { data } = await supabase
+      .from("live_games")
+      .update({ down })
+      .eq("id", liveGame.id)
+      .select()
+      .single();
+
+    setLiveGame(data);
+  }
+
+  async function togglePossession() {
+    if (!liveGame) return;
+
+    const newPos =
+      liveGame.possession === "home" ? "away" : "home";
+
+    const { data } = await supabase
+      .from("live_games")
+      .update({ possession: newPos })
+      .eq("id", liveGame.id)
+      .select()
+      .single();
+
+    setLiveGame(data);
+  }
+
+  async function nextQuarter() {
+    if (!liveGame) return;
+
+    const { data } = await supabase
+      .from("live_games")
+      .update({ quarter: (liveGame.quarter || 1) + 1 })
+      .eq("id", liveGame.id)
       .select()
       .single();
 
@@ -118,7 +179,7 @@ export default function ScoreboardManager() {
               {selectedGame.display_time} • {selectedGame.field}
             </p>
 
-            {/* ✅ SAFE FALLBACK SCOREBOARD */}
+            {/* SCOREBOARD */}
             <div
               style={{
                 marginTop: 20,
@@ -145,6 +206,43 @@ export default function ScoreboardManager() {
                 <h1>{liveGame?.away_score ?? 0}</h1>
               </div>
             </div>
+
+            {/* CONTROLS */}
+            {liveGame && (
+              <div style={{ marginTop: 20 }}>
+
+                {/* SCORING */}
+                <div style={btnRow}>
+                  <button style={btnPrimary} onClick={() => updateScore(6)}>+6 TD</button>
+                  <button style={btnPrimary} onClick={() => updateScore(1)}>+1</button>
+                  <button style={btnPrimary} onClick={() => updateScore(2)}>+2</button>
+                  <button style={btnDanger} onClick={() => updateScore(-1)}>-</button>
+                </div>
+
+                {/* DOWNS */}
+                <div style={btnRow}>
+                  <button style={btnSecondary} onClick={() => updateDown(1)}>1st</button>
+                  <button style={btnSecondary} onClick={() => updateDown(2)}>2nd</button>
+                  <button style={btnSecondary} onClick={() => updateDown(3)}>3rd</button>
+                  <button style={btnSecondary} onClick={() => updateDown(4)}>4th</button>
+                </div>
+
+                {/* POSSESSION */}
+                <div style={btnRow}>
+                  <button style={btnPrimary} onClick={togglePossession}>
+                    Possession: {liveGame.possession}
+                  </button>
+                </div>
+
+                {/* QUARTER */}
+                <div style={btnRow}>
+                  <button style={btnSecondary} onClick={nextQuarter}>
+                    Next Quarter
+                  </button>
+                </div>
+
+              </div>
+            )}
           </>
         )}
       </div>
@@ -157,11 +255,8 @@ export default function ScoreboardManager() {
         {grouped.map((day) => (
           <div key={day.date}>
 
-            {/* DATE */}
             <div
-              className={`card ${
-                openDate === day.date ? "active-card" : ""
-              }`}
+              className={`card ${openDate === day.date ? "active-card" : ""}`}
               onClick={() => {
                 setOpenDate(openDate === day.date ? null : day.date);
                 setOpenTime(null);
@@ -174,7 +269,6 @@ export default function ScoreboardManager() {
               Object.entries(day.times).map(([time, gamesAtTime]) => (
                 <div key={time}>
 
-                  {/* TIME */}
                   <div
                     className="card"
                     style={{
@@ -191,7 +285,6 @@ export default function ScoreboardManager() {
                     <div className="title">{time}</div>
                   </div>
 
-                  {/* GAMES */}
                   {openTime === time &&
                     gamesAtTime.map((g) => (
                       <div key={g.id} className="inner-tile">
@@ -206,7 +299,6 @@ export default function ScoreboardManager() {
                           <div className="team">{g.team2}</div>
                         </div>
 
-                        {/* ✅ FIXED BUTTON */}
                         <button
                           style={{
                             marginTop: 10,
@@ -216,7 +308,6 @@ export default function ScoreboardManager() {
                             border: "none",
                             background: "#2f6ea6",
                             color: "#fff",
-                            cursor: "pointer",
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -236,3 +327,37 @@ export default function ScoreboardManager() {
     </div>
   );
 }
+
+// ================= STYLES =================
+const btnRow = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 10,
+};
+
+const btnPrimary = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "none",
+  background: "#2f6ea6",
+  color: "#fff",
+  cursor: "pointer",
+};
+
+const btnSecondary = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "1px solid #ccc",
+  background: "#fff",
+  cursor: "pointer",
+};
+
+const btnDanger = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "none",
+  background: "#dc2626",
+  color: "#fff",
+  cursor: "pointer",
+};
