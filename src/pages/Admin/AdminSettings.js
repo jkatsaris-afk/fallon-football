@@ -50,11 +50,22 @@ export default function AdminSettings() {
 
         {/* 🔥 REGISTRATION TILE */}
         <Tile title="Registration">
+
           <ToggleRow
-            label="Signups Open"
+            label="Player Signups Open"
             value={settings.signups_open}
             onChange={(val) => update("signups_open", val)}
           />
+
+          {/* ✅ ADDED (coach toggle) */}
+          <div style={{ height: 10 }} />
+
+          <ToggleRow
+            label="Coach Signups Open"
+            value={settings.coach_signups_open}
+            onChange={(val) => update("coach_signups_open", val)}
+          />
+
         </Tile>
 
         {/* SEASON */}
