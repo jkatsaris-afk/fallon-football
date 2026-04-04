@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function ScoreboardManager({ adminView, setPage }) {
+export default function ScoreboardManager({ adminView }) {
   const games = [
     { id: 1, time: "9:00 AM", team1: "Steelers", team2: "Raiders" },
     { id: 2, time: "9:00 AM", team1: "Cowboys", team2: "Eagles" },
@@ -20,163 +20,88 @@ export default function ScoreboardManager({ adminView, setPage }) {
   );
 
   return (
-    <div style={{ display: "flex", height: "100%", background: "#f8fafc" }}>
+    <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
-      {/* ================= SIDEBAR ================= */}
+      {/* LEFT */}
       <div
         style={{
-          width: 220,
+          flex: 2,
           background: "#ffffff",
-          padding: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 15,
-          borderRight: "1px solid #e5e7eb",
+          borderRadius: 16,
+          padding: 25,
         }}
       >
-        <h2 style={{ marginBottom: 20 }}>Admin</h2>
+        <h2>Score Entry</h2>
 
-        <button style={navBtn()} onClick={() => setPage("dashboard")}>
-          Dashboard
-        </button>
+        {!selectedGame && <p>Select a game</p>}
 
-        <button style={navBtn(true)}>
-          Scoreboard Manager
-        </button>
+        {selectedGame && (
+          <>
+            <h3>
+              {selectedGame.team1} vs {selectedGame.team2}
+            </h3>
 
-        <button style={navBtn()}>Schedule</button>
-        <button style={navBtn()}>Teams</button>
-        <button style={navBtn()}>Reports</button>
+            <input type="number" placeholder="Team 1" style={input} />
+            <input type="number" placeholder="Team 2" style={input} />
+
+            <button style={btn}>Save</button>
+          </>
+        )}
       </div>
 
-      {/* ================= MAIN ================= */}
-      <div style={{ flex: 1, padding: 25, display: "flex", gap: 20 }}>
+      {/* RIGHT */}
+      <div
+        style={{
+          flex: 1,
+          background: "#ffffff",
+          borderRadius: 16,
+          padding: 20,
+          overflowY: "auto",
+        }}
+      >
+        <h3>Games</h3>
 
-        {/* LEFT: SCORE ENTRY */}
-        <div
-          style={{
-            flex: 2,
-            background: "#ffffff",
-            borderRadius: 16,
-            padding: 25,
-            boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h2 style={{ marginBottom: 20 }}>Score Entry</h2>
+        {groupedByTime.map((block) => (
+          <div key={block.time}>
+            <h4>{block.time}</h4>
 
-          {!selectedGame && (
-            <p style={{ color: "#64748b" }}>
-              Select a game from the right
-            </p>
-          )}
-
-          {selectedGame && (
-            <>
-              <h2 style={{ marginBottom: 25 }}>
-                {selectedGame.team1} vs {selectedGame.team2}
-              </h2>
-
-              <div style={{ marginBottom: 20 }}>
-                <label>{selectedGame.team1}</label>
-                <input
-                  type="number"
-                  style={inputStyle}
-                />
+            {block.games.map((game) => (
+              <div
+                key={game.id}
+                onClick={() => setSelectedGame(game)}
+                style={{
+                  padding: 10,
+                  marginBottom: 8,
+                  background: "#f1f5f9",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                }}
+              >
+                {game.team1} vs {game.team2}
               </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <label>{selectedGame.team2}</label>
-                <input
-                  type="number"
-                  style={inputStyle}
-                />
-              </div>
-
-              <button style={saveBtn}>
-                Save Score
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* RIGHT: GAME LIST */}
-        <div
-          style={{
-            flex: 1,
-            background: "#ffffff",
-            borderRadius: 16,
-            padding: 20,
-            overflowY: "auto",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h3 style={{ marginBottom: 15 }}>Games</h3>
-
-          {groupedByTime.map((block) => (
-            <div key={block.time} style={{ marginBottom: 20 }}>
-              <h4 style={{ color: "#64748b", marginBottom: 10 }}>
-                {block.time}
-              </h4>
-
-              {block.games.map((game) => {
-                const isSelected = selectedGame?.id === game.id;
-
-                return (
-                  <div
-                    key={game.id}
-                    onClick={() => setSelectedGame(game)}
-                    style={{
-                      padding: 12,
-                      marginBottom: 10,
-                      borderRadius: 10,
-                      background: isSelected ? "#2f6ea6" : "#f1f5f9",
-                      color: isSelected ? "#fff" : "#0f172a",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {game.team1} vs {game.team2}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-
+            ))}
+          </div>
+        ))}
       </div>
+
     </div>
   );
 }
 
-/* ================= STYLES ================= */
-
-function navBtn(active = false) {
-  return {
-    padding: "12px",
-    borderRadius: 10,
-    border: "none",
-    background: active ? "#2f6ea6" : "transparent",
-    color: active ? "#fff" : "#0f172a",
-    textAlign: "left",
-    cursor: "pointer",
-    fontWeight: active ? "600" : "500",
-  };
-}
-
-const inputStyle = {
+const input = {
   width: "100%",
-  padding: 14,
-  marginTop: 6,
+  padding: 12,
+  marginTop: 10,
   borderRadius: 8,
-  border: "1px solid #d1d5db",
+  border: "1px solid #ccc",
 };
 
-const saveBtn = {
+const btn = {
+  marginTop: 15,
+  padding: 12,
   width: "100%",
-  padding: 14,
-  borderRadius: 10,
-  border: "none",
   background: "#2f6ea6",
   color: "#fff",
-  fontSize: 16,
-  cursor: "pointer",
+  border: "none",
+  borderRadius: 10,
 };
