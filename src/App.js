@@ -6,7 +6,7 @@ import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import ScoreboardManager from "./pages/Admin/ScoreboardManager";
 import LoginModal from "./components/LoginModal";
-import ViewToggle from "./pages/Admin/ViewToggle"; // ✅ ADD THIS
+import ViewToggle from "./pages/Admin/ViewToggle"; // ✅ ADD
 
 import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
@@ -15,7 +15,7 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [showLogin, setShowLogin] = useState(false);
 
-  // ✅ ADMIN VIEW STATE (ONLY USED IN ADMIN)
+  // ✅ NEW (admin only state)
   const [adminView, setAdminView] = useState("ipad");
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function App() {
       {page === "schedule" && <SchedulePage />}
       {page === "scoreboard" && <ScoreboardPage />}
 
-      {/* ✅ ADMIN ONLY (NOW PROPERLY WRAPPED) */}
+      {/* ✅ ADMIN (ONLY PLACE TOGGLE EXISTS) */}
       {page === "admin" && (
         <>
           <ViewToggle
@@ -83,7 +83,7 @@ export default function App() {
           Scores
         </button>
 
-        {/* ✅ OPTIONAL: QUICK ADMIN ACCESS */}
+        {/* ✅ OPTIONAL ADMIN BUTTON */}
         <button
           className={`nav-btn ${page === "admin" ? "active" : ""}`}
           onClick={() => setPage("admin")}
