@@ -4,24 +4,36 @@ import "./styles.css";
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
-import SignUpPage from "./pages/Public/SignUpPage";
+import SignUpPage from "./pages/Public/SignUpPage"; // ✅ ADDED
 
-import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
+import Dashboard from "./pages/Admin/Dashboard";
 
 import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
 
 export default function App() {
-  const [page, setPage] = useState("home");
-  const [adminPage, setAdminPage] = useState("dashboard");
+  const [page, setPage] = useState("home"); // ✅ KEEP THIS EXACT
   const [showLogin, setShowLogin] = useState(false);
+
+  const [adminPage, setAdminPage] = useState("dashboard");
 
   useEffect(() => {
     const path = window.location.pathname;
 
     if (path === "/admin") setPage("dashboard");
-    if (path === "/sign-up") setPage("signup");
+
+    if (path === "/sign-up") setPage("signup"); // ✅ ADDED
+
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (path === "/admin" && !data.user) {
+        window.location.href = "/";
+      }
+    };
+
+    checkUser();
   }, []);
 
   return (
@@ -47,13 +59,13 @@ export default function App() {
             <img src={logo} className="logo" alt="logo" />
           </div>
 
-          {/* PAGES */}
+          {/* PUBLIC PAGES */}
           {page === "home" && <HomePage setPage={setPage} />}
           {page === "schedule" && <SchedulePage />}
           {page === "scoreboard" && <ScoreboardPage />}
-          {page === "signup" && <SignUpPage />} {/* ✅ FIXED */}
+          {page === "signup" && <SignUpPage />} {/* ✅ ADDED */}
 
-          {/* ✅ RESTORED NAV */}
+          {/* NAV (UNCHANGED) */}
           <div className="bottom-nav">
 
             <button
@@ -84,10 +96,7 @@ export default function App() {
               Admin
             </button>
 
-            <button
-              onClick={() => setShowLogin(true)}
-              className="nav-btn"
-            >
+            <button onClick={() => setShowLogin(true)} className="nav-btn">
               Login
             </button>
 
