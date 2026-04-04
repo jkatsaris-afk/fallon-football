@@ -193,7 +193,14 @@ export default function ScoreboardManager() {
       {/* ================= LEFT PANEL ================= */}
       <div style={{ flex: 2, background: "#fff", padding: 20, borderRadius: 12 }}>
 
-        {!selectedGame && <h2>Select a Game</h2>}
+        {!selectedGame && (
+          <div style={emptyState}>
+            <div>
+              <h2>No Game Active</h2>
+              <p>Select and start a game to activate the scoreboard</p>
+            </div>
+          </div>
+        )}
 
         {selectedGame && (
           <div>
@@ -205,10 +212,9 @@ export default function ScoreboardManager() {
             {/* SCOREBOARD */}
             <div style={scoreboardBox}>
 
-              {/* TEAM A */}
               <div style={teamBox}>
                 <h3>{selectedGame.team1}</h3>
-                <h1 style={scoreText}>{liveGame?.home_score ?? 0}</h1>
+                <h1>{liveGame?.home_score ?? 0}</h1>
 
                 <div style={btnRow}>
                   <button style={btnPrimary} onClick={() => updateScore(1, "home")}>+</button>
@@ -216,17 +222,15 @@ export default function ScoreboardManager() {
                 </div>
               </div>
 
-              {/* CENTER */}
               <div style={centerBox}>
-                <h1 style={clockText}>{liveGame?.clock ?? "20:00"}</h1>
+                <h1>{liveGame?.clock ?? "20:00"}</h1>
                 <div>Q{liveGame?.quarter ?? 1}</div>
                 <div>Down {liveGame?.down ?? 1}</div>
               </div>
 
-              {/* TEAM B */}
               <div style={teamBox}>
                 <h3>{selectedGame.team2}</h3>
-                <h1 style={scoreText}>{liveGame?.away_score ?? 0}</h1>
+                <h1>{liveGame?.away_score ?? 0}</h1>
 
                 <div style={btnRow}>
                   <button style={btnPrimary} onClick={() => updateScore(1, "away")}>+</button>
@@ -236,14 +240,12 @@ export default function ScoreboardManager() {
 
             </div>
 
-            {/* SCORING */}
             <div style={sectionBox}>
               <button style={btnPrimary} onClick={() => updateScore(6, "home")}>TD</button>
               <button style={btnPrimary} onClick={() => updateScore(1, "home")}>+1</button>
               <button style={btnPrimary} onClick={() => updateScore(2, "home")}>+2</button>
             </div>
 
-            {/* CONTROLS */}
             <div style={sectionBox}>
               <button style={btnSecondary} onClick={togglePossession}>
                 Poss: {liveGame?.possession}
@@ -254,7 +256,6 @@ export default function ScoreboardManager() {
               <button style={btnSecondary} onClick={() => updateDown(4)}>4th</button>
             </div>
 
-            {/* CLOCK */}
             <div style={sectionBox}>
               <button style={btnPrimary} onClick={startClock}>Start</button>
               <button style={btnSecondary} onClick={stopClock}>Stop</button>
@@ -265,12 +266,10 @@ export default function ScoreboardManager() {
         )}
       </div>
 
-      {/* ================= RIGHT PANEL ================= */}
+      {/* RIGHT PANEL unchanged */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-
         {grouped.map((day) => (
           <div key={day.date}>
-
             <div className="card" onClick={() => setOpenDate(day.date)}>
               <div className="title">{day.date}</div>
             </div>
@@ -278,7 +277,6 @@ export default function ScoreboardManager() {
             {openDate === day.date &&
               Object.entries(day.times).map(([time, gamesAtTime]) => (
                 <div key={time}>
-
                   <div className="card" style={{ background: "#e8f5e9" }}
                        onClick={() => setOpenTime(time)}>
                     <div className="title">{time}</div>
@@ -288,7 +286,6 @@ export default function ScoreboardManager() {
                     gamesAtTime.map((g) => (
                       <div key={g.id} className="inner-tile">
                         <div>{g.team1} vs {g.team2}</div>
-
                         <button style={startBtn} onClick={() => startGame(g)}>
                           Start Game
                         </button>
@@ -304,11 +301,19 @@ export default function ScoreboardManager() {
 }
 
 // ===== STYLES =====
+const emptyState = {
+  height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  color: "#64748b",
+};
+
 const scoreboardBox = { display: "flex", justifyContent: "space-between", padding: 20, background: "#f8fafc", borderRadius: 16 };
 const teamBox = { textAlign: "center", flex: 1 };
 const centerBox = { textAlign: "center", flex: 1 };
-const scoreText = { fontSize: 48 };
-const clockText = { fontSize: 42 };
+
 const sectionBox = { display: "flex", gap: 10, justifyContent: "center", marginTop: 15, flexWrap: "wrap" };
 const btnRow = { display: "flex", gap: 6, justifyContent: "center", marginTop: 8 };
 
