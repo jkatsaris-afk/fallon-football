@@ -28,6 +28,7 @@ export default function TeamsPage() {
   const [nflTeams, setNflTeams] = useState([]);
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
+  const [players, setPlayers] = useState([]); // ✅ ADDED
 
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTeam, setActiveTeam] = useState(null);
@@ -37,6 +38,7 @@ export default function TeamsPage() {
   const [assistantCoach, setAssistantCoach] = useState("");
 
   const [confirmAuto, setConfirmAuto] = useState(false);
+  const [showAdd, setShowAdd] = useState(false); // ✅ ADDED
 
   useEffect(() => { loadData(); }, []);
 
@@ -44,10 +46,12 @@ export default function TeamsPage() {
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: c } = await supabase.from("coaches").select("*");
+    const { data: p } = await supabase.from("players").select("*"); // ✅ ADDED
 
     setNflTeams(nfl || []);
     setTeams(t || []);
     setCoaches(c || []);
+    setPlayers(p || []); // ✅ ADDED
   };
 
   /* ================= HELPERS ================= */
@@ -78,6 +82,18 @@ export default function TeamsPage() {
     setCoach("");
     setAssistantCoach("");
 
+    loadData();
+  };
+
+  /* ================= ADD PLAYER ================= */
+
+  const addPlayerToTeam = async (playerId) => {
+    await supabase
+      .from("players")
+      .update({ team_id: activeTeam.id })
+      .eq("id", playerId);
+
+    setShowAdd(false);
     loadData();
   };
 
@@ -154,7 +170,7 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* ================= ASSIGNED TEAMS ================= */}
+      {/* ================= ASSIGNED ================= */}
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
@@ -164,7 +180,6 @@ export default function TeamsPage() {
 
         return (
           <div key={div} style={{ marginTop: 20 }}>
-
             <div style={{ fontWeight: 600 }}>{div}</div>
 
             <div style={grid}>
@@ -172,11 +187,7 @@ export default function TeamsPage() {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
                 return (
-                  <div
-                    key={t.id}
-                    style={tile}
-                    onClick={()=>setActiveTeam(t)}
-                  >
+                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
 
@@ -191,12 +202,11 @@ export default function TeamsPage() {
                 );
               })}
             </div>
-
           </div>
         );
       })}
 
-      {/* ================= MANAGE TEAM ================= */}
+      {/* ================= MANAGE ================= */}
 
       {activeTeam && (
         <div style={panel}>
@@ -217,7 +227,7 @@ export default function TeamsPage() {
               Auto Roster
             </button>
 
-            <button style={secondaryBtn}>
+            <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
               Add Player
             </button>
 
@@ -225,6 +235,34 @@ export default function TeamsPage() {
               Remove Team
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ================= ADD PLAYER PANEL ================= */}
+
+      {showAdd && (
+        <div style={panel}>
+          <button style={closeBtn} onClick={()=>setShowAdd(false)}>✕</button>
+
+          <h3>Add Player</h3>
+
+          {players
+            .filter(p =>
+              p.division === activeTeam.division &&
+              !p.team_id
+            )
+            .map(p => (
+              <div key={p.id} style={playerRow}>
+                {p.first_name} {p.last_name}
+
+                <button
+                  style={smallBtn}
+                  onClick={() => addPlayerToTeam(p.id)}
+                >
+                  Add
+                </button>
+              </div>
+            ))}
         </div>
       )}
 
@@ -273,6 +311,18 @@ const panel = {
   flexDirection: "column",
   gap: 10,
   position: "relative"
+};
+
+const playerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center"
+};
+
+const smallBtn = {
+  padding: "6px 10px",
+  borderRadius: 6,
+  border: "1px solid #e2e8f0"
 };
 
 const closeBtn = {
