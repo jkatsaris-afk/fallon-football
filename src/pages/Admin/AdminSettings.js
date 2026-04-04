@@ -24,7 +24,10 @@ export default function AdminSettings() {
       .update({ [field]: value })
       .eq("id", 1);
 
-    load();
+    setSettings((prev) => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   if (!settings) return <div>Loading...</div>;
@@ -36,7 +39,7 @@ export default function AdminSettings() {
         Manage league configuration
       </p>
 
-      {/* ================= GRID ================= */}
+      {/* GRID */}
       <div
         style={{
           display: "grid",
@@ -45,7 +48,7 @@ export default function AdminSettings() {
         }}
       >
 
-        {/* ===== SIGNUPS TILE ===== */}
+        {/* 🔥 REGISTRATION TILE */}
         <Tile title="Registration">
           <ToggleRow
             label="Signups Open"
@@ -54,7 +57,7 @@ export default function AdminSettings() {
           />
         </Tile>
 
-        {/* ===== SEASON TILE ===== */}
+        {/* SEASON */}
         <Tile title="Season">
           <InputRow
             label="Current Season"
@@ -63,7 +66,7 @@ export default function AdminSettings() {
           />
         </Tile>
 
-        {/* ===== FEES TILE ===== */}
+        {/* FEES */}
         <Tile title="Fees">
           <InputRow
             label="Registration Fee ($)"
@@ -98,7 +101,7 @@ function Tile({ title, children }) {
   );
 }
 
-/* ================= INPUT ROW ================= */
+/* ================= INPUT ================= */
 
 function InputRow({ label, value, onChange }) {
   return (
@@ -120,7 +123,7 @@ function InputRow({ label, value, onChange }) {
   );
 }
 
-/* ================= TOGGLE ================= */
+/* ================= TOGGLE SWITCH ================= */
 
 function ToggleRow({ label, value, onChange }) {
   return (
@@ -133,12 +136,32 @@ function ToggleRow({ label, value, onChange }) {
     >
       <div>{label}</div>
 
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ transform: "scale(1.2)" }}
-      />
+      <div
+        onClick={() => onChange(!value)}
+        style={{
+          width: 50,
+          height: 26,
+          borderRadius: 20,
+          background: value ? "#2f6ea6" : "#cbd5f5",
+          position: "relative",
+          cursor: "pointer",
+          transition: "all 0.2s ease"
+        }}
+      >
+        <div
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            background: "#ffffff",
+            position: "absolute",
+            top: 2,
+            left: value ? 26 : 2,
+            transition: "all 0.2s ease",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
+          }}
+        />
+      </div>
     </div>
   );
 }
