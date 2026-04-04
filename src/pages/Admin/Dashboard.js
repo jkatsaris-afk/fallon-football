@@ -8,8 +8,7 @@ export default function Dashboard({
 }) {
   const [stats, setStats] = useState({
     players: 0,
-    games: 0,
-    practices: 0
+    games: 0
   });
 
   useEffect(() => {
@@ -24,7 +23,7 @@ export default function Dashboard({
 
     if (playerError) console.error("Player count error:", playerError);
 
-    // ================= GAMES =================
+    // ================= GAMES ONLY =================
     const { count: gameCount, error: gameError } = await supabase
       .from("schedule_master")
       .select("*", { count: "exact", head: true })
@@ -32,18 +31,9 @@ export default function Dashboard({
 
     if (gameError) console.error("Game count error:", gameError);
 
-    // ================= PRACTICES =================
-    const { count: practiceCount, error: practiceError } = await supabase
-      .from("schedule_master")
-      .select("*", { count: "exact", head: true })
-      .ilike("event_type", "%practice%");
-
-    if (practiceError) console.error("Practice count error:", practiceError);
-
     setStats({
       players: playerCount || 0,
-      games: gameCount || 0,
-      practices: practiceCount || 0
+      games: gameCount || 0
     });
   };
 
@@ -104,7 +94,6 @@ export default function Dashboard({
             >
               <StatTile title="Players" value={stats.players} />
               <StatTile title="Games" value={stats.games} />
-              <StatTile title="Practices" value={stats.practices} />
             </div>
           </>
         )}
