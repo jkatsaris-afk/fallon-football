@@ -109,15 +109,11 @@ export default function TeamsPage() {
   /* ================= REMOVE TEAM ================= */
 
   const removeTeam = async () => {
-    if (!activeTeam) return;
-
-    // remove players from team
     await supabase
       .from("players")
       .update({ team_id: null })
       .eq("team_id", activeTeam.id);
 
-    // delete team
     await supabase
       .from("teams")
       .delete()
@@ -132,7 +128,10 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
-      {/* SELECT */}
+      {/* ================= SELECT ================= */}
+
+      <h3>Select NFL Team</h3>
+
       <div style={grid}>
         {nflTeams
           .filter(nfl =>
@@ -149,7 +148,8 @@ export default function TeamsPage() {
           ))}
       </div>
 
-      {/* ASSIGN */}
+      {/* ================= ASSIGN ================= */}
+
       {selectedTeam && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setSelectedTeam(null)}>✕</button>
@@ -186,28 +186,45 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* TEAMS */}
-      <div style={grid}>
-        {teams.map(t => {
-          const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
-          return (
-            <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
-              <img src={teamLogos[nfl?.short_name]} width={50}/>
-              <div>{nfl?.full_name}</div>
-              <div>{t.division}</div>
-            </div>
-          );
-        })}
-      </div>
+      {/* ================= ASSIGNED TEAMS ================= */}
 
-      {/* MANAGE */}
+      <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
+
+      {["K-1", "2nd-3rd", "4th-5th", "6th+"].map((div) => {
+        const divisionTeams = teams.filter(t => t.division === div);
+
+        if (divisionTeams.length === 0) return null;
+
+        return (
+          <div key={div} style={{ marginTop: 20 }}>
+
+            <div style={{ fontWeight: 600 }}>{div}</div>
+
+            <div style={grid}>
+              {divisionTeams.map(t => {
+                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
+                return (
+                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+                    <img src={teamLogos[nfl?.short_name]} width={50}/>
+                    <div>{nfl?.full_name}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        );
+      })}
+
+      {/* ================= MANAGE ================= */}
+
       {activeTeam && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
 
           <h2>Manage Team</h2>
 
-          {/* BUTTON ROW */}
           <div style={btnRow}>
             <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
               Auto Roster
@@ -224,7 +241,8 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* CONFIRM AUTO */}
+      {/* ================= CONFIRM ================= */}
+
       {confirmAuto && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setConfirmAuto(false)}>✕</button>
@@ -246,7 +264,7 @@ export default function TeamsPage() {
   );
 }
 
-/* STYLES */
+/* ================= STYLES ================= */
 
 const grid = {
   display: "grid",
