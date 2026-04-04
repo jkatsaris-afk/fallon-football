@@ -17,30 +17,33 @@ export default function Dashboard({
   }, []);
 
   const loadStats = async () => {
-    // PLAYERS (kids)
-    const { count: playerCount } = await supabase
+    // ================= PLAYERS =================
+    const { count: playerCount, error: playerError } = await supabase
       .from("players")
       .select("*", { count: "exact", head: true });
 
-    // GAMES
-    const { data: schedule } = await supabase
+    if (playerError) console.error("Player count error:", playerError);
+
+    // ================= GAMES =================
+    const { count: gameCount, error: gameError } = await supabase
       .from("schedule_master")
-      .select("event_type");
+      .select("*", { count: "exact", head: true })
+      .ilike("event_type", "%game%");
 
-    const games =
-      schedule?.filter(s =>
-        (s.event_type || "").toLowerCase().includes("game")
-      ).length || 0;
+    if (gameError) console.error("Game count error:", gameError);
 
-    const practices =
-      schedule?.filter(s =>
-        (s.event_type || "").toLowerCase().includes("practice")
-      ).length || 0;
+    // ================= PRACTICES =================
+    const { count: practiceCount, error: practiceError } = await supabase
+      .from("schedule_master")
+      .select("*", { count: "exact", head: true })
+      .ilike("event_type", "%practice%");
+
+    if (practiceError) console.error("Practice count error:", practiceError);
 
     setStats({
       players: playerCount || 0,
-      games,
-      practices
+      games: gameCount || 0,
+      practices: practiceCount || 0
     });
   };
 
@@ -90,7 +93,7 @@ export default function Dashboard({
               League overview and quick actions
             </p>
 
-            {/* ===== STATS TILES ===== */}
+            {/* ================= STATS TILES ================= */}
             <div
               style={{
                 display: "grid",
@@ -99,11 +102,9 @@ export default function Dashboard({
                 marginTop: 25
               }}
             >
-
               <StatTile title="Players" value={stats.players} />
               <StatTile title="Games" value={stats.games} />
               <StatTile title="Practices" value={stats.practices} />
-
             </div>
           </>
         )}
@@ -117,7 +118,7 @@ export default function Dashboard({
   );
 }
 
-/* ================= TILE COMPONENT ================= */
+/* ================= TILE ================= */
 
 function StatTile({ title, value }) {
   return (
