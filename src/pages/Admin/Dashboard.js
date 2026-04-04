@@ -1,12 +1,9 @@
 import React from "react";
 import ScoreboardManager from "./ScoreboardManager";
-import ViewToggle from "./ViewToggle";
 
 export default function Dashboard({
   adminPage,
-  setAdminPage,
-  adminView,
-  setAdminView
+  setAdminPage
 }) {
   return (
     <div style={{ display: "flex", height: "100%" }}>
@@ -47,7 +44,6 @@ export default function Dashboard({
       {/* ================= RIGHT PANEL ================= */}
       <div style={{ flex: 1, padding: 25, overflow: "hidden" }}>
 
-        {/* DASHBOARD */}
         {adminPage === "dashboard" && (
           <>
             <h1>Dashboard</h1>
@@ -57,16 +53,8 @@ export default function Dashboard({
           </>
         )}
 
-        {/* SCORE MANAGER */}
         {adminPage === "scoreManager" && (
-          <>
-            <ViewToggle
-              adminView={adminView}
-              setAdminView={setAdminView}
-            />
-
-            <ScoreboardManager adminView={adminView} />
-          </>
+          <ScoreboardManager />
         )}
 
       </div>
