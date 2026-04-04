@@ -15,19 +15,15 @@ import logo from "./resources/logo.png";
 export default function App() {
   const [page, setPage] = useState("home");
   const [showLogin, setShowLogin] = useState(false);
+
+  // ✅ admin layout state
   const [adminPage, setAdminPage] = useState("dashboard");
 
-  // ✅ FIXED ROUTING
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
 
-    if (path.includes("/admin")) {
-      setPage("dashboard");
-    } else if (path.includes("/sign-up")) {
-      setPage("signup");
-    } else {
-      setPage("home");
-    }
+    if (path.includes("/admin")) setPage("dashboard");
+    if (path.includes("/sign-up")) setPage("signup");
 
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -43,6 +39,7 @@ export default function App() {
   return (
     <>
       {page === "dashboard" ? (
+        // ✅ FULL SCREEN ADMIN (Dashboard controls ALL admin pages)
         <div
           style={{
             width: "100vw",
@@ -63,13 +60,13 @@ export default function App() {
             <img src={logo} className="logo" alt="logo" />
           </div>
 
-          {/* PAGES */}
+          {/* PUBLIC PAGES */}
           {page === "home" && <HomePage setPage={setPage} />}
           {page === "schedule" && <SchedulePage />}
           {page === "scoreboard" && <ScoreboardPage />}
           {page === "signup" && <SignUpPage />}
 
-          {/* NAV (UNCHANGED) */}
+          {/* NAV (UNCHANGED — YOUR ORIGINAL WORKING VERSION) */}
           <div className="bottom-nav">
 
             <button
