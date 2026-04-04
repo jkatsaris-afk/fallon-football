@@ -10,28 +10,46 @@ export default function GameSelector({ onGameStart }) {
   }, []);
 
   async function loadGames() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("schedule_master")
       .select("*")
-      .ilike("event_type", "%game%")
-      .order("event_date")
-      .order("event_time");
+      .ilike("event_type", "%game%");
 
-    setGames(data || []);
+    console.log("LOAD:", data, error);
+
+    if (!data) return;
+
+    const cleaned = data.map(g => ({
+      ...g,
+      clean_date: normalizeDate(g.event_date),
+    }));
+
+    setGames(cleaned);
   }
 
   async function startGame(game) {
-    const { data: existing } = await supabase
+    console.log("START CLICKED:", game);
+
+    if (!game?.id) {
+      console.error("❌ Missing game ID");
+      return;
+    }
+
+    // check existing
+    const { data: existing, error: checkError } = await supabase
       .from("games_live")
       .select("*")
       .eq("schedule_id", game.id)
       .maybeSingle();
+
+    console.log("CHECK:", existing, checkError);
 
     if (existing) {
       onGameStart(existing, game);
       return;
     }
 
+    // insert
     const { data, error } = await supabase
       .from("games_live")
       .insert([
@@ -43,19 +61,29 @@ export default function GameSelector({ onGameStart }) {
           clock: "24:00",
         },
       ])
-      .select()
-      .single();
+      .select();
 
-    if (!error) onGameStart(data, game);
+    console.log("INSERT:", data, error);
+
+    if (error) {
+      console.error("❌ INSERT FAILED:", error);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.error("❌ NO DATA RETURNED (RLS issue)");
+      return;
+    }
+
+    onGameStart(data[0], game);
   }
 
-  // group by date (like your schedule page)
+  // ===== GROUP BY DATE (FIXED) =====
   const grouped = Object.values(
     games.reduce((acc, g) => {
-      const date = new Date(g.event_date).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
+      if (!g.clean_date) return acc;
+
+      const date = formatDate(g.clean_date);
 
       if (!acc[date]) acc[date] = { date, games: [] };
 
@@ -84,32 +112,69 @@ export default function GameSelector({ onGameStart }) {
 
           {/* GAMES */}
           {openDate === day.date &&
-            day.games.map((g) => (
-              <div key={g.id} style={gameRow}>
+            day.games
+              .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
+              .map((g) => (
+                <div key={g.id} style={gameRow}>
 
-                <div style={teams}>
-                  {g.team} vs {g.opponent}
+                  <div style={teams}>
+                    {g.team} vs {g.opponent || "TBD"}
+                  </div>
+
+                  <div style={time}>
+                    {g.event_time}
+                  </div>
+
+                  <button
+                    style={startBtn}
+                    onClick={(e) => {
+                      e.stopPropagation(); // 🔥 FIX
+                      startGame(g);
+                    }}
+                  >
+                    Start
+                  </button>
+
                 </div>
-
-                <div style={time}>
-                  {g.event_time}
-                </div>
-
-                <button
-                  style={startBtn}
-                  onClick={() => startGame(g)}
-                >
-                  Start
-                </button>
-              </div>
-            ))}
+              ))}
         </div>
       ))}
     </div>
   );
 }
 
-// ===== STYLES =====
+/* ===== HELPERS ===== */
+
+function normalizeDate(dateStr) {
+  if (!dateStr) return null;
+
+  if (dateStr.includes("-")) return dateStr;
+
+  const [m, d, y] = dateStr.split("/");
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function toTime(timeStr) {
+  if (!timeStr) return 0;
+
+  const [time, mod] = timeStr.split(" ");
+  let [h, m] = time.split(":");
+
+  if (mod === "PM" && h !== "12") h = +h + 12;
+  if (mod === "AM" && h === "12") h = "00";
+
+  return parseInt(h) * 60 + parseInt(m);
+}
+
+/* ===== STYLES ===== */
 
 const container = {
   width: 280,
@@ -151,4 +216,5 @@ const startBtn = {
   background: "#2f6ea6",
   color: "#fff",
   fontSize: 12,
+  cursor: "pointer",
 };
