@@ -24,75 +24,84 @@ export default function ScoreboardManager({ adminView }) {
   return (
     <div
       style={{
+        width: "100%",
+        height: "calc(100vh - 140px)",
         display: "flex",
         flexDirection: isPhone ? "column" : "row",
-        height: "calc(100vh - 140px)",
-        gap: 10,
-        padding: 10,
+        gap: 20,
+        padding: 20,
+        boxSizing: "border-box",
       }}
     >
-      {/* ================= LEFT SIDE ================= */}
+      {/* ================= LEFT PANEL ================= */}
       <div
         style={{
-          flex: 1,
+          flex: 2, // 👈 BIGGER for iPad
           background: "#ffffff",
-          borderRadius: 12,
-          padding: 20,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          borderRadius: 16,
+          padding: 25,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         }}
       >
-        <h2 style={{ marginBottom: 15 }}>Score Entry</h2>
+        <h2 style={{ marginBottom: 20 }}>Score Entry</h2>
 
         {!selectedGame && (
-          <p style={{ color: "#777" }}>
+          <p style={{ color: "#777", fontSize: 16 }}>
             Select a game from the right
           </p>
         )}
 
         {selectedGame && (
           <>
-            <h3 style={{ marginBottom: 20 }}>
+            <h2 style={{ marginBottom: 25 }}>
               {selectedGame.team1} vs {selectedGame.team2}
-            </h3>
+            </h2>
 
-            <div style={{ marginBottom: 15 }}>
-              <label>{selectedGame.team1}</label>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 16 }}>
+                {selectedGame.team1}
+              </label>
               <input
                 type="number"
                 style={{
                   width: "100%",
-                  padding: 12,
-                  marginTop: 5,
-                  borderRadius: 8,
+                  padding: 16,
+                  marginTop: 8,
+                  borderRadius: 10,
                   border: "1px solid #ccc",
+                  fontSize: 18,
                 }}
               />
             </div>
 
-            <div style={{ marginBottom: 15 }}>
-              <label>{selectedGame.team2}</label>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 16 }}>
+                {selectedGame.team2}
+              </label>
               <input
                 type="number"
                 style={{
                   width: "100%",
-                  padding: 12,
-                  marginTop: 5,
-                  borderRadius: 8,
+                  padding: 16,
+                  marginTop: 8,
+                  borderRadius: 10,
                   border: "1px solid #ccc",
+                  fontSize: 18,
                 }}
               />
             </div>
 
             <button
               style={{
-                padding: "12px 20px",
-                borderRadius: 10,
+                padding: "16px",
+                borderRadius: 12,
                 border: "none",
                 background: "#2f6ea6",
                 color: "#fff",
                 cursor: "pointer",
                 width: "100%",
-                fontSize: 16,
+                fontSize: 18,
+                fontWeight: "600",
               }}
             >
               Save Score
@@ -101,22 +110,22 @@ export default function ScoreboardManager({ adminView }) {
         )}
       </div>
 
-      {/* ================= RIGHT SIDE ================= */}
+      {/* ================= RIGHT PANEL ================= */}
       <div
         style={{
-          width: isPhone ? "100%" : 320,
+          flex: 1, // 👈 SIDE PANEL (not fixed width anymore)
           background: "#ffffff",
-          borderRadius: 12,
-          padding: 15,
+          borderRadius: 16,
+          padding: 20,
           overflowY: "auto",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         }}
       >
-        <h3 style={{ marginBottom: 10 }}>Games</h3>
+        <h3 style={{ marginBottom: 15 }}>Games</h3>
 
         {groupedByTime.map((block) => (
-          <div key={block.time} style={{ marginBottom: 15 }}>
-            <h4 style={{ color: "#555", marginBottom: 8 }}>
+          <div key={block.time} style={{ marginBottom: 20 }}>
+            <h4 style={{ color: "#666", marginBottom: 10 }}>
               {block.time}
             </h4>
 
@@ -128,13 +137,14 @@ export default function ScoreboardManager({ adminView }) {
                   key={game.id}
                   onClick={() => setSelectedGame(game)}
                   style={{
-                    padding: 12,
-                    marginBottom: 8,
-                    borderRadius: 10,
-                    background: isSelected ? "#2f6ea6" : "#f5f5f5",
+                    padding: 14,
+                    marginBottom: 10,
+                    borderRadius: 12,
+                    background: isSelected ? "#2f6ea6" : "#f2f2f2",
                     color: isSelected ? "#fff" : "#000",
                     cursor: "pointer",
-                    transition: "0.2s",
+                    fontSize: 16,
+                    fontWeight: 500,
                   }}
                 >
                   {game.team1} vs {game.team2}
