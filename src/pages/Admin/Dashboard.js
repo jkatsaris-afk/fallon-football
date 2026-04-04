@@ -6,23 +6,26 @@ export default function Dashboard({ setPage }) {
       style={{
         display: "flex",
         height: "100%",
-        color: "#fff",
+        background: "#f8fafc",
+        color: "#0f172a",
       }}
     >
       {/* ================= SIDEBAR ================= */}
       <div
         style={{
           width: 220,
-          background: "#1e293b",
+          background: "#ffffff",
           padding: 20,
           display: "flex",
           flexDirection: "column",
           gap: 15,
+          borderRight: "1px solid #e5e7eb",
         }}
       >
         <h2 style={{ marginBottom: 20 }}>Admin</h2>
 
         <button style={navBtn(true)}>Dashboard</button>
+
         <button style={navBtn()} onClick={() => setPage("scoreManager")}>
           Score Manager
         </button>
@@ -37,19 +40,18 @@ export default function Dashboard({ setPage }) {
         style={{
           flex: 1,
           padding: 25,
-          background: "#0f172a",
           overflowY: "auto",
         }}
       >
         {/* HEADER */}
         <div style={{ marginBottom: 25 }}>
           <h1 style={{ marginBottom: 5 }}>Dashboard</h1>
-          <p style={{ color: "#94a3b8" }}>
+          <p style={{ color: "#64748b" }}>
             League overview and quick actions
           </p>
         </div>
 
-        {/* ================= STATS ROW ================= */}
+        {/* ================= STATS ================= */}
         <div
           style={{
             display: "grid",
@@ -105,10 +107,11 @@ function navBtn(active = false) {
     padding: "12px",
     borderRadius: 10,
     border: "none",
-    background: active ? "#7c3aed" : "transparent",
-    color: "#fff",
+    background: active ? "#2f6ea6" : "transparent",
+    color: active ? "#fff" : "#0f172a",
     textAlign: "left",
     cursor: "pointer",
+    fontWeight: active ? "600" : "500",
   };
 }
 
@@ -116,13 +119,14 @@ function StatCard({ title, value, color }) {
   return (
     <div
       style={{
-        background: "#1e293b",
+        background: "#ffffff",
         padding: 20,
         borderRadius: 16,
         borderLeft: `6px solid ${color}`,
+        boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
       }}
     >
-      <p style={{ color: "#94a3b8", marginBottom: 5 }}>{title}</p>
+      <p style={{ color: "#64748b", marginBottom: 5 }}>{title}</p>
       <h2>{value}</h2>
     </div>
   );
@@ -133,15 +137,16 @@ function ActionCard({ title, desc, onClick }) {
     <div
       onClick={onClick}
       style={{
-        background: "#1e293b",
+        background: "#ffffff",
         padding: 20,
         borderRadius: 16,
         cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
         transition: "0.2s",
       }}
     >
       <h3 style={{ marginBottom: 10 }}>{title}</h3>
-      <p style={{ color: "#94a3b8" }}>{desc}</p>
+      <p style={{ color: "#64748b" }}>{desc}</p>
     </div>
   );
 }
