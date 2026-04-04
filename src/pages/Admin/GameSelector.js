@@ -4,6 +4,7 @@ import { supabase } from "../../supabase";
 export default function GameSelector({ onGameStart }) {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedTime, setSelectedTime] = useState(null); // ✅ ADDED
 
   useEffect(() => {
     loadGames();
@@ -56,12 +57,14 @@ export default function GameSelector({ onGameStart }) {
     if (!error) onGameStart(data, game);
   }
 
-  // ===== GROUP BY DATE =====
+  // ===== GROUP BY DATE + TIME ===== ✅ UPDATED
   const grouped = games.reduce((acc, g) => {
     if (!g.clean_date) return acc;
 
-    if (!acc[g.clean_date]) acc[g.clean_date] = [];
-    acc[g.clean_date].push(g);
+    if (!acc[g.clean_date]) acc[g.clean_date] = {};
+    if (!acc[g.clean_date][g.event_time]) acc[g.clean_date][g.event_time] = [];
+
+    acc[g.clean_date][g.event_time].push(g);
 
     return acc;
   }, {});
@@ -83,13 +86,13 @@ export default function GameSelector({ onGameStart }) {
           >
             <div className="title">{formatDate(date)}</div>
             <div className="sub">
-              {grouped[date].length} games
+              {Object.values(grouped[date]).flat().length} games
             </div>
           </div>
         ))}
 
-      {/* ================= GAMES ================= */}
-      {selectedDate && (
+      {/* ================= TIME LIST ================= */}
+      {selectedDate && !selectedTime && (
         <div>
 
           <div className="card active-card">
@@ -98,42 +101,76 @@ export default function GameSelector({ onGameStart }) {
 
           <div
             className="card"
-            onClick={() => setSelectedDate(null)}
+            onClick={() => {
+              setSelectedDate(null);
+              setSelectedTime(null);
+            }}
           >
             <div className="sub">← Back</div>
           </div>
 
-          {grouped[selectedDate]
-            .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
-            .map((item, i) => (
-              <div key={item.id}>
+          {Object.keys(grouped[selectedDate])
+            .sort((a, b) => toTime(a) - toTime(b))
+            .map(time => (
+              <div
+                key={time}
+                className="card"
+                style={{ background: "#e8f5e9" }} // light green
+                onClick={() => setSelectedTime(time)}
+              >
+                <div className="title">{time}</div>
+              </div>
+            ))}
 
-                {i !== 0 && <div className="divider" />}
+        </div>
+      )}
 
-                <div
-                  className="inner-tile"
-                  onClick={() => startGame(item)}
-                >
-                  <div className="game-row">
+      {/* ================= GAMES ================= */}
+      {selectedDate && selectedTime && (
+        <div>
 
-                    <div className="game-top">
-                      <div className="team">{item.team}</div>
-                      <div className="game-time">{item.event_time}</div>
-                    </div>
+          <div className="card active-card">
+            <div className="title">
+              {formatDate(selectedDate)} - {selectedTime}
+            </div>
+          </div>
 
-                    <div className="vs">vs</div>
+          <div
+            className="card"
+            onClick={() => setSelectedTime(null)}
+          >
+            <div className="sub">← Back</div>
+          </div>
 
-                    <div className="game-bottom">
-                      <div className="team">{item.opponent}</div>
-                      <div className="field-badge">{item.field}</div>
-                    </div>
+          {grouped[selectedDate][selectedTime].map((item, i) => (
+            <div key={item.id}>
 
+              {i !== 0 && <div className="divider" />}
+
+              <div
+                className="inner-tile"
+                onClick={() => startGame(item)}
+              >
+                <div className="game-row">
+
+                  <div className="game-top">
+                    <div className="team">{item.team}</div>
+                    <div className="game-time">{item.event_time}</div>
+                  </div>
+
+                  <div className="vs">vs</div>
+
+                  <div className="game-bottom">
+                    <div className="team">{item.opponent}</div>
+                    <div className="field-badge">{item.field}</div>
                   </div>
 
                 </div>
 
               </div>
-            ))}
+
+            </div>
+          ))}
 
         </div>
       )}
