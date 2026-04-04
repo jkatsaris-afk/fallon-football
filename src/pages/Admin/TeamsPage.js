@@ -65,11 +65,10 @@ export default function TeamsPage() {
     }]);
 
     if (error) {
-      alert("❌ Team already assigned in this division");
+      alert("❌ Team already used in this division");
       return;
     }
 
-    // ✅ RESET UI CLEANLY
     setSelectedTeam(null);
     setDivision("");
     setCoach("");
@@ -83,14 +82,17 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
-      {/* ================= SELECT TEAMS ================= */}
+      {/* ================= SELECT NFL TEAM ================= */}
 
       <h3>Select NFL Team</h3>
 
       <div style={grid}>
         {nflTeams
           .filter(nfl =>
-            !teams.some(t => t.nfl_team_id === nfl.id)
+            !teams.some(t =>
+              t.nfl_team_id === nfl.id &&
+              t.division === division
+            )
           )
           .map(team => (
             <div
@@ -172,6 +174,7 @@ export default function TeamsPage() {
             >
               <img src={teamLogos[nfl?.short_name]} width={50}/>
               <div>{nfl?.full_name}</div>
+
               <div style={{ fontSize: 12, color: "#64748b" }}>
                 {t.division}
               </div>
@@ -184,7 +187,7 @@ export default function TeamsPage() {
 
       {activeTeam && (
         <div style={panel}>
-          <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
+          <button style={closeBtn} onClick={() => setActiveTeam(null)}>✕</button>
 
           <h2>Manage Team</h2>
 
