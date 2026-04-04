@@ -64,9 +64,8 @@ export default function ScoreboardManager() {
           game_id: game.id,
           home_score: 0,
           away_score: 0,
-          quarter: 1, // = HALF
+          quarter: 1,
           clock: "24:00",
-          down: 1,
           possession: "home",
           status: "live",
         },
@@ -77,45 +76,44 @@ export default function ScoreboardManager() {
     setLiveGame(data);
   }
 
-  // ================= SCORE =================
-  async function updateScore(points, team) {
+  // ================= SCORE (FIXED) =================
+  async function updateScore(team, points) {
     if (!liveGame) return;
 
     const field = team === "home" ? "home_score" : "away_score";
     const newScore = Math.max(0, (liveGame[field] || 0) + points);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("live_games")
       .update({ [field]: newScore })
       .eq("id", liveGame.id)
       .select()
       .single();
 
-    setLiveGame(data);
+    if (!error) setLiveGame(data);
   }
 
   // ================= CLOCK =================
   function startClock() {
     if (!liveGame || clockRef.current) return;
 
-    clockRef.current = setInterval(async () => {
+    clockRef.current = setInterval(() => {
       setLiveGame((prev) => {
         if (!prev) return prev;
 
-        let [min, sec] = prev.clock.split(":").map(Number);
+        let [m, s] = prev.clock.split(":").map(Number);
 
-        if (min === 0 && sec === 0) return prev;
+        if (m === 0 && s === 0) return prev;
 
-        if (sec === 0) {
-          min--;
-          sec = 59;
+        if (s === 0) {
+          m--;
+          s = 59;
         } else {
-          sec--;
+          s--;
         }
 
-        const newTime = `${min}:${sec.toString().padStart(2, "0")}`;
+        const newTime = `${m}:${s.toString().padStart(2, "0")}`;
 
-        // push to DB async
         supabase
           .from("live_games")
           .update({ clock: newTime })
@@ -129,24 +127,6 @@ export default function ScoreboardManager() {
   function stopClock() {
     clearInterval(clockRef.current);
     clockRef.current = null;
-  }
-
-  async function nextHalf() {
-    if (!liveGame) return;
-
-    stopClock();
-
-    const { data } = await supabase
-      .from("live_games")
-      .update({
-        quarter: liveGame.quarter + 1,
-        clock: "24:00",
-      })
-      .eq("id", liveGame.id)
-      .select()
-      .single();
-
-    setLiveGame(data);
   }
 
   // ================= GROUP =================
@@ -168,15 +148,13 @@ export default function ScoreboardManager() {
   return (
     <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
-      {/* ================= LEFT ================= */}
-      <div style={{ flex: 2, background: "#fff", padding: 20, borderRadius: 12 }}>
+      {/* LEFT PANEL */}
+      <div style={leftPanel}>
 
         {!selectedGame && (
           <div style={empty}>
-            <div>
-              <h2>No Game Active</h2>
-              <p>Select and start a game</p>
-            </div>
+            <h2>No Game Active</h2>
+            <p>Select and start a game</p>
           </div>
         )}
 
@@ -186,61 +164,50 @@ export default function ScoreboardManager() {
               {selectedGame.team1} vs {selectedGame.team2}
             </h2>
 
+            {/* MODERN SCOREBOARD */}
             <div style={board}>
-              {/* HOME */}
+
               <div style={team}>
                 <h3>{selectedGame.team1}</h3>
-                <h1>{liveGame?.home_score ?? 0}</h1>
+                <div style={score}>{liveGame?.home_score ?? 0}</div>
 
-                <div style={row}>
-                  <button onClick={() => updateScore(1, "home")}>+1</button>
-                  <button onClick={() => updateScore(-1, "home")}>-1</button>
-                </div>
-
-                <div style={row}>
-                  <button onClick={() => updateScore(6, "home")}>TD</button>
-                  <button onClick={() => updateScore(1, "home")}>XP1</button>
-                  <button onClick={() => updateScore(2, "home")}>XP2</button>
-                  <button onClick={() => updateScore(2, "home")}>Safety</button>
+                <div style={btnRow}>
+                  <button onClick={() => updateScore("home", 6)}>TD</button>
+                  <button onClick={() => updateScore("home", 1)}>+1</button>
+                  <button onClick={() => updateScore("home", 2)}>+2</button>
+                  <button onClick={() => updateScore("home", -1)}>-</button>
                 </div>
               </div>
 
-              {/* CENTER */}
               <div style={center}>
-                <h1>{liveGame?.clock ?? "24:00"}</h1>
+                <div style={clock}>{liveGame?.clock ?? "24:00"}</div>
                 <div>Half {liveGame?.quarter ?? 1}</div>
 
-                <div style={row}>
+                <div style={btnRow}>
                   <button onClick={startClock}>Start</button>
                   <button onClick={stopClock}>Stop</button>
-                  <button onClick={nextHalf}>Next Half</button>
                 </div>
               </div>
 
-              {/* AWAY */}
               <div style={team}>
                 <h3>{selectedGame.team2}</h3>
-                <h1>{liveGame?.away_score ?? 0}</h1>
+                <div style={score}>{liveGame?.away_score ?? 0}</div>
 
-                <div style={row}>
-                  <button onClick={() => updateScore(1, "away")}>+1</button>
-                  <button onClick={() => updateScore(-1, "away")}>-1</button>
-                </div>
-
-                <div style={row}>
-                  <button onClick={() => updateScore(6, "away")}>TD</button>
-                  <button onClick={() => updateScore(1, "away")}>XP1</button>
-                  <button onClick={() => updateScore(2, "away")}>XP2</button>
-                  <button onClick={() => updateScore(2, "away")}>Safety</button>
+                <div style={btnRow}>
+                  <button onClick={() => updateScore("away", 6)}>TD</button>
+                  <button onClick={() => updateScore("away", 1)}>+1</button>
+                  <button onClick={() => updateScore("away", 2)}>+2</button>
+                  <button onClick={() => updateScore("away", -1)}>-</button>
                 </div>
               </div>
+
             </div>
           </>
         )}
       </div>
 
-      {/* ================= RIGHT ================= */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      {/* RIGHT PANEL */}
+      <div style={rightPanel}>
         {grouped.map((day) => (
           <div key={day.date}>
             <div className="card" onClick={() => setOpenDate(day.date)}>
@@ -250,8 +217,7 @@ export default function ScoreboardManager() {
             {openDate === day.date &&
               Object.entries(day.times).map(([time, games]) => (
                 <div key={time}>
-                  <div className="card" style={{ background: "#e8f5e9" }}
-                       onClick={() => setOpenTime(time)}>
+                  <div className="card" onClick={() => setOpenTime(time)}>
                     {time}
                   </div>
 
@@ -274,28 +240,27 @@ export default function ScoreboardManager() {
 }
 
 // ===== STYLES =====
-const empty = {
-  height: "100%",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  color: "#64748b",
-};
+const leftPanel = { flex: 2, background: "#fff", padding: 20, borderRadius: 12 };
+const rightPanel = { flex: 1, overflowY: "auto" };
+const empty = { textAlign: "center", marginTop: "30%" };
 
 const board = {
   display: "flex",
   justifyContent: "space-between",
-  background: "#f8fafc",
+  background: "#f1f5f9",
   padding: 20,
-  borderRadius: 12,
+  borderRadius: 16,
 };
 
 const team = { textAlign: "center", flex: 1 };
 const center = { textAlign: "center", flex: 1 };
 
-const row = {
+const score = { fontSize: 48, fontWeight: "bold" };
+const clock = { fontSize: 36 };
+
+const btnRow = {
   display: "flex",
-  gap: 8,
+  gap: 6,
   justifyContent: "center",
   marginTop: 10,
 };
