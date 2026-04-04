@@ -15,7 +15,7 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [showLogin, setShowLogin] = useState(false);
 
-  // ✅ admin view state
+  // admin view state
   const [adminView, setAdminView] = useState("ipad");
 
   useEffect(() => {
@@ -35,74 +35,87 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
+    <>
+      {(page === "dashboard" || page === "scoreManager") ? (
+        // ✅ FULL SCREEN ADMIN MODE
+        <div
+          style={{
+            width: "100vw",
+            height: "100vh",
+            background: "#0f172a",
+          }}
+        >
+          {page === "dashboard" && (
+            <Dashboard setPage={setPage} />
+          )}
 
-      {/* HEADER */}
-      <div className="header">
-        <img src={logo} className="logo" alt="logo" />
-      </div>
+          {page === "scoreManager" && (
+            <>
+              <ViewToggle
+                adminView={adminView}
+                setAdminView={setAdminView}
+              />
+              <ScoreboardManager adminView={adminView} />
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="app">
 
-      {/* PAGES */}
-      {page === "home" && <HomePage setPage={setPage} />}
-      {page === "schedule" && <SchedulePage />}
-      {page === "scoreboard" && <ScoreboardPage />}
+          {/* HEADER */}
+          <div className="header">
+            <img src={logo} className="logo" alt="logo" />
+          </div>
 
-      {/* ✅ NEW: ADMIN DASHBOARD */}
-      {page === "dashboard" && <Dashboard setPage={setPage} />}
+          {/* PUBLIC PAGES */}
+          {page === "home" && <HomePage setPage={setPage} />}
+          {page === "schedule" && <SchedulePage />}
+          {page === "scoreboard" && <ScoreboardPage />}
 
-      {/* ✅ UPDATED: SCORE MANAGER */}
-      {page === "scoreManager" && (
-        <>
-          <ViewToggle
-            adminView={adminView}
-            setAdminView={setAdminView}
-          />
-          <ScoreboardManager adminView={adminView} />
-        </>
+          {/* NAV */}
+          <div className="bottom-nav">
+
+            <button
+              className={`nav-btn ${page === "home" ? "active" : ""}`}
+              onClick={() => setPage("home")}
+            >
+              Home
+            </button>
+
+            <button
+              className={`nav-btn ${page === "schedule" ? "active" : ""}`}
+              onClick={() => setPage("schedule")}
+            >
+              Schedule
+            </button>
+
+            <button
+              className={`nav-btn ${page === "scoreboard" ? "active" : ""}`}
+              onClick={() => setPage("scoreboard")}
+            >
+              Scores
+            </button>
+
+            {/* ADMIN BUTTON */}
+            <button
+              className={`nav-btn ${page === "dashboard" ? "active" : ""}`}
+              onClick={() => setPage("dashboard")}
+            >
+              Admin
+            </button>
+
+            <button onClick={() => setShowLogin(true)} className="nav-btn">
+              Login
+            </button>
+
+          </div>
+
+          {showLogin && (
+            <LoginModal onClose={() => setShowLogin(false)} />
+          )}
+
+        </div>
       )}
-
-      {/* NAV */}
-      <div className="bottom-nav">
-
-        <button
-          className={`nav-btn ${page === "home" ? "active" : ""}`}
-          onClick={() => setPage("home")}
-        >
-          Home
-        </button>
-
-        <button
-          className={`nav-btn ${page === "schedule" ? "active" : ""}`}
-          onClick={() => setPage("schedule")}
-        >
-          Schedule
-        </button>
-
-        <button
-          className={`nav-btn ${page === "scoreboard" ? "active" : ""}`}
-          onClick={() => setPage("scoreboard")}
-        >
-          Scores
-        </button>
-
-        {/* ✅ UPDATED ADMIN BUTTON */}
-        <button
-          className={`nav-btn ${page === "dashboard" ? "active" : ""}`}
-          onClick={() => setPage("dashboard")}
-        >
-          Admin
-        </button>
-
-        <button onClick={() => setShowLogin(true)} className="nav-btn">
-          Login
-        </button>
-
-      </div>
-
-      {showLogin && (
-        <LoginModal onClose={() => setShowLogin(false)} />
-      )}
-
-    </div>
+    </>
   );
 }
