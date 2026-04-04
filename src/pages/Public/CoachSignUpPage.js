@@ -53,24 +53,18 @@ export default function CoachSignUpPage() {
     setLoading(false);
   };
 
-  // ================= LOADING =================
-  if (!settings) {
-    return <div style={{ padding: 20 }}>Loading...</div>;
-  }
+  if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
     <div style={{ padding: 20, maxWidth: 500, margin: "auto" }}>
 
-      {/* 🔒 CLOSED MESSAGE */}
       {!settings.coach_signups_open && (
         <Card center>
           <h2>🚫 Coach Registration Closed</h2>
-          <p>Coach signups are currently closed for this season.</p>
-          <p>Please check back later.</p>
+          <p>Coach signups are currently closed.</p>
         </Card>
       )}
 
-      {/* ✅ FORM */}
       {settings.coach_signups_open && (
         <>
           <h2>🏈 Coach Registration</h2>
@@ -203,12 +197,17 @@ const inputStyle = {
   border: "1px solid #e2e8f0"
 };
 
+/* ✅ FIXED TEXTAREA */
 const textareaStyle = {
   width: "100%",
   minHeight: 80,
   padding: 12,
   borderRadius: 10,
-  border: "1px solid #e2e8f0"
+  border: "1px solid #e2e8f0",
+  boxSizing: "border-box",   // ✅ prevents overflow
+  resize: "vertical",        // ✅ prevents sideways stretch
+  fontFamily: "inherit",
+  fontSize: 14
 };
 
 const submitBtn = {
