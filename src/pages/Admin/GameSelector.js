@@ -3,7 +3,7 @@ import { supabase } from "../../supabase";
 
 export default function GameSelector({ onGameStart }) {
   const [games, setGames] = useState([]);
-  const [openDate, setOpenDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   useEffect(() => {
     loadGames();
@@ -12,12 +12,19 @@ export default function GameSelector({ onGameStart }) {
   async function loadGames() {
     const { data } = await supabase
       .from("schedule_master")
-      .select("*")
-      .ilike("event_type", "%game%")
-      .order("event_date")
-      .order("event_time");
+      .select("*");
 
-    setGames(data || []);
+    if (!data) return;
+
+    const clean = data
+      .map(g => ({
+        ...g,
+        clean_date: normalizeDate(g.event_date),
+        clean_type: (g.event_type || "").toLowerCase().trim()
+      }))
+      .filter(g => g.clean_type.includes("game"));
+
+    setGames(clean);
   }
 
   async function startGame(game) {
@@ -49,106 +56,128 @@ export default function GameSelector({ onGameStart }) {
     if (!error) onGameStart(data, game);
   }
 
-  // group by date (like your schedule page)
-  const grouped = Object.values(
-    games.reduce((acc, g) => {
-      const date = new Date(g.event_date).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
+  // ===== GROUP BY DATE =====
+  const grouped = games.reduce((acc, g) => {
+    if (!g.clean_date) return acc;
 
-      if (!acc[date]) acc[date] = { date, games: [] };
+    if (!acc[g.clean_date]) acc[g.clean_date] = [];
+    acc[g.clean_date].push(g);
 
-      acc[date].games.push(g);
-      return acc;
-    }, {})
+    return acc;
+  }, {});
+
+  const dates = Object.keys(grouped).sort(
+    (a, b) => new Date(a) - new Date(b)
   );
 
   return (
     <div style={container}>
 
-      <h3 style={{ marginBottom: 10 }}>Games</h3>
-
-      {grouped.map((day) => (
-        <div key={day.date}>
-
-          {/* DATE HEADER */}
+      {/* ================= DATE LIST ================= */}
+      {!selectedDate &&
+        dates.map(date => (
           <div
-            style={dateHeader}
-            onClick={() =>
-              setOpenDate(openDate === day.date ? null : day.date)
-            }
+            key={date}
+            className="card"
+            onClick={() => setSelectedDate(date)}
           >
-            {day.date}
+            <div className="title">{formatDate(date)}</div>
+            <div className="sub">
+              {grouped[date].length} games
+            </div>
+          </div>
+        ))}
+
+      {/* ================= GAMES ================= */}
+      {selectedDate && (
+        <div>
+
+          <div className="card active-card">
+            <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
-          {/* GAMES */}
-          {openDate === day.date &&
-            day.games.map((g) => (
-              <div key={g.id} style={gameRow}>
+          <div
+            className="card"
+            onClick={() => setSelectedDate(null)}
+          >
+            <div className="sub">← Back</div>
+          </div>
 
-                <div style={teams}>
-                  {g.team} vs {g.opponent}
-                </div>
+          {grouped[selectedDate]
+            .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
+            .map((item, i) => (
+              <div key={item.id}>
 
-                <div style={time}>
-                  {g.event_time}
-                </div>
+                {i !== 0 && <div className="divider" />}
 
-                <button
-                  style={startBtn}
-                  onClick={() => startGame(g)}
+                <div
+                  className="inner-tile"
+                  onClick={() => startGame(item)}
                 >
-                  Start
-                </button>
+                  <div className="game-row">
+
+                    <div className="game-top">
+                      <div className="team">{item.team}</div>
+                      <div className="game-time">{item.event_time}</div>
+                    </div>
+
+                    <div className="vs">vs</div>
+
+                    <div className="game-bottom">
+                      <div className="team">{item.opponent}</div>
+                      <div className="field-badge">{item.field}</div>
+                    </div>
+
+                  </div>
+
+                </div>
+
               </div>
             ))}
+
         </div>
-      ))}
+      )}
+
     </div>
   );
 }
 
-// ===== STYLES =====
+/* ================= HELPERS ================= */
+
+function normalizeDate(dateStr) {
+  if (!dateStr) return null;
+
+  if (dateStr.includes("-")) return dateStr;
+
+  const [m, d, y] = dateStr.split("/");
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric"
+  });
+}
+
+function toTime(timeStr) {
+  if (!timeStr) return 0;
+
+  const [time, mod] = timeStr.split(" ");
+  let [h, m] = time.split(":");
+
+  if (mod === "PM" && h !== "12") h = +h + 12;
+  if (mod === "AM" && h === "12") h = "00";
+
+  return parseInt(h) * 60 + parseInt(m);
+}
+
+/* ================= STYLE ================= */
 
 const container = {
-  width: 280,
-  padding: 15,
-  background: "#ffffff",
-  borderRight: "1px solid #e5e7eb",
+  width: 300,
+  padding: 10,
   overflowY: "auto",
-};
-
-const dateHeader = {
-  fontWeight: "600",
-  padding: "10px 5px",
-  cursor: "pointer",
-  color: "#0f172a",
-};
-
-const gameRow = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "8px 5px",
-  borderBottom: "1px solid #f1f5f9",
-};
-
-const teams = {
-  fontSize: 13,
-  fontWeight: 500,
-};
-
-const time = {
-  fontSize: 11,
-  color: "#64748b",
-};
-
-const startBtn = {
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "none",
-  background: "#2f6ea6",
-  color: "#fff",
-  fontSize: 12,
+  borderRight: "1px solid #e5e7eb"
 };
