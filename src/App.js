@@ -7,7 +7,7 @@ import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import ScoreboardManager from "./pages/Admin/ScoreboardManager";
 import LoginModal from "./components/LoginModal";
 import ViewToggle from "./pages/Admin/ViewToggle"; // ✅ ADD
-
+import Dashboard from "./pages/Admin/Dashboard";
 import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
 
@@ -21,7 +21,7 @@ export default function App() {
   useEffect(() => {
     const path = window.location.pathname;
 
-    if (path === "/admin") setPage("admin");
+    if (path === "/admin") setPage("dashboard");
 
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
