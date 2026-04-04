@@ -1,84 +1,46 @@
 import { useState } from "react";
+import { supabase } from "../supabase";
 
 export default function LoginModal({ onClose }) {
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (!error) {
+      window.location.href = "/admin";
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-sheet"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
 
-        {/* TITLE */}
-        <div className="title">Login</div>
+        <div className="title">Admin Login</div>
 
-        {/* ========================= */}
-        {/* ROLE SELECT */}
-        {/* ========================= */}
-        {!selectedRole && (
-          <>
-            <div
-              className="modal-option"
-              onClick={() => setSelectedRole("Admin")}
-            >
-              Admin
-            </div>
+        <input
+          className="input"
+          placeholder="Email"
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-            <div
-              className="modal-option"
-              onClick={() => setSelectedRole("Coach")}
-            >
-              Coach
-            </div>
+        <input
+          className="input"
+          placeholder="Password"
+          type="password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-            <div
-              className="modal-option"
-              onClick={() => setSelectedRole("Parent")}
-            >
-              Parent
-            </div>
-          </>
-        )}
+        <button className="button" onClick={handleLogin}>
+          Login
+        </button>
 
-        {/* ========================= */}
-        {/* COMING SOON SCREEN */}
-        {/* ========================= */}
-        {selectedRole && (
-          <div
-            style={{
-              marginTop: 20,
-              textAlign: "center"
-            }}
-          >
-            <div className="title">{selectedRole}</div>
-
-            <div
-              className="sub"
-              style={{
-                marginTop: 10,
-                fontSize: 16
-              }}
-            >
-              Coming Soon
-            </div>
-          </div>
-        )}
-
-        {/* ========================= */}
-        {/* CANCEL / BACK BUTTON */}
-        {/* ========================= */}
-        <div
-          className="modal-cancel"
-          onClick={() => {
-            if (selectedRole) {
-              setSelectedRole(null); // go back
-            } else {
-              onClose(); // close modal
-            }
-          }}
-        >
-          {selectedRole ? "← Back" : "Cancel"}
+        <div className="modal-cancel" onClick={onClose}>
+          Cancel
         </div>
 
       </div>
