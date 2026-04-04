@@ -1,8 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://qfgxbzqhwpscjpflxqfs.supabase.co";
-
-// ✅ MUST BE anon public key (long JWT)
-const supabaseKey = "PASTE_ANON_PUBLIC_KEY_HERE";
+const supabaseKey = "sb_publishable_lfyWSkFOrrNDEqwM6OuVJw_2Yr4sYZK";
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
