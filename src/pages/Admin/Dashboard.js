@@ -4,7 +4,7 @@ import ScoreboardManager from "./ScoreboardManager";
 import GameSelector from "./GameSelector";
 import TeamsPage from "./TeamsPage";
 
-// ✅ NEW IMPORT
+// ✅ SETTINGS PAGE
 import AdminSettings from "./AdminSettings";
 
 export default function Dashboard({
@@ -84,7 +84,7 @@ export default function Dashboard({
         <button style={navBtn(false)}>Schedule</button>
         <button style={navBtn(false)}>Reports</button>
 
-        {/* ✅ NEW SETTINGS SECTION */}
+        {/* ================= SETTINGS SECTION ================= */}
         <div style={{ marginTop: 20, fontSize: 12, color: "#94a3b8" }}>
           SETTINGS
         </div>
@@ -93,14 +93,14 @@ export default function Dashboard({
           style={navBtn(adminPage === "settings")}
           onClick={() => setAdminPage("settings")}
         >
-          Admin Settings
+          Settings
         </button>
-
       </div>
 
       {/* ================= RIGHT PANEL ================= */}
       <div style={{ flex: 1, padding: 25, overflow: "hidden" }}>
 
+        {/* ===== DASHBOARD ===== */}
         {adminPage === "dashboard" && (
           <>
             <h1>Dashboard</h1>
@@ -122,19 +122,22 @@ export default function Dashboard({
           </>
         )}
 
+        {/* ===== SCOREBOARD ===== */}
         {adminPage === "scoreManager" && (
           <ScoreboardManager />
         )}
 
+        {/* ===== GAME SELECTOR ===== */}
         {adminPage === "gameSelector" && (
           <GameSelector />
         )}
 
+        {/* ===== TEAMS ===== */}
         {adminPage === "teams" && (
           <TeamsPage />
         )}
 
-        {/* ✅ NEW SETTINGS PAGE RENDER */}
+        {/* ===== SETTINGS (NEW) ===== */}
         {adminPage === "settings" && (
           <AdminSettings />
         )}
