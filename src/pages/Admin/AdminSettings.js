@@ -30,33 +30,115 @@ export default function AdminSettings() {
   if (!settings) return <div>Loading...</div>;
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>⚙️ League Settings</h2>
+    <div>
+      <h1>Settings</h1>
+      <p style={{ color: "#64748b", marginBottom: 20 }}>
+        Manage league configuration
+      </p>
 
-      <label>
-        <input
-          type="checkbox"
-          checked={settings.signups_open}
-          onChange={(e)=>update("signups_open", e.target.checked)}
-        />
-        Signups Open
-      </label>
+      {/* ================= GRID ================= */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 20
+        }}
+      >
 
-      <div>
-        <label>Season</label>
-        <input
-          value={settings.current_season}
-          onChange={(e)=>update("current_season", Number(e.target.value))}
-        />
+        {/* ===== SIGNUPS TILE ===== */}
+        <Tile title="Registration">
+          <ToggleRow
+            label="Signups Open"
+            value={settings.signups_open}
+            onChange={(val) => update("signups_open", val)}
+          />
+        </Tile>
+
+        {/* ===== SEASON TILE ===== */}
+        <Tile title="Season">
+          <InputRow
+            label="Current Season"
+            value={settings.current_season}
+            onChange={(val) => update("current_season", Number(val))}
+          />
+        </Tile>
+
+        {/* ===== FEES TILE ===== */}
+        <Tile title="Fees">
+          <InputRow
+            label="Registration Fee ($)"
+            value={settings.registration_fee}
+            onChange={(val) => update("registration_fee", Number(val))}
+          />
+        </Tile>
+
       </div>
+    </div>
+  );
+}
 
-      <div>
-        <label>Registration Fee</label>
-        <input
-          value={settings.registration_fee}
-          onChange={(e)=>update("registration_fee", Number(e.target.value))}
-        />
+/* ================= TILE ================= */
+
+function Tile({ title, children }) {
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        borderRadius: 16,
+        padding: 20,
+        boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 15
+      }}
+    >
+      <div style={{ fontWeight: 600, fontSize: 16 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+/* ================= INPUT ROW ================= */
+
+function InputRow({ label, value, onChange }) {
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>
+        {label}
       </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          padding: 10,
+          borderRadius: 10,
+          border: "1px solid #e2e8f0"
+        }}
+      />
+    </div>
+  );
+}
+
+/* ================= TOGGLE ================= */
+
+function ToggleRow({ label, value, onChange }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }}
+    >
+      <div>{label}</div>
+
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ transform: "scale(1.2)" }}
+      />
     </div>
   );
 }
