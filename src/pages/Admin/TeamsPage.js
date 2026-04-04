@@ -35,6 +35,9 @@ export default function TeamsPage() {
   const [coach, setCoach] = useState("");
   const [assistantCoach, setAssistantCoach] = useState("");
 
+  const [showAdd, setShowAdd] = useState(false);
+  const [confirmAuto, setConfirmAuto] = useState(false);
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
@@ -103,25 +106,24 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= ADD PLAYER ================= */
+  /* ================= REMOVE TEAM ================= */
 
-  const addPlayer = async (playerId) => {
+  const removeTeam = async () => {
+    if (!activeTeam) return;
+
+    // remove players from team
     await supabase
       .from("players")
-      .update({ team_id: activeTeam.id })
-      .eq("id", playerId);
+      .update({ team_id: null })
+      .eq("team_id", activeTeam.id);
 
-    loadData();
-  };
-
-  /* ================= MOVE PLAYER ================= */
-
-  const movePlayer = async (playerId, newTeamId) => {
+    // delete team
     await supabase
-      .from("players")
-      .update({ team_id: newTeamId })
-      .eq("id", playerId);
+      .from("teams")
+      .delete()
+      .eq("id", activeTeam.id);
 
+    setActiveTeam(null);
     loadData();
   };
 
@@ -130,8 +132,7 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
-      {/* ================= SELECT ================= */}
-
+      {/* SELECT */}
       <div style={grid}>
         {nflTeams
           .filter(nfl =>
@@ -148,13 +149,10 @@ export default function TeamsPage() {
           ))}
       </div>
 
-      {/* ================= ASSIGN ================= */}
-
+      {/* ASSIGN */}
       {selectedTeam && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setSelectedTeam(null)}>✕</button>
-
-          <h3>{selectedTeam.full_name}</h3>
 
           <select style={inputStyle} onChange={(e)=>setDivision(e.target.value)}>
             <option value="">Division</option>
@@ -188,10 +186,7 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* ================= TEAMS ================= */}
-
-      <h3>Assigned Teams</h3>
-
+      {/* TEAMS */}
       <div style={grid}>
         {teams.map(t => {
           const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
@@ -205,73 +200,45 @@ export default function TeamsPage() {
         })}
       </div>
 
-      {/* ================= MANAGE TEAM ================= */}
-
+      {/* MANAGE */}
       {activeTeam && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
 
           <h2>Manage Team</h2>
 
-          {/* COACHES */}
-          <div>
-            <strong>Head Coach:</strong>{" "}
-            {coaches.find(c => c.id === activeTeam.coach_id)?.first_name}
-          </div>
-
-          <div>
-            <strong>Assistant:</strong>{" "}
-            {coaches.find(c => c.id === activeTeam.assistant_coach_id)?.first_name}
-          </div>
-
-          {/* BUTTONS */}
+          {/* BUTTON ROW */}
           <div style={btnRow}>
-            <button style={primaryBtn} onClick={autoAssign}>
+            <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
               Auto Roster
             </button>
+
+            <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
+              Add Player
+            </button>
+
+            <button style={dangerBtn} onClick={removeTeam}>
+              Remove Team
+            </button>
           </div>
+        </div>
+      )}
 
-          {/* PLAYERS */}
-          <h3>Players</h3>
+      {/* CONFIRM AUTO */}
+      {confirmAuto && (
+        <div style={panel}>
+          <button style={closeBtn} onClick={()=>setConfirmAuto(false)}>✕</button>
 
-          {players
-            .filter(p =>
-              p.team_id === activeTeam.id &&
-              p.division === activeTeam.division
-            )
-            .map(p => (
-              <div key={p.id} style={playerRow}>
-                {p.first_name} {p.last_name}
+          <p>
+            Make sure all teams are created in this division before running auto roster.
+          </p>
 
-                <button
-                  style={smallBtn}
-                  onClick={() => movePlayer(p.id, null)}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-
-          {/* ADD PLAYER */}
-          <h3>Add Player</h3>
-
-          {players
-            .filter(p =>
-              p.division === activeTeam.division &&
-              !p.team_id
-            )
-            .map(p => (
-              <div key={p.id} style={playerRow}>
-                {p.first_name} {p.last_name}
-
-                <button
-                  style={smallBtn}
-                  onClick={() => addPlayer(p.id)}
-                >
-                  Add
-                </button>
-              </div>
-            ))}
+          <button style={primaryBtn} onClick={()=>{
+            setConfirmAuto(false);
+            autoAssign();
+          }}>
+            Confirm
+          </button>
         </div>
       )}
 
@@ -279,7 +246,7 @@ export default function TeamsPage() {
   );
 }
 
-/* ================= STYLES ================= */
+/* STYLES */
 
 const grid = {
   display: "grid",
@@ -306,18 +273,12 @@ const panel = {
   position: "relative"
 };
 
-const playerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
-};
-
 const closeBtn = {
   position: "absolute",
   top: 10,
   right: 10,
-  background: "none",
   border: "none",
+  background: "transparent",
   cursor: "pointer"
 };
 
@@ -325,6 +286,11 @@ const inputStyle = {
   padding: 10,
   borderRadius: 10,
   border: "1px solid #e2e8f0"
+};
+
+const btnRow = {
+  display: "flex",
+  gap: 10
 };
 
 const primaryBtn = {
@@ -335,14 +301,16 @@ const primaryBtn = {
   borderRadius: 10
 };
 
-const smallBtn = {
-  padding: 6,
-  borderRadius: 6,
+const secondaryBtn = {
+  padding: 10,
   border: "1px solid #e2e8f0",
-  cursor: "pointer"
+  borderRadius: 10
 };
 
-const btnRow = {
-  display: "flex",
-  gap: 10
+const dangerBtn = {
+  padding: 10,
+  background: "#dc2626",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10
 };
