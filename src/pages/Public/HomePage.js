@@ -12,19 +12,29 @@ export default function HomePage({ setPage }) {
   }, []);
 
   const fetchGames = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("schedule_master")
       .select("*");
 
+    console.log("HOME DATA:", data);
+    console.log("HOME ERROR:", error);
+
+    if (!data) return;
+
     const now = new Date();
 
-    const processed = (data || [])
-      .filter(g => g.event_type?.toLowerCase().includes("game"))
+    const processed = data
+      .map(g => ({
+        ...g,
+        clean_date: normalizeDate(g.event_date),
+        clean_type: (g.event_type || "").toLowerCase().trim()
+      }))
+
+      // 🔥 ONLY GAMES
+      .filter(g => g.clean_type.includes("game"))
 
       .map(game => {
-        const normalized = normalizeDate(game.event_date);
-
-        const [y, m, d] = normalized.split("-");
+        const [y, m, d] = game.clean_date.split("-");
         const time24 = convertTo24Hour(game.event_time);
         const [hour, minute] = time24.split(":");
 
@@ -51,7 +61,7 @@ export default function HomePage({ setPage }) {
   return (
     <div>
 
-      {/* HEADER TILE */}
+      {/* HEADER */}
       <div className="card">
         <div className="title">Fallon Flag Football</div>
         <div className="sub">2026 Season</div>
@@ -91,9 +101,7 @@ export default function HomePage({ setPage }) {
   );
 }
 
-/* ========================= */
 /* GAME ROW */
-/* ========================= */
 function GameRow({ game, index, live }) {
   return (
     <div>
@@ -104,7 +112,6 @@ function GameRow({ game, index, live }) {
         {live && <div className="sub live">● LIVE</div>}
 
         <div className="game-row">
-
           <div className="game-top">
             <div className="team">{game.team}</div>
             <div className="game-time">{game.event_time}</div>
@@ -116,7 +123,6 @@ function GameRow({ game, index, live }) {
             <div className="team">{game.opponent}</div>
             <div className="field-badge">{game.field}</div>
           </div>
-
         </div>
 
       </div>
@@ -124,20 +130,22 @@ function GameRow({ game, index, live }) {
   );
 }
 
-/* ========================= */
 /* HELPERS */
-/* ========================= */
-
 function normalizeDate(dateStr) {
-  if (!dateStr) return "";
+  if (!dateStr) return null;
 
   if (dateStr.includes("-")) return dateStr;
 
-  const [m, d, y] = dateStr.split("/");
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return null;
+
+  const [m, d, y] = parts;
   return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
 function convertTo24Hour(timeStr) {
+  if (!timeStr) return "00:00";
+
   const [time, mod] = timeStr.split(" ");
   let [h, m] = time.split(":");
 
