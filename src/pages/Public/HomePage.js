@@ -7,29 +7,24 @@ export default function HomePage({ setPage }) {
 
   useEffect(() => {
     fetchGames();
-
     const interval = setInterval(fetchGames, 60000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchGames = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("schedule_master")
       .select("*");
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
     const now = new Date();
 
-    const processed = data
-      // 🔥 REMOVE PRACTICES
-      .filter(g => !g.event_type.toLowerCase().includes("practic"))
+    const processed = (data || [])
+      .filter(g => g.event_type?.toLowerCase().includes("game"))
 
       .map(game => {
-        const [y, m, d] = game.event_date.split("-");
+        const normalized = normalizeDate(game.event_date);
+
+        const [y, m, d] = normalized.split("-");
         const time24 = convertTo24Hour(game.event_time);
         const [hour, minute] = time24.split(":");
 
@@ -43,12 +38,8 @@ export default function HomePage({ setPage }) {
         };
       });
 
-    // 🔥 LIVE GAMES
-    const live = processed.filter(
-      g => g.start <= now && g.end > now
-    );
+    const live = processed.filter(g => g.start <= now && g.end > now);
 
-    // 🔥 UPCOMING
     const upcoming = processed
       .filter(g => g.start > now)
       .sort((a, b) => a.start - b.start);
@@ -60,109 +51,40 @@ export default function HomePage({ setPage }) {
   return (
     <div>
 
-      {/* SEASON TILE */}
+      {/* HEADER TILE */}
       <div className="card">
         <div className="title">Fallon Flag Football</div>
         <div className="sub">2026 Season</div>
       </div>
 
-      {/* ========================= */}
       {/* LIVE / UPCOMING */}
-      {/* ========================= */}
       <div className="card">
 
         <div className="title">
           {liveGames.length > 0 ? "Live Games" : "Upcoming Games"}
         </div>
 
-        {/* ========================= */}
-        {/* LIVE GAMES */}
-        {/* ========================= */}
-        {liveGames.length > 0 && liveGames.map((game, index) => (
-          <div key={game.id}>
+        {/* LIVE */}
+        {liveGames.length > 0 &&
+          liveGames.map((g, i) => (
+            <GameRow key={g.id} game={g} index={i} live />
+          ))}
 
-            {index !== 0 && <div className="divider" />}
-
-            <div className="inner-tile">
-
-              <div className="sub live">● LIVE</div>
-
-              <div className="game-row">
-
-                <div className="game-top">
-                  <div className="team">{game.team}</div>
-                  <div className="game-time">{game.event_time}</div>
-                </div>
-
-                <div className="vs">vs</div>
-
-                <div className="game-bottom">
-                  <div className="team">{game.opponent}</div>
-                  <div className="field-badge">{game.field}</div>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-        ))}
-
-        {/* ========================= */}
-        {/* UPCOMING GAMES */}
-        {/* ========================= */}
-        {liveGames.length === 0 && upcomingGames.length > 0 &&
-          upcomingGames.slice(0, 3).map((game, index) => (
-            <div key={game.id}>
-
-              {index !== 0 && <div className="divider" />}
-
-              <div className="inner-tile">
-
-                <div className="game-row">
-
-                  <div className="game-top">
-                    <div className="team">{game.team}</div>
-                    <div className="game-time">{game.event_time}</div>
-                  </div>
-
-                  <div className="vs">vs</div>
-
-                  <div className="game-bottom">
-                    <div className="team">{game.opponent}</div>
-                    <div className="field-badge">{game.field}</div>
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-          ))
-        }
+        {/* UPCOMING */}
+        {liveGames.length === 0 &&
+          upcomingGames.slice(0, 3).map((g, i) => (
+            <GameRow key={g.id} game={g} index={i} />
+          ))}
 
         {/* EMPTY */}
         {liveGames.length === 0 && upcomingGames.length === 0 && (
-          <div className="sub" style={{ marginTop: 10 }}>
-            No upcoming games
-          </div>
+          <div className="sub">No games found</div>
         )}
 
-        <button
-          className="button"
-          onClick={() => setPage("schedule")}
-        >
+        <button className="button" onClick={() => setPage("schedule")}>
           View Schedule
         </button>
 
-      </div>
-
-      {/* ANNOUNCEMENTS */}
-      <div className="card">
-        <div className="title">Announcements</div>
-        <div className="sub" style={{ marginTop: 10 }}>
-          Season starts April 11th!
-        </div>
       </div>
 
     </div>
@@ -170,19 +92,57 @@ export default function HomePage({ setPage }) {
 }
 
 /* ========================= */
-/* TIME FIX */
+/* GAME ROW */
 /* ========================= */
+function GameRow({ game, index, live }) {
+  return (
+    <div>
+      {index !== 0 && <div className="divider" />}
+
+      <div className="inner-tile">
+
+        {live && <div className="sub live">● LIVE</div>}
+
+        <div className="game-row">
+
+          <div className="game-top">
+            <div className="team">{game.team}</div>
+            <div className="game-time">{game.event_time}</div>
+          </div>
+
+          <div className="vs">vs</div>
+
+          <div className="game-bottom">
+            <div className="team">{game.opponent}</div>
+            <div className="field-badge">{game.field}</div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+/* ========================= */
+/* HELPERS */
+/* ========================= */
+
+function normalizeDate(dateStr) {
+  if (!dateStr) return "";
+
+  if (dateStr.includes("-")) return dateStr;
+
+  const [m, d, y] = dateStr.split("/");
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
 function convertTo24Hour(timeStr) {
-  const [time, modifier] = timeStr.split(" ");
-  let [hours, minutes] = time.split(":");
+  const [time, mod] = timeStr.split(" ");
+  let [h, m] = time.split(":");
 
-  if (modifier === "PM" && hours !== "12") {
-    hours = parseInt(hours) + 12;
-  }
+  if (mod === "PM" && h !== "12") h = +h + 12;
+  if (mod === "AM" && h === "12") h = "00";
 
-  if (modifier === "AM" && hours === "12") {
-    hours = "00";
-  }
-
-  return `${hours}:${minutes}`;
+  return `${h}:${m}`;
 }
