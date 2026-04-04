@@ -40,7 +40,9 @@ export default function TeamsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState("");
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const loadData = async () => {
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
@@ -53,8 +55,6 @@ export default function TeamsPage() {
     setCoaches(c || []);
     setPlayers(p || []);
   };
-
-  /* ================= TEAM ASSIGN ================= */
 
   const assignTeam = async () => {
     if (!selectedTeam || !division || !coach) {
@@ -72,8 +72,6 @@ export default function TeamsPage() {
     loadData();
     setSelectedTeam(null);
   };
-
-  /* ================= AUTO ================= */
 
   const autoAssign = async () => {
     const available = players.filter(
@@ -96,8 +94,6 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= CLEAR ================= */
-
   const clearTeam = async () => {
     await supabase.from("players")
       .update({ team_id: null })
@@ -105,8 +101,6 @@ export default function TeamsPage() {
 
     loadData();
   };
-
-  /* ================= MOVE ================= */
 
   const movePlayers = async () => {
     await supabase.from("players")
@@ -116,8 +110,6 @@ export default function TeamsPage() {
     setShowMove(false);
     loadData();
   };
-
-  /* ================= ADD PLAYER ================= */
 
   const addPlayer = async () => {
     await supabase.from("players")
@@ -149,13 +141,22 @@ export default function TeamsPage() {
         ))}
       </div>
 
-      {/* ================= ASSIGN ================= */}
+      {/* ================= ASSIGN PANEL ================= */}
 
       {selectedTeam && (
         <div style={panel}>
+
+          {/* ✅ CLOSE BUTTON */}
+          <button
+            style={closeBtn}
+            onClick={() => setSelectedTeam(null)}
+          >
+            ✕
+          </button>
+
           <h3>{selectedTeam.full_name}</h3>
 
-          <select onChange={(e)=>setDivision(e.target.value)}>
+          <select style={inputStyle} onChange={(e)=>setDivision(e.target.value)}>
             <option value="">Division</option>
             <option>K-1</option>
             <option>2nd-3rd</option>
@@ -163,7 +164,7 @@ export default function TeamsPage() {
             <option>6th+</option>
           </select>
 
-          <select onChange={(e)=>setCoach(e.target.value)}>
+          <select style={inputStyle} onChange={(e)=>setCoach(e.target.value)}>
             <option value="">Coach</option>
             {coaches.map(c => (
               <option key={c.id} value={c.id}>
@@ -185,6 +186,7 @@ export default function TeamsPage() {
       <div style={grid}>
         {teams.map(t => {
           const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
           return (
             <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
               <img src={teamLogos[nfl?.short_name]} width={50}/>
@@ -199,6 +201,15 @@ export default function TeamsPage() {
 
       {activeTeam && (
         <div style={panel}>
+
+          {/* ✅ CLOSE BUTTON */}
+          <button
+            style={closeBtn}
+            onClick={() => setActiveTeam(null)}
+          >
+            ✕
+          </button>
+
           <h2>Manage Team</h2>
 
           <h3>Players</h3>
@@ -206,7 +217,9 @@ export default function TeamsPage() {
           {players
             .filter(p => p.team_id === activeTeam.id)
             .map(p => (
-              <div key={p.id}>{p.first_name} {p.last_name}</div>
+              <div key={p.id}>
+                {p.first_name} {p.last_name}
+              </div>
             ))}
 
           <div style={btnRow}>
@@ -235,9 +248,12 @@ export default function TeamsPage() {
 
       {showAdd && (
         <div style={panel}>
+          <button style={closeBtn} onClick={()=>setShowAdd(false)}>✕</button>
+
           <h3>Add Player</h3>
 
           <select
+            style={inputStyle}
             value={selectedPlayer}
             onChange={(e)=>setSelectedPlayer(e.target.value)}
           >
@@ -265,9 +281,14 @@ export default function TeamsPage() {
 
       {showMove && (
         <div style={panel}>
+          <button style={closeBtn} onClick={()=>setShowMove(false)}>✕</button>
+
           <h3>Move Players</h3>
 
-          <select onChange={(e)=>setTargetTeam(e.target.value)}>
+          <select
+            style={inputStyle}
+            onChange={(e)=>setTargetTeam(e.target.value)}
+          >
             <option value="">Select Team</option>
 
             {teams
@@ -318,7 +339,24 @@ const panel = {
   borderRadius: 12,
   display: "flex",
   flexDirection: "column",
-  gap: 10
+  gap: 10,
+  position: "relative"
+};
+
+const closeBtn = {
+  position: "absolute",
+  top: 10,
+  right: 10,
+  border: "none",
+  background: "transparent",
+  fontSize: 18,
+  cursor: "pointer"
+};
+
+const inputStyle = {
+  padding: 10,
+  borderRadius: 10,
+  border: "1px solid #e2e8f0"
 };
 
 const btnRow = {
