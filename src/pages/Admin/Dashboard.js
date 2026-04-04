@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 import ScoreboardManager from "./ScoreboardManager";
 import GameSelector from "./GameSelector";
-import TeamsPage from "./TeamsPage"; // ✅ ADDED
+import TeamsPage from "./TeamsPage";
+
+// ✅ NEW IMPORT
+import AdminSettings from "./AdminSettings";
 
 export default function Dashboard({
   adminPage,
@@ -71,7 +74,6 @@ export default function Dashboard({
           Game Selector
         </button>
 
-        {/* ✅ TEAMS BUTTON FIXED */}
         <button
           style={navBtn(adminPage === "teams")}
           onClick={() => setAdminPage("teams")}
@@ -81,6 +83,19 @@ export default function Dashboard({
 
         <button style={navBtn(false)}>Schedule</button>
         <button style={navBtn(false)}>Reports</button>
+
+        {/* ✅ NEW SETTINGS SECTION */}
+        <div style={{ marginTop: 20, fontSize: 12, color: "#94a3b8" }}>
+          SETTINGS
+        </div>
+
+        <button
+          style={navBtn(adminPage === "settings")}
+          onClick={() => setAdminPage("settings")}
+        >
+          Admin Settings
+        </button>
+
       </div>
 
       {/* ================= RIGHT PANEL ================= */}
@@ -115,9 +130,13 @@ export default function Dashboard({
           <GameSelector />
         )}
 
-        {/* ✅ TEAMS PAGE RENDER */}
         {adminPage === "teams" && (
           <TeamsPage />
+        )}
+
+        {/* ✅ NEW SETTINGS PAGE RENDER */}
+        {adminPage === "settings" && (
+          <AdminSettings />
         )}
 
       </div>
