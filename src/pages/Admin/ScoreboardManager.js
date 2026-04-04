@@ -9,8 +9,6 @@ export default function ScoreboardManager() {
   const [openDate, setOpenDate] = useState(null);
   const [openTime, setOpenTime] = useState(null);
 
-  let clockInterval;
-
   // ================= LOAD =================
   useEffect(() => {
     loadGames();
@@ -47,6 +45,7 @@ export default function ScoreboardManager() {
   async function startGame(game) {
     setSelectedGame(game);
 
+    // Try to load existing
     const { data: existing } = await supabase
       .from("live_games")
       .select("*")
@@ -58,130 +57,25 @@ export default function ScoreboardManager() {
       return;
     }
 
+    // Create new safe default
     const { data } = await supabase
       .from("live_games")
-      .insert([{ game_id: game.id }])
+      .insert([
+        {
+          game_id: game.id,
+          home_score: 0,
+          away_score: 0,
+          quarter: 1,
+          clock: "20:00",
+          down: 1,
+          possession: "home",
+          status: "live",
+        },
+      ])
       .select()
       .single();
 
     setLiveGame(data);
-  }
-
-  // ================= SCORE =================
-  async function updateScore(points) {
-    const field =
-      liveGame.possession === "home"
-        ? "home_score"
-        : "away_score";
-
-    const newScore = liveGame[field] + points;
-
-    const { data } = await supabase
-      .from("live_games")
-      .update({ [field]: newScore })
-      .eq("id", liveGame.id)
-      .select()
-      .single();
-
-    setLiveGame(data);
-  }
-
-  async function updateDown(down) {
-    const { data } = await supabase
-      .from("live_games")
-      .update({ down })
-      .eq("id", liveGame.id)
-      .select()
-      .single();
-
-    setLiveGame(data);
-  }
-
-  async function togglePossession() {
-    const newPos =
-      liveGame.possession === "home" ? "away" : "home";
-
-    const { data } = await supabase
-      .from("live_games")
-      .update({ possession: newPos })
-      .eq("id", liveGame.id)
-      .select()
-      .single();
-
-    setLiveGame(data);
-  }
-
-  // ================= CLOCK =================
-  function startClock() {
-    clockInterval = setInterval(async () => {
-      let [min, sec] = liveGame.clock.split(":").map(Number);
-
-      if (sec === 0) {
-        if (min === 0) return;
-        min--;
-        sec = 59;
-      } else {
-        sec--;
-      }
-
-      const newTime = `${min}:${sec
-        .toString()
-        .padStart(2, "0")}`;
-
-      const { data } = await supabase
-        .from("live_games")
-        .update({ clock: newTime })
-        .eq("id", liveGame.id)
-        .select()
-        .single();
-
-      setLiveGame(data);
-    }, 1000);
-  }
-
-  function stopClock() {
-    clearInterval(clockInterval);
-  }
-
-  async function nextQuarter() {
-    const { data } = await supabase
-      .from("live_games")
-      .update({ quarter: liveGame.quarter + 1 })
-      .eq("id", liveGame.id)
-      .select()
-      .single();
-
-    setLiveGame(data);
-  }
-
-  // ================= END GAME =================
-  async function endGame() {
-    const winner =
-      liveGame.home_score > liveGame.away_score
-        ? selectedGame.team1
-        : selectedGame.team2;
-
-    const loser =
-      liveGame.home_score > liveGame.away_score
-        ? selectedGame.team2
-        : selectedGame.team1;
-
-    await supabase
-      .from("team_records")
-      .update({ wins: 1 })
-      .eq("team_name", winner);
-
-    await supabase
-      .from("team_records")
-      .update({ losses: 1 })
-      .eq("team_name", loser);
-
-    await supabase
-      .from("live_games")
-      .update({ status: "final" })
-      .eq("id", liveGame.id);
-
-    alert("Game Final");
   }
 
   // ================= GROUP =================
@@ -204,63 +98,52 @@ export default function ScoreboardManager() {
     <div style={{ display: "flex", gap: 20, height: "100%" }}>
 
       {/* ================= LEFT PANEL ================= */}
-      <div style={{ flex: 2, background: "#fff", padding: 20, borderRadius: 12 }}>
-
+      <div
+        style={{
+          flex: 2,
+          background: "#ffffff",
+          borderRadius: 16,
+          padding: 20,
+        }}
+      >
         {!selectedGame && <h2>Select a Game</h2>}
 
-        {selectedGame && liveGame && (
+        {selectedGame && (
           <>
-            {/* SCOREBOARD */}
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <h2>
+              {selectedGame.team1} vs {selectedGame.team2}
+            </h2>
+
+            <p style={{ color: "#64748b" }}>
+              {selectedGame.display_time} • {selectedGame.field}
+            </p>
+
+            {/* ✅ SAFE FALLBACK SCOREBOARD */}
+            <div
+              style={{
+                marginTop: 20,
+                padding: 20,
+                borderRadius: 12,
+                background: "#f8fafc",
+                display: "flex",
+                justifyContent: "space-between",
+              }}
+            >
               <div>
-                <h2>{selectedGame.team1}</h2>
-                <h1>{liveGame.home_score}</h1>
+                <h3>{selectedGame.team1}</h3>
+                <h1>{liveGame?.home_score ?? 0}</h1>
               </div>
 
               <div style={{ textAlign: "center" }}>
-                <div>Q{liveGame.quarter}</div>
-                <div>{liveGame.clock}</div>
-                <div>Down {liveGame.down}</div>
+                <div>Q{liveGame?.quarter ?? 1}</div>
+                <div>{liveGame?.clock ?? "20:00"}</div>
+                <div>Down {liveGame?.down ?? 1}</div>
               </div>
 
               <div>
-                <h2>{selectedGame.team2}</h2>
-                <h1>{liveGame.away_score}</h1>
+                <h3>{selectedGame.team2}</h3>
+                <h1>{liveGame?.away_score ?? 0}</h1>
               </div>
-            </div>
-
-            {/* CONTROLS */}
-            <div style={{ marginTop: 20 }}>
-              <button onClick={() => updateScore(6)}>+6 TD</button>
-              <button onClick={() => updateScore(1)}>+1</button>
-              <button onClick={() => updateScore(2)}>+2</button>
-              <button onClick={() => updateScore(-1)}>-</button>
-
-              <div style={{ marginTop: 10 }}>
-                <button onClick={() => updateDown(1)}>1st</button>
-                <button onClick={() => updateDown(2)}>2nd</button>
-                <button onClick={() => updateDown(3)}>3rd</button>
-                <button onClick={() => updateDown(4)}>4th</button>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <button onClick={togglePossession}>
-                  Possession: {liveGame.possession}
-                </button>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <button onClick={startClock}>Start</button>
-                <button onClick={stopClock}>Stop</button>
-                <button onClick={nextQuarter}>Next Q</button>
-              </div>
-
-              <button
-                style={{ marginTop: 20, background: "red", color: "#fff" }}
-                onClick={endGame}
-              >
-                End Game
-              </button>
             </div>
           </>
         )}
@@ -269,9 +152,21 @@ export default function ScoreboardManager() {
       {/* ================= RIGHT PANEL ================= */}
       <div style={{ flex: 1, overflowY: "auto" }}>
 
+        <h3 style={{ marginBottom: 10 }}>Games</h3>
+
         {grouped.map((day) => (
           <div key={day.date}>
-            <div className="card" onClick={() => setOpenDate(day.date)}>
+
+            {/* DATE */}
+            <div
+              className={`card ${
+                openDate === day.date ? "active-card" : ""
+              }`}
+              onClick={() => {
+                setOpenDate(openDate === day.date ? null : day.date);
+                setOpenTime(null);
+              }}
+            >
               <div className="title">{day.date}</div>
             </div>
 
@@ -279,24 +174,58 @@ export default function ScoreboardManager() {
               Object.entries(day.times).map(([time, gamesAtTime]) => (
                 <div key={time}>
 
+                  {/* TIME */}
                   <div
                     className="card"
-                    style={{ background: "#e8f5e9" }}
-                    onClick={() => setOpenTime(time)}
+                    style={{
+                      background: "#e8f5e9",
+                      border:
+                        openTime === time
+                          ? "2px solid #2e7d32"
+                          : "1px solid #e5e7eb",
+                    }}
+                    onClick={() =>
+                      setOpenTime(openTime === time ? null : time)
+                    }
                   >
                     <div className="title">{time}</div>
                   </div>
 
+                  {/* GAMES */}
                   {openTime === time &&
                     gamesAtTime.map((g) => (
                       <div key={g.id} className="inner-tile">
-                        <div onClick={() => setSelectedGame(g)}>
-                          {g.team1} vs {g.team2}
+
+                        <div
+                          className="game-row"
+                          onClick={() => setSelectedGame(g)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <div className="team">{g.team1}</div>
+                          <div className="vs">vs</div>
+                          <div className="team">{g.team2}</div>
                         </div>
 
-                        <button onClick={() => startGame(g)}>
+                        {/* ✅ FIXED BUTTON */}
+                        <button
+                          style={{
+                            marginTop: 10,
+                            width: "100%",
+                            padding: "10px",
+                            borderRadius: 8,
+                            border: "none",
+                            background: "#2f6ea6",
+                            color: "#fff",
+                            cursor: "pointer",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startGame(g);
+                          }}
+                        >
                           Start Game
                         </button>
+
                       </div>
                     ))}
                 </div>
