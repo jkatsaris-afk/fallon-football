@@ -53,90 +53,111 @@ export default function CoachSignUpPage() {
     setLoading(false);
   };
 
-  if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
+  // ================= LOADING =================
+  if (!settings) {
+    return <div style={{ padding: 20 }}>Loading...</div>;
+  }
 
   return (
     <div style={{ padding: 20, maxWidth: 500, margin: "auto" }}>
 
-      <h2>🏈 Coach Registration</h2>
+      {/* 🔒 CLOSED MESSAGE */}
+      {!settings.coach_signups_open && (
+        <Card center>
+          <h2>🚫 Coach Registration Closed</h2>
+          <p>Coach signups are currently closed for this season.</p>
+          <p>Please check back later.</p>
+        </Card>
+      )}
 
-      <Card>
-        <Section title="Basic Info">
+      {/* ✅ FORM */}
+      {settings.coach_signups_open && (
+        <>
+          <h2>🏈 Coach Registration</h2>
 
-          <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
-          <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
-          <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
-          <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+          <Card>
+            <Section title="Basic Info">
+              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+            </Section>
+          </Card>
 
-        </Section>
-      </Card>
+          <Card>
+            <Section title="Preferences">
+              <Select
+                value={form.division}
+                onChange={(v)=>setForm({...form, division:v})}
+                options={[
+                  ["K-1","K-1"],
+                  ["2nd-3rd","2nd-3rd"],
+                  ["4th-5th","4th-5th"],
+                  ["6th+","6th+"]
+                ]}
+              />
 
-      <Card>
-        <Section title="Coaching Preferences">
+              <label>
+                <input
+                  type="checkbox"
+                  onChange={(e)=>setForm({...form, assistant:e.target.checked})}
+                />
+                Assistant Coach
+              </label>
+            </Section>
+          </Card>
 
-          <Select
-            value={form.division}
-            onChange={(v)=>setForm({...form, division:v})}
-            options={[
-              ["K-1","K-1"],
-              ["2nd-3rd","2nd-3rd"],
-              ["4th-5th","4th-5th"],
-              ["6th+","6th+"]
-            ]}
-          />
+          <Card>
+            <Section title="Experience">
+              <label>
+                <input
+                  type="checkbox"
+                  onChange={(e)=>setForm({...form, coachedBefore:e.target.checked})}
+                />
+                Have coached before
+              </label>
 
-          <label>
-            <input
-              type="checkbox"
-              onChange={(e)=>setForm({...form, assistant:e.target.checked})}
+              <textarea
+                placeholder="Describe experience"
+                onChange={(e)=>setForm({...form, experience:e.target.value})}
+                style={textareaStyle}
+              />
+            </Section>
+          </Card>
+
+          <Card>
+            <textarea
+              placeholder="Additional notes"
+              onChange={(e)=>setForm({...form, notes:e.target.value})}
+              style={textareaStyle}
             />
-            Assistant Coach
-          </label>
+          </Card>
 
-        </Section>
-      </Card>
-
-      <Card>
-        <Section title="Experience">
-
-          <label>
-            <input
-              type="checkbox"
-              onChange={(e)=>setForm({...form, coachedBefore:e.target.checked})}
-            />
-            Have coached before
-          </label>
-
-          <textarea
-            placeholder="Describe experience"
-            onChange={(e)=>setForm({...form, experience:e.target.value})}
-            style={textareaStyle}
-          />
-
-        </Section>
-      </Card>
-
-      <Card>
-        <textarea
-          placeholder="Additional notes"
-          onChange={(e)=>setForm({...form, notes:e.target.value})}
-          style={textareaStyle}
-        />
-      </Card>
-
-      <button onClick={handleSubmit} style={submitBtn}>
-        {loading ? "Submitting..." : "Register Coach"}
-      </button>
-
+          <button onClick={handleSubmit} style={submitBtn}>
+            {loading ? "Submitting..." : "Register Coach"}
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
-/* ===== SAME UI COMPONENTS ===== */
+/* ================= UI ================= */
 
-function Card({ children }) {
+function Card({ children, center }) {
   return (
-    <div style={cardStyle}>{children}</div>
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 15,
+        boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+        textAlign: center ? "center" : "left"
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -176,14 +197,6 @@ function Select({ value, onChange, options }) {
   );
 }
 
-const cardStyle = {
-  background: "#fff",
-  borderRadius: 16,
-  padding: 20,
-  marginBottom: 15,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
-};
-
 const inputStyle = {
   padding: 12,
   borderRadius: 10,
@@ -205,5 +218,6 @@ const submitBtn = {
   border: "none",
   background: "#2f6ea6",
   color: "#fff",
-  fontWeight: 600
+  fontWeight: 600,
+  marginTop: 10
 };
