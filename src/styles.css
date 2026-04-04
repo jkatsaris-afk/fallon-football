@@ -311,3 +311,67 @@ body {
   color: #666;
   background: rgba(255,255,255,0.7);
 }
+/* DEVICE MODES */
+.layout.phone {
+  display: block;
+}
+
+.layout.ipad {
+  display: flex;
+}
+
+.layout.desktop {
+  display: flex;
+}
+
+.score-panel {
+  width: 50%;
+  padding: 10px;
+}
+
+.list-panel {
+  width: 50%;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+/* TOGGLE */
+.device-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 10px;
+}
+
+.device-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #eee;
+}
+
+.device-btn.active {
+  background: #0f7a3b;
+  color: white;
+}
+
+/* SCORE INPUT */
+.score-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.score-box {
+  width: 45%;
+  text-align: center;
+}
+
+.score-input {
+  width: 100%;
+  font-size: 28px;
+  padding: 10px;
+  text-align: center;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
