@@ -10,25 +10,36 @@ export default function SchedulePage() {
   }, []);
 
   const load = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("schedule_master")
       .select("*");
 
-    setGames(data || []);
+    console.log("SCHEDULE DATA:", data);
+    console.log("SCHEDULE ERROR:", error);
+
+    if (!data) return;
+
+    setGames(data);
   };
 
-  /* ========================= */
-  /* GROUP + SORT */
-  /* ========================= */
-  const grouped = games.reduce((acc, game) => {
-    const date = normalizeDate(game.event_date);
+  /* CLEAN DATA */
+  const cleanGames = games.map(g => ({
+    ...g,
+    clean_date: normalizeDate(g.event_date),
+    clean_type: (g.event_type || "").toLowerCase().trim()
+  }));
 
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(game);
+  /* GROUP */
+  const grouped = cleanGames.reduce((acc, game) => {
+    if (!game.clean_date) return acc;
+
+    if (!acc[game.clean_date]) acc[game.clean_date] = [];
+    acc[game.clean_date].push(game);
 
     return acc;
   }, {});
 
+  /* SORT DATES */
   const dates = Object.keys(grouped).sort(
     (a, b) => new Date(a) - new Date(b)
   );
@@ -36,18 +47,16 @@ export default function SchedulePage() {
   return (
     <div>
 
-      {/* DATE SELECT */}
+      {/* DATE LIST */}
       {!selectedDate &&
         dates.map(date => (
           <div
-            className="card"
             key={date}
+            className="card"
             onClick={() => setSelectedDate(date)}
           >
             <div className="title">{formatDate(date)}</div>
-            <div className="sub">
-              {grouped[date].length} games
-            </div>
+            <div className="sub">{grouped[date].length} games</div>
           </div>
         ))}
 
@@ -66,33 +75,37 @@ export default function SchedulePage() {
             <div className="sub">← Back</div>
           </div>
 
-          {grouped[selectedDate].map((game, i) => (
-            <div key={game.id}>
+          {grouped[selectedDate]
+            .filter(g => g.clean_type.includes("game"))
+            .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
 
-              {i !== 0 && <div className="divider" />}
+            .map((game, i) => (
+              <div key={game.id}>
 
-              <div className="inner-tile">
+                {i !== 0 && <div className="divider" />}
 
-                <div className="game-row">
+                <div className="inner-tile">
 
-                  <div className="game-top">
-                    <div className="team">{game.team}</div>
-                    <div className="game-time">{game.event_time}</div>
-                  </div>
+                  <div className="game-row">
 
-                  <div className="vs">vs</div>
+                    <div className="game-top">
+                      <div className="team">{game.team}</div>
+                      <div className="game-time">{game.event_time}</div>
+                    </div>
 
-                  <div className="game-bottom">
-                    <div className="team">{game.opponent}</div>
-                    <div className="field-badge">{game.field}</div>
+                    <div className="vs">vs</div>
+
+                    <div className="game-bottom">
+                      <div className="team">{game.opponent}</div>
+                      <div className="field-badge">{game.field}</div>
+                    </div>
+
                   </div>
 
                 </div>
 
               </div>
-
-            </div>
-          ))}
+            ))}
 
         </div>
       )}
@@ -101,16 +114,16 @@ export default function SchedulePage() {
   );
 }
 
-/* ========================= */
 /* HELPERS */
-/* ========================= */
-
 function normalizeDate(dateStr) {
-  if (!dateStr) return "";
+  if (!dateStr) return null;
 
   if (dateStr.includes("-")) return dateStr;
 
-  const [m, d, y] = dateStr.split("/");
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return null;
+
+  const [m, d, y] = parts;
   return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
@@ -120,4 +133,16 @@ function formatDate(dateStr) {
     month: "long",
     day: "numeric"
   });
+}
+
+function toTime(timeStr) {
+  if (!timeStr) return 0;
+
+  const [time, mod] = timeStr.split(" ");
+  let [h, m] = time.split(":");
+
+  if (mod === "PM" && h !== "12") h = +h + 12;
+  if (mod === "AM" && h === "12") h = "00";
+
+  return parseInt(h) * 60 + parseInt(m);
 }
