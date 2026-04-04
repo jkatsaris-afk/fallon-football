@@ -2,73 +2,46 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 export default function ScoreboardManager() {
-  const [schedule, setSchedule] = useState([]);
-  const [selectedGames, setSelectedGames] = useState([null, null, null]);
+  const [games, setGames] = useState([]);
 
   useEffect(() => {
-    fetchSchedule();
+    load();
   }, []);
 
-  const fetchSchedule = async () => {
+  const load = async () => {
     const { data } = await supabase
       .from("schedule_master")
       .select("*")
       .eq("event_type", "game");
 
-    setSchedule(data || []);
+    setGames(data || []);
   };
 
-  const setGame = async (slot, game) => {
-    const updated = [...selectedGames];
-    updated[slot] = game;
-    setSelectedGames(updated);
-
+  const goLive = async (g) => {
     await supabase.from("scoreboard_live").insert({
-      game_id: game.id,
-      team: game.team,
-      opponent: game.opponent,
-      division: game.division,
-      game_time: game.event_time,
-      field: game.field,
-      is_live: true
+      game_id: g.id,
+      team: g.team,
+      opponent: g.opponent,
+      division: g.division,
+      game_time: g.event_time,
+      field: g.field
     });
-  };
-
-  const updateScore = async (id, field, value) => {
-    await supabase
-      .from("scoreboard_live")
-      .update({ [field]: value })
-      .eq("id", id);
   };
 
   return (
     <div>
-
       <div className="card">
-        <div className="title">Scoreboard Manager</div>
+        <div className="title">Score Manager</div>
       </div>
 
-      {[0,1,2].map(slot => (
-        <div key={slot} className="card">
-
-          <div className="title">Slot {slot + 1}</div>
-
-          <select
-            onChange={(e) =>
-              setGame(slot, schedule[e.target.value])
-            }
-          >
-            <option>Select Game</option>
-            {schedule.map((g, i) => (
-              <option key={i} value={i}>
-                {g.team} vs {g.opponent} ({g.event_time})
-              </option>
-            ))}
-          </select>
-
+      {games.map(g => (
+        <div className="card" key={g.id}>
+          <div>{g.team} vs {g.opponent}</div>
+          <button className="button" onClick={() => goLive(g)}>
+            Start Game
+          </button>
         </div>
       ))}
-
     </div>
   );
 }
