@@ -1,6 +1,42 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+// ===== LOGOS =====
+import sf from "../../resources/San Francisco 49ers.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
+import bills from "../../resources/Buffalo Bills.png";
+import broncos from "../../resources/Denver Broncos.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
+import jets from "../../resources/New York Jets.png";
+import lions from "../../resources/Detroit Lions.png";
+import raiders from "../../resources/Las Vegas Raiders.png";
+import rams from "../../resources/Los Angeles Rams.png";
+import steelers from "../../resources/Pittsburgh Steelers.png";
+
+// ===== MAP =====
+const teamLogos = {
+  "49ers": sf,
+  "Bengals": bengals,
+  "Bills": bills,
+  "Broncos": broncos,
+  "Chiefs": chiefs,
+  "Colts": colts,
+  "Eagles": eagles,
+  "Jets": jets,
+  "Lions": lions,
+  "Raiders": raiders,
+  "Rams": rams,
+  "Steelers": steelers,
+};
+
+// ===== HELPER =====
+function getLogo(name) {
+  if (!name) return null;
+  return teamLogos[name.trim()] || null;
+}
+
 export default function HomePage({ setPage }) {
   const [liveGames, setLiveGames] = useState([]);
   const [upcomingGames, setUpcomingGames] = useState([]);
@@ -29,10 +65,7 @@ export default function HomePage({ setPage }) {
         clean_date: normalizeDate(g.event_date),
         clean_type: (g.event_type || "").toLowerCase().trim()
       }))
-
-      // 🔥 ONLY GAMES
       .filter(g => g.clean_type.includes("game"))
-
       .map(game => {
         const [y, m, d] = game.clean_date.split("-");
         const time24 = convertTo24Hour(game.event_time);
@@ -113,14 +146,30 @@ function GameRow({ game, index, live }) {
 
         <div className="game-row">
           <div className="game-top">
-            <div className="team">{game.team}</div>
+
+            {/* TEAM 1 */}
+            <div className="team-row">
+              {getLogo(game.team) && (
+                <img src={getLogo(game.team)} style={logo} />
+              )}
+              <span>{game.team}</span>
+            </div>
+
             <div className="game-time">{game.event_time}</div>
           </div>
 
           <div className="vs">vs</div>
 
           <div className="game-bottom">
-            <div className="team">{game.opponent}</div>
+
+            {/* TEAM 2 */}
+            <div className="team-row">
+              {getLogo(game.opponent) && (
+                <img src={getLogo(game.opponent)} style={logo} />
+              )}
+              <span>{game.opponent || "TBD"}</span>
+            </div>
+
             <div className="field-badge">{game.field}</div>
           </div>
         </div>
@@ -154,3 +203,10 @@ function convertTo24Hour(timeStr) {
 
   return `${h}:${m}`;
 }
+
+/* STYLE */
+const logo = {
+  width: 20,
+  height: 20,
+  marginRight: 6
+};
