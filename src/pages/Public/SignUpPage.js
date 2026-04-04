@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabase";
 
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState(null);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -19,6 +20,20 @@ export default function SignUpPage() {
     emergencyEmail: "",
     waiver: false
   });
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("*")
+      .eq("id", 1)
+      .single();
+
+    setSettings(data);
+  };
 
   const getDivision = (age) => {
     if (age <= 5) return "K-1";
@@ -37,7 +52,6 @@ export default function SignUpPage() {
 
     const division = getDivision(Number(form.age));
 
-    // ===== PLAYER =====
     const { data: player, error } = await supabase
       .from("players")
       .insert([
@@ -48,8 +62,10 @@ export default function SignUpPage() {
           experience_level: form.experience,
           division,
           shirt_size: form.shirtSize,
-          season_id: 2026,
-          waiver_signed: true
+          season_id: settings.current_season,
+          waiver_signed: true,
+          registration_fee: settings.registration_fee,
+          payment_status: "unpaid"
         }
       ])
       .select()
@@ -61,7 +77,6 @@ export default function SignUpPage() {
       return;
     }
 
-    // ===== PRIMARY GUARDIAN =====
     const { data: parent } = await supabase
       .from("guardians")
       .insert([
@@ -83,153 +98,46 @@ export default function SignUpPage() {
       }
     ]);
 
-    // ===== SECOND EMERGENCY =====
-    if (!form.emergencySame) {
-      const { data: emergency } = await supabase
-        .from("guardians")
-        .insert([
-          {
-            name: form.emergencyName,
-            phone: form.emergencyPhone,
-            email: form.emergencyEmail
-          }
-        ])
-        .select()
-        .single();
-
-      await supabase.from("player_guardians").insert([
-        {
-          player_id: player.id,
-          guardian_id: emergency.id,
-          is_emergency_contact: true
-        }
-      ]);
-    }
-
-    alert("✅ Player Registered!");
-
-    setForm({
-      firstName: "",
-      lastName: "",
-      age: "",
-      experience: "beginner",
-      shirtSize: "YM",
-      parentName: "",
-      parentPhone: "",
-      parentEmail: "",
-      emergencySame: true,
-      emergencyName: "",
-      emergencyPhone: "",
-      emergencyEmail: "",
-      waiver: false
-    });
+    alert("✅ Registered! Payment will be sent separately.");
 
     setLoading(false);
   };
 
-  const input = {
-    width: "100%",
-    padding: 14,
-    marginBottom: 12,
-    borderRadius: 12,
-    border: "1px solid #ddd",
-    fontSize: 16
-  };
+  if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
     <div style={{ padding: 20, maxWidth: 500, margin: "auto" }}>
-      <h2>🏈 Fallon Flag Football</h2>
-      <h3>Player Registration</h3>
+      <h2>🏈 Registration</h2>
 
-      <input style={input} placeholder="Child First Name"
-        value={form.firstName}
-        onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+      <input placeholder="First Name" onChange={(e)=>setForm({...form, firstName:e.target.value})}/>
+      <input placeholder="Last Name" onChange={(e)=>setForm({...form, lastName:e.target.value})}/>
+      <input placeholder="Age" type="number" onChange={(e)=>setForm({...form, age:e.target.value})}/>
 
-      <input style={input} placeholder="Child Last Name"
-        value={form.lastName}
-        onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-
-      <input style={input} type="number" placeholder="Age"
-        value={form.age}
-        onChange={(e) => setForm({ ...form, age: e.target.value })} />
-
-      <select style={input}
-        value={form.experience}
-        onChange={(e) => setForm({ ...form, experience: e.target.value })}>
+      <select onChange={(e)=>setForm({...form, experience:e.target.value})}>
         <option value="beginner">Beginner</option>
         <option value="intermediate">Intermediate</option>
         <option value="experienced">Experienced</option>
       </select>
 
-      <select style={input}
-        value={form.shirtSize}
-        onChange={(e) => setForm({ ...form, shirtSize: e.target.value })}>
-        <option>YS</option>
-        <option>YM</option>
-        <option>YL</option>
-        <option>YXL</option>
-        <option>AS</option>
-        <option>AM</option>
-        <option>AL</option>
+      <select onChange={(e)=>setForm({...form, shirtSize:e.target.value})}>
+        <option>YS</option><option>YM</option><option>YL</option>
+        <option>AS</option><option>AM</option><option>AL</option>
       </select>
 
-      <h3>Parent Info</h3>
+      <h3>Parent</h3>
 
-      <input style={input} placeholder="Parent Name"
-        value={form.parentName}
-        onChange={(e) => setForm({ ...form, parentName: e.target.value })} />
+      <input placeholder="Name" onChange={(e)=>setForm({...form, parentName:e.target.value})}/>
+      <input placeholder="Phone" onChange={(e)=>setForm({...form, parentPhone:e.target.value})}/>
+      <input placeholder="Email" onChange={(e)=>setForm({...form, parentEmail:e.target.value})}/>
 
-      <input style={input} placeholder="Phone"
-        value={form.parentPhone}
-        onChange={(e) => setForm({ ...form, parentPhone: e.target.value })} />
-
-      <input style={input} placeholder="Email"
-        value={form.parentEmail}
-        onChange={(e) => setForm({ ...form, parentEmail: e.target.value })} />
-
-      <label style={{ display: "block", marginBottom: 10 }}>
+      <label>
         <input type="checkbox"
-          checked={form.emergencySame}
-          onChange={(e) => setForm({ ...form, emergencySame: e.target.checked })} />
-        Use parent as emergency contact
+          onChange={(e)=>setForm({...form, waiver:e.target.checked})}/>
+        Agree to waiver
       </label>
 
-      {!form.emergencySame && (
-        <>
-          <h3>Emergency Contact</h3>
-
-          <input style={input} placeholder="Name"
-            onChange={(e) => setForm({ ...form, emergencyName: e.target.value })} />
-
-          <input style={input} placeholder="Phone"
-            onChange={(e) => setForm({ ...form, emergencyPhone: e.target.value })} />
-
-          <input style={input} placeholder="Email"
-            onChange={(e) => setForm({ ...form, emergencyEmail: e.target.value })} />
-        </>
-      )}
-
-      <label style={{ display: "block", marginBottom: 20 }}>
-        <input type="checkbox"
-          checked={form.waiver}
-          onChange={(e) => setForm({ ...form, waiver: e.target.checked })} />
-        I agree to the waiver
-      </label>
-
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        style={{
-          width: "100%",
-          padding: 16,
-          background: "#2f6ea6",
-          color: "white",
-          border: "none",
-          borderRadius: 14,
-          fontSize: 18
-        }}
-      >
-        {loading ? "Submitting..." : "Register Player"}
+      <button onClick={handleSubmit} disabled={loading}>
+        {loading ? "Submitting..." : `Register ($${settings.registration_fee})`}
       </button>
     </div>
   );
