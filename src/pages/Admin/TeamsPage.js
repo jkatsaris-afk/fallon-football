@@ -33,7 +33,7 @@ export default function TeamsPage() {
 
   const [division, setDivision] = useState("");
   const [coach, setCoach] = useState("");
-  const [assistantCoach, setAssistantCoach] = useState(""); // ✅ ADDED
+  const [assistantCoach, setAssistantCoach] = useState("");
 
   const [showMove, setShowMove] = useState(false);
   const [targetTeam, setTargetTeam] = useState("");
@@ -41,7 +41,7 @@ export default function TeamsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState("");
 
-  const [confirmAuto, setConfirmAuto] = useState(false); // ✅ ADDED
+  const [confirmAuto, setConfirmAuto] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -69,15 +69,13 @@ export default function TeamsPage() {
       nfl_team_id: selectedTeam.id,
       division,
       coach_id: coach,
-      assistant_coach_id: assistantCoach || null, // ✅ ADDED
+      assistant_coach_id: assistantCoach || null,
       season_id: 2026
     }]);
 
     loadData();
     setSelectedTeam(null);
   };
-
-  /* ================= AUTO ROSTER (UPDATED) ================= */
 
   const autoAssign = async () => {
     if (!activeTeam) return;
@@ -87,34 +85,20 @@ export default function TeamsPage() {
     );
 
     if (divisionTeams.length < 2) {
-      alert("Need at least 2 teams in this division");
+      alert("Need at least 2 teams");
       return;
     }
 
-    const missingCoach = divisionTeams.some(t => !t.coach_id);
-
-    if (missingCoach) {
-      alert("All teams must have a coach assigned first");
-      return;
-    }
-
-    const availablePlayers = players.filter(
+    const available = players.filter(
       p => p.division === activeTeam.division && !p.team_id
     );
 
-    if (availablePlayers.length === 0) {
-      alert("No available players");
-      return;
-    }
-
-    const perTeam = Math.ceil(
-      availablePlayers.length / divisionTeams.length
-    );
+    const perTeam = Math.ceil(available.length / divisionTeams.length);
 
     let index = 0;
 
     for (let team of divisionTeams) {
-      const chunk = availablePlayers.slice(index, index + perTeam);
+      const chunk = available.slice(index, index + perTeam);
 
       for (let p of chunk) {
         await supabase.from("players")
@@ -125,34 +109,6 @@ export default function TeamsPage() {
       index += perTeam;
     }
 
-    alert("✅ Teams balanced");
-    loadData();
-  };
-
-  const clearTeam = async () => {
-    await supabase.from("players")
-      .update({ team_id: null })
-      .eq("team_id", activeTeam.id);
-
-    loadData();
-  };
-
-  const movePlayers = async () => {
-    await supabase.from("players")
-      .update({ team_id: targetTeam })
-      .eq("team_id", activeTeam.id);
-
-    setShowMove(false);
-    loadData();
-  };
-
-  const addPlayer = async () => {
-    await supabase.from("players")
-      .update({ team_id: activeTeam.id })
-      .eq("id", selectedPlayer);
-
-    setShowAdd(false);
-    setSelectedPlayer("");
     loadData();
   };
 
@@ -161,22 +117,20 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
-      {/* ================= TEAM SELECT ================= */}
-
+      {/* TEAM SELECT */}
       <div style={grid}>
         {nflTeams.map(team => (
-          <div key={team.id} style={tile} onClick={() => setSelectedTeam(team)}>
+          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
         ))}
       </div>
 
-      {/* ================= ASSIGN PANEL ================= */}
-
+      {/* ASSIGN PANEL */}
       {selectedTeam && (
         <div style={panel}>
-          <button style={closeBtn} onClick={() => setSelectedTeam(null)}>✕</button>
+          <button style={closeBtn} onClick={()=>setSelectedTeam(null)}>✕</button>
 
           <h3>{selectedTeam.full_name}</h3>
 
@@ -188,19 +142,20 @@ export default function TeamsPage() {
             <option>6th+</option>
           </select>
 
+          {/* SAFE coach list */}
           <select style={inputStyle} onChange={(e)=>setCoach(e.target.value)}>
             <option value="">Head Coach</option>
-            {coaches.filter(c=>c.role==="Head Coach").map(c => (
+            {coaches.map(c => (
               <option key={c.id} value={c.id}>
                 {c.first_name} {c.last_name}
               </option>
             ))}
           </select>
 
-          {/* ✅ NEW */}
+          {/* SAFE assistant */}
           <select style={inputStyle} onChange={(e)=>setAssistantCoach(e.target.value)}>
             <option value="">Assistant Coach</option>
-            {coaches.filter(c=>c.role==="Assistant Coach").map(c => (
+            {coaches.map(c => (
               <option key={c.id} value={c.id}>
                 {c.first_name} {c.last_name}
               </option>
@@ -213,10 +168,7 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* ================= TEAMS ================= */}
-
-      <h3>Teams</h3>
-
+      {/* TEAMS */}
       <div style={grid}>
         {teams.map(t => {
           const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
@@ -230,72 +182,94 @@ export default function TeamsPage() {
         })}
       </div>
 
-      {/* ================= TEAM PANEL ================= */}
-
+      {/* TEAM PANEL */}
       {activeTeam && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setActiveTeam(null)}>✕</button>
 
           <h2>Manage Team</h2>
 
-          <h3>Players</h3>
-
-          {players
-            .filter(p => p.team_id === activeTeam.id)
-            .map(p => (
-              <div key={p.id}>{p.first_name} {p.last_name}</div>
-            ))}
-
           <div style={btnRow}>
             <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
               Auto Roster
             </button>
-
-            <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
-              Add Player
-            </button>
-
-            <button style={secondaryBtn} onClick={()=>setShowMove(true)}>
-              Move Players
-            </button>
-
-            <button style={dangerBtn} onClick={clearTeam}>
-              Clear Team
-            </button>
           </div>
         </div>
       )}
 
-      {/* ================= CONFIRM AUTO ================= */}
-
+      {/* CONFIRM */}
       {confirmAuto && (
         <div style={panel}>
           <button style={closeBtn} onClick={()=>setConfirmAuto(false)}>✕</button>
 
-          <h3>⚠️ Confirm Auto Roster</h3>
-          <p style={{ fontSize: 14, color: "#64748b" }}>
-            Make sure all teams and coaches are assigned first.
-          </p>
+          <h3>Confirm Auto Roster</h3>
 
-          <div style={{ display: "flex", gap: 10 }}>
-            <button style={primaryBtn} onClick={async()=>{
-              setConfirmAuto(false);
-              await autoAssign();
-            }}>
-              Confirm
-            </button>
-
-            <button style={secondaryBtn} onClick={()=>setConfirmAuto(false)}>
-              Cancel
-            </button>
-          </div>
+          <button style={primaryBtn} onClick={()=>{
+            setConfirmAuto(false);
+            autoAssign();
+          }}>
+            Confirm
+          </button>
         </div>
       )}
-
-      {/* (rest of your add/move panels unchanged) */}
 
     </div>
   );
 }
 
-/* ================= STYLES (UNCHANGED) ================= */
+/* ================= STYLES ================= */
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+  gap: 15
+};
+
+const tile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 10,
+  textAlign: "center",
+  cursor: "pointer"
+};
+
+const panel = {
+  marginTop: 20,
+  padding: 20,
+  background: "#fff",
+  borderRadius: 12,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  position: "relative"
+};
+
+const closeBtn = {
+  position: "absolute",
+  top: 10,
+  right: 10,
+  border: "none",
+  background: "transparent",
+  fontSize: 18,
+  cursor: "pointer"
+};
+
+const inputStyle = {
+  padding: 10,
+  borderRadius: 10,
+  border: "1px solid #e2e8f0"
+};
+
+const btnRow = {
+  display: "flex",
+  gap: 10
+};
+
+const primaryBtn = {
+  flex: 1,
+  padding: 12,
+  background: "#2f6ea6",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10
+};
