@@ -2,8 +2,10 @@ import { useState } from "react";
 import { supabase } from "../supabase";
 
 export default function LoginModal({ onClose }) {
+  const [view, setView] = useState("select"); // select | admin | coach | parent
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -11,36 +13,96 @@ export default function LoginModal({ onClose }) {
       password
     });
 
-    if (!error) {
-      window.location.href = "/admin";
+    if (error) {
+      setError(error.message);
+    } else {
+      window.location.href = "/admin"; // temp routing
     }
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-center"
+        onClick={(e) => e.stopPropagation()}
+      >
 
-        <div className="title">Admin Login</div>
+        {/* ========================= */}
+        {/* SELECT PORTAL */}
+        {/* ========================= */}
+        {view === "select" && (
+          <>
+            <div className="title">Select Portal</div>
 
-        <input
-          className="input"
-          placeholder="Email"
-          onChange={(e) => setEmail(e.target.value)}
-        />
+            <div className="modal-option" onClick={() => setView("admin")}>
+              Admin
+            </div>
 
-        <input
-          className="input"
-          placeholder="Password"
-          type="password"
-          onChange={(e) => setPassword(e.target.value)}
-        />
+            <div className="modal-option" onClick={() => setView("coach")}>
+              Coach
+            </div>
 
-        <button className="button" onClick={handleLogin}>
-          Login
-        </button>
+            <div className="modal-option" onClick={() => setView("parent")}>
+              Parent
+            </div>
+          </>
+        )}
 
-        <div className="modal-cancel" onClick={onClose}>
-          Cancel
+        {/* ========================= */}
+        {/* LOGIN FORM */}
+        {/* ========================= */}
+        {view !== "select" && (
+          <>
+            <div className="title">
+              {view === "admin"
+                ? "Admin Login"
+                : view === "coach"
+                ? "Coach Login"
+                : "Parent Login"}
+            </div>
+
+            <input
+              className="input"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <input
+              className="input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            {error && (
+              <div className="sub" style={{ color: "red" }}>
+                {error}
+              </div>
+            )}
+
+            <button className="button" onClick={handleLogin}>
+              Login
+            </button>
+          </>
+        )}
+
+        {/* ========================= */}
+        {/* BACK / CANCEL */}
+        {/* ========================= */}
+        <div
+          className="modal-cancel"
+          onClick={() => {
+            if (view === "select") {
+              onClose();
+            } else {
+              setView("select");
+              setError("");
+            }
+          }}
+        >
+          {view === "select" ? "Cancel" : "← Back"}
         </div>
 
       </div>
