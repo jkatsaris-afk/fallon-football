@@ -15,7 +15,7 @@ import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
 
-// ===== FIXED MAP (DB → FILE) =====
+// ===== MAP (DB → FILE) =====
 const teamLogos = {
   "49ers": sf,
   "Bengals": bengals,
@@ -47,11 +47,14 @@ export default function GameSelector({ onGameStart }) {
   }, []);
 
   async function loadGames() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("schedule_master")
       .select("*");
 
-    if (!data) return;
+    if (error) {
+      console.error("LOAD ERROR:", error);
+      return;
+    }
 
     const clean = data
       .map(g => ({
@@ -65,17 +68,32 @@ export default function GameSelector({ onGameStart }) {
   }
 
   async function startGame(game) {
-    const { data: existing } = await supabase
+    console.log("START GAME RUNNING", game);
+
+    if (!game?.id) {
+      console.error("❌ game.id missing");
+      return;
+    }
+
+    // check existing
+    const { data: existing, error: checkError } = await supabase
       .from("games_live")
       .select("*")
       .eq("schedule_id", game.id)
       .maybeSingle();
 
+    if (checkError) {
+      console.error("CHECK ERROR:", checkError);
+      return;
+    }
+
     if (existing) {
+      console.log("Loaded existing game:", existing);
       onGameStart(existing, game);
       return;
     }
 
+    // insert
     const { data, error } = await supabase
       .from("games_live")
       .insert([
@@ -87,10 +105,18 @@ export default function GameSelector({ onGameStart }) {
           clock: "24:00",
         },
       ])
-      .select()
-      .single();
+      .select();
 
-    if (!error) onGameStart(data, game);
+    console.log("INSERT DATA:", data);
+    console.log("INSERT ERROR:", error);
+
+    if (error) return;
+
+    if (data && data.length > 0) {
+      onGameStart(data[0], game);
+    } else {
+      console.error("❌ Insert returned no data (likely RLS)");
+    }
   }
 
   // ===== GROUP =====
@@ -135,7 +161,13 @@ export default function GameSelector({ onGameStart }) {
             <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
-          <div className="card" onClick={() => setSelectedDate(null)}>
+          <div
+            className="card"
+            onClick={() => {
+              setSelectedDate(null);
+              setSelectedTime(null);
+            }}
+          >
             <div className="sub">← Back</div>
           </div>
 
@@ -165,7 +197,10 @@ export default function GameSelector({ onGameStart }) {
             </div>
           </div>
 
-          <div className="card" onClick={() => setSelectedTime(null)}>
+          <div
+            className="card"
+            onClick={() => setSelectedTime(null)}
+          >
             <div className="sub">← Back</div>
           </div>
 
@@ -206,10 +241,14 @@ export default function GameSelector({ onGameStart }) {
 
                 </div>
 
-                {/* ✅ START BUTTON BACK */}
+                {/* 🔥 BUTTON FIXED */}
                 <button
                   style={startBtn}
-                  onClick={() => startGame(item)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log("CLICK WORKED", item);
+                    startGame(item);
+                  }}
                 >
                   Start Game
                 </button>
