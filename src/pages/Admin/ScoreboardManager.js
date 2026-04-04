@@ -3,6 +3,8 @@ import { supabase } from "../../supabase";
 
 export default function ScoreboardManager() {
   const [games, setGames] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDivision, setSelectedDivision] = useState(null);
 
   useEffect(() => {
     load();
@@ -23,28 +25,42 @@ export default function ScoreboardManager() {
     .map(g => ({
       ...g,
       clean_date: normalizeDate(g.event_date),
-      clean_type: (g.event_type || "").toLowerCase()
+      clean_type: (g.event_type || "").toLowerCase().trim()
     }))
     .filter(g => g.clean_type.includes("game"));
 
   /* ========================= */
   /* GROUP BY DATE */
   /* ========================= */
-  const grouped = cleanGames.reduce((acc, g) => {
-    if (!g.clean_date) return acc;
-
+  const groupedDates = cleanGames.reduce((acc, g) => {
     if (!acc[g.clean_date]) acc[g.clean_date] = [];
     acc[g.clean_date].push(g);
-
     return acc;
   }, {});
 
-  const dates = Object.keys(grouped).sort(
+  const dates = Object.keys(groupedDates).sort(
     (a, b) => new Date(a) - new Date(b)
   );
 
   /* ========================= */
-  /* ACTIONS */
+  /* DIVISIONS */
+  /* ========================= */
+  const divisions = selectedDate
+    ? [...new Set(groupedDates[selectedDate].map(g => g.division))]
+    : [];
+
+  /* ========================= */
+  /* GAMES */
+  /* ========================= */
+  const filteredGames =
+    selectedDate && selectedDivision
+      ? groupedDates[selectedDate]
+          .filter(g => g.division === selectedDivision)
+          .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
+      : [];
+
+  /* ========================= */
+  /* ACTION */
   /* ========================= */
   const startGame = async (g) => {
     await supabase.from("scoreboard_live").insert({
@@ -65,54 +81,106 @@ export default function ScoreboardManager() {
         <div className="title">Scoreboard Manager</div>
       </div>
 
-      {dates.map(date => (
-        <div key={date}>
-
-          {/* DATE HEADER */}
-          <div className="card active-card">
+      {/* ========================= */}
+      {/* STEP 1: DATE */}
+      {/* ========================= */}
+      {!selectedDate &&
+        dates.map(date => (
+          <div
+            key={date}
+            className="card"
+            onClick={() => setSelectedDate(date)}
+          >
             <div className="title">{formatDate(date)}</div>
           </div>
+        ))}
 
-          {/* GAMES */}
-          {grouped[date]
-            .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
-            .map((g, i) => (
-              <div key={g.id}>
+      {/* ========================= */}
+      {/* STEP 2: DIVISION */}
+      {/* ========================= */}
+      {selectedDate && !selectedDivision && (
+        <div>
 
-                {i !== 0 && <div className="divider" />}
+          <div className="card active-card">
+            <div className="title">{formatDate(selectedDate)}</div>
+          </div>
 
-                <div className="inner-tile">
+          <div
+            className="card"
+            onClick={() => setSelectedDate(null)}
+          >
+            <div className="sub">← Back</div>
+          </div>
 
-                  <div className="game-row">
+          {divisions.map(div => (
+            <div
+              key={div}
+              className="card"
+              onClick={() => setSelectedDivision(div)}
+            >
+              <div className="title">{div}</div>
+            </div>
+          ))}
 
-                    <div className="game-top">
-                      <div className="team">{g.team}</div>
-                      <div className="game-time">{g.event_time}</div>
-                    </div>
+        </div>
+      )}
 
-                    <div className="vs">vs</div>
+      {/* ========================= */}
+      {/* STEP 3: GAMES */}
+      {/* ========================= */}
+      {selectedDate && selectedDivision && (
+        <div>
 
-                    <div className="game-bottom">
-                      <div className="team">{g.opponent}</div>
-                      <div className="field-badge">{g.field}</div>
-                    </div>
+          <div className="card active-card">
+            <div className="title">
+              {formatDate(selectedDate)} - {selectedDivision}
+            </div>
+          </div>
 
+          <div
+            className="card"
+            onClick={() => setSelectedDivision(null)}
+          >
+            <div className="sub">← Back</div>
+          </div>
+
+          {filteredGames.map((g, i) => (
+            <div key={g.id}>
+
+              {i !== 0 && <div className="divider" />}
+
+              <div className="inner-tile">
+
+                <div className="game-row">
+
+                  <div className="game-top">
+                    <div className="team">{g.team}</div>
+                    <div className="game-time">{g.event_time}</div>
                   </div>
 
-                  <button
-                    className="button"
-                    onClick={() => startGame(g)}
-                  >
-                    Start Game
-                  </button>
+                  <div className="vs">vs</div>
+
+                  <div className="game-bottom">
+                    <div className="team">{g.opponent}</div>
+                    <div className="field-badge">{g.field}</div>
+                  </div>
 
                 </div>
 
+                <button
+                  className="button"
+                  onClick={() => startGame(g)}
+                >
+                  Start Game
+                </button>
+
               </div>
-            ))}
+
+            </div>
+          ))}
 
         </div>
-      ))}
+      )}
 
     </div>
   );
