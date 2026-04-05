@@ -30,7 +30,16 @@ export default function PlayerManager() {
 
     setPlayers(playerData || []);
     setTeams(teamData || []);
-    setDivisions(divisionData || []);
+
+    // ✅ FALLBACK if divisions table empty
+    if (!divisionData || divisionData.length === 0) {
+      const fallback = [
+        ...new Set(players.map(p => p.division).filter(Boolean))
+      ];
+      setDivisions(fallback.map(name => ({ name })));
+    } else {
+      setDivisions(divisionData);
+    }
   };
 
   const updatePlayer = async (id, field, value) => {
@@ -42,16 +51,12 @@ export default function PlayerManager() {
     loadData();
   };
 
-  /* ================= FILTER ================= */
-
   const filteredPlayers = players
-    .filter((p) =>
-      selectedDivision === "ALL"
-        ? true
-        : p.division === selectedDivision
+    .filter(p =>
+      selectedDivision === "ALL" ? true : p.division === selectedDivision
     )
-    .filter((p) => {
-      const team = teams.find((t) => t.id === p.team_id);
+    .filter(p => {
+      const team = teams.find(t => t.id === p.team_id);
       const fullName = `${p.first_name} ${p.last_name}`.toLowerCase();
       const teamName = team?.name?.toLowerCase() || "";
 
@@ -74,7 +79,7 @@ export default function PlayerManager() {
           style={searchInput}
         />
 
-        {["ALL", ...divisions.map((d) => d.name)].map((d) => (
+        {["ALL", ...divisions.map(d => d.name)].map(d => (
           <button
             key={d}
             onClick={() => setSelectedDivision(d)}
@@ -96,23 +101,23 @@ export default function PlayerManager() {
       <div style={tileWrapper}>
 
         {/* HEADER */}
-        <div style={headerRow}>
-          <div style={{ width: 180 }}>Name</div>
-          <div style={{ width: 60 }}>Age</div>
-          <div style={{ width: 160 }}>Division</div>
-          <div style={{ width: 120 }}>Shirt</div>
-          <div style={{ width: 140 }}>Payment</div>
-          <div style={{ width: 200 }}>Team</div>
+        <div style={gridHeader}>
+          <div>Name</div>
+          <div>Age</div>
+          <div>Division</div>
+          <div>Shirt</div>
+          <div>Payment</div>
+          <div>Team</div>
         </div>
 
         {/* LIST */}
         <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
-          {filteredPlayers.map((p) => {
-            const playerTeam = teams.find((t) => t.id === p.team_id);
+          {filteredPlayers.map(p => {
+            const playerTeam = teams.find(t => t.id === p.team_id);
 
             const divisionTeams = teams
               .filter(
-                (t) =>
+                t =>
                   t.name &&
                   (!p.division || t.division === p.division)
               )
@@ -121,33 +126,23 @@ export default function PlayerManager() {
               );
 
             return (
-              <div key={p.id} style={row}>
-                {/* NAME */}
-                <div style={{ width: 180 }}>
-                  {p.first_name} {p.last_name}
-                </div>
+              <div key={p.id} style={gridRow}>
+                <div>{p.first_name} {p.last_name}</div>
 
-                {/* AGE */}
-                <div style={{ width: 60 }}>{p.age}</div>
+                <div>{p.age}</div>
 
-                {/* DIVISION (FIXED) */}
-                <div style={{ width: 160 }}>
+                {/* DIVISION */}
+                <div>
                   <select
                     value={p.division || ""}
-                    onChange={(e) =>
+                    onChange={e =>
                       updatePlayer(p.id, "division", e.target.value)
                     }
                     style={input}
                   >
-                    {/* Current value always visible */}
-                    {!divisions.find(d => d.name === p.division) && p.division && (
-                      <option value={p.division}>{p.division}</option>
-                    )}
-
                     <option value="">Select</option>
-
-                    {divisions.map((d) => (
-                      <option key={d.id} value={d.name}>
+                    {divisions.map(d => (
+                      <option key={d.name} value={d.name}>
                         {d.name}
                       </option>
                     ))}
@@ -155,10 +150,10 @@ export default function PlayerManager() {
                 </div>
 
                 {/* SHIRT */}
-                <div style={{ width: 120 }}>
+                <div>
                   <select
                     value={p.shirt_size || ""}
-                    onChange={(e) =>
+                    onChange={e =>
                       updatePlayer(p.id, "shirt_size", e.target.value)
                     }
                     style={input}
@@ -174,10 +169,10 @@ export default function PlayerManager() {
                 </div>
 
                 {/* PAYMENT */}
-                <div style={{ width: 140 }}>
+                <div>
                   <select
                     value={p.payment_status || ""}
-                    onChange={(e) =>
+                    onChange={e =>
                       updatePlayer(
                         p.id,
                         "payment_status",
@@ -201,17 +196,16 @@ export default function PlayerManager() {
                 </div>
 
                 {/* TEAM */}
-                <div style={{ width: 200 }}>
+                <div>
                   <select
                     value={p.team_id || ""}
-                    onChange={(e) =>
+                    onChange={e =>
                       updatePlayer(p.id, "team_id", e.target.value)
                     }
                     style={input}
                   >
                     <option value="">Unassigned</option>
-
-                    {divisionTeams.map((t) => (
+                    {divisionTeams.map(t => (
                       <option key={t.id} value={t.id}>
                         {t.name}
                       </option>
@@ -241,16 +235,18 @@ const tileWrapper = {
   boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
 };
 
-const headerRow = {
-  display: "flex",
+const gridHeader = {
+  display: "grid",
+  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
   fontSize: 12,
   color: "#64748b",
-  marginBottom: 8,
-  alignItems: "center"
+  paddingBottom: 6,
+  borderBottom: "1px solid #e5e7eb"
 };
 
-const row = {
-  display: "flex",
+const gridRow = {
+  display: "grid",
+  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
   alignItems: "center",
   gap: 10,
   padding: "8px 0",
@@ -267,8 +263,7 @@ const input = {
 
 const teamLabel = {
   fontSize: 11,
-  color: "#64748b",
-  marginTop: 2
+  color: "#64748b"
 };
 
 const searchInput = {
