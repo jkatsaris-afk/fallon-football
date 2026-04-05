@@ -57,18 +57,14 @@ export default function ScheduleManager() {
 
   const generateSchedule = async () => {
     const { data: matchups } = await supabase.from("matchups").select("*");
-    const { data: dbFields } = await supabase.from("fields").select("*");
+    const { data: fields } = await supabase.from("fields").select("*");
     const { data: timeSlots } = await supabase.from("field_time_slots").select("*");
 
-    console.log("matchups:", matchups);
-    console.log("fields:", dbFields);
-    console.log("timeSlots:", timeSlots);
-
     if (!matchups?.length) return alert("No matchups found");
-    if (!dbFields?.length) return alert("No fields found");
+    if (!fields?.length) return alert("No fields found");
     if (!timeSlots?.length) return alert("No time slots found");
 
-    // CLEAR TABLE
+    // CLEAR
     const { error: deleteError } = await supabase
       .from(TABLE)
       .delete()
@@ -76,7 +72,7 @@ export default function ScheduleManager() {
 
     if (deleteError) {
       console.error(deleteError);
-      alert("Delete failed (RLS issue?)");
+      alert("Delete failed (RLS?)");
       return;
     }
 
@@ -92,7 +88,7 @@ export default function ScheduleManager() {
       weekGames.forEach(game => {
         const isK1 = game.division === "K-1";
 
-        const validFields = dbFields.filter(f =>
+        const validFields = fields.filter(f =>
           isK1 ? f.type === "k-1" : f.type === "game"
         );
 
@@ -119,10 +115,8 @@ export default function ScheduleManager() {
       });
     });
 
-    console.log("INSERT DATA:", insert);
-
     if (!insert.length) {
-      alert("No games generated");
+      alert("No schedule generated");
       return;
     }
 
@@ -130,30 +124,73 @@ export default function ScheduleManager() {
 
     if (error) {
       console.error(error);
-      alert("Insert failed (RLS issue?)");
+      alert("Insert failed");
       return;
     }
 
     alert("Schedule Generated ✅");
-    loadAll();
+
+    await loadAll(); // 🔥 force refresh
   };
 
-  /* ================= UI ================= */
+  /* ================= HELPERS ================= */
+
+  const getGame = (matchupId) => {
+    const m = matchups.find(x => x.id === matchupId);
+    if (!m) return null;
+
+    const home = teams.find(t => t.id === m.home_team_id);
+    const away = teams.find(t => t.id === m.away_team_id);
+
+    const homeNFL = nflTeams.find(n => n.id === home?.nfl_team_id);
+    const awayNFL = nflTeams.find(n => n.id === away?.nfl_team_id);
+
+    return {
+      division: m.division,
+      home: homeNFL,
+      away: awayNFL
+    };
+  };
+
+  const weeks = [...new Set(schedule.map(s => s.week))];
 
   return (
     <div>
 
       <h1>Schedule Manager</h1>
 
-      {/* ✅ ALWAYS SHOW BUTTON */}
+      {/* DEBUG */}
+      <div style={{ fontSize: 12 }}>
+        Schedule Rows: {schedule.length}
+      </div>
+
+      {/* ALWAYS SHOW BUTTON */}
       <button style={btn} onClick={generateSchedule}>
         Generate Schedule
       </button>
 
-      {/* DEBUG INFO */}
-      <div style={{ fontSize: 12, color: "#64748b", marginTop: 10 }}>
-        Matchups: {matchups.length} | Fields: {fields.length}
-      </div>
+      {/* ================= DISPLAY ================= */}
+
+      {weeks.map(week => {
+        const weekGames = schedule.filter(s => s.week === week);
+
+        return (
+          <div key={week} style={{ marginTop: 20 }}>
+            <h2>Week {week}</h2>
+
+            {weekGames.map(g => {
+              const game = getGame(g.matchup_id);
+              if (!game) return null;
+
+              return (
+                <div key={g.id} style={gameRow}>
+                  {game.home?.short_name} vs {game.away?.short_name} — {g.time}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
 
     </div>
   );
@@ -168,4 +205,9 @@ const btn = {
   color: "#fff",
   border: "none",
   borderRadius: 10
+};
+
+const gameRow = {
+  padding: 8,
+  borderBottom: "1px solid #e5e7eb"
 };
