@@ -11,41 +11,39 @@ export default function FieldManager() {
   }, []);
 
   const loadFields = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("fields")
       .select("*")
       .order("field_number", { ascending: true });
 
-    if (error) console.error(error);
     setFields(data || []);
   };
 
   /* ================= LOAD TIME SLOTS ================= */
 
   const loadTimeSlots = async (type) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("field_time_slots")
       .select("*")
       .eq("field_type", type)
       .order("sort_order");
 
-    if (error) console.error(error);
     setTimeSlots(data || []);
   };
 
   /* ================= UPDATE FIELD ================= */
 
-  const updateField = async () => {
+  const saveField = async () => {
     await supabase
       .from("fields")
       .update({ type: activeField.type })
       .eq("id", activeField.id);
 
-    setActiveField(null);
     loadFields();
+    loadTimeSlots(activeField.type);
   };
 
-  /* ================= SAVE TIME SLOT EDIT ================= */
+  /* ================= SAVE TIME ================= */
 
   const saveTimeSlot = async (slot) => {
     await supabase
@@ -75,8 +73,9 @@ export default function FieldManager() {
             style={dropdown}
             value={activeField.type}
             onChange={(e) => {
-              setActiveField({ ...activeField, type: e.target.value });
-              loadTimeSlots(e.target.value);
+              const newType = e.target.value;
+              setActiveField({ ...activeField, type: newType });
+              loadTimeSlots(newType); // 🔥 reload times instantly
             }}
           >
             <option value="game">Game Field</option>
@@ -84,27 +83,34 @@ export default function FieldManager() {
             <option value="k-1">K-1 Field</option>
           </select>
 
-          <button style={saveBtn} onClick={updateField}>
+          <button style={saveBtn} onClick={saveField}>
             Save Field Type
           </button>
 
-          {/* TIME SLOTS */}
+          {/* ================= TIME SLOTS ================= */}
           <h3 style={{ marginTop: 25 }}>Time Slots</h3>
 
-          {timeSlots.map(slot => (
+          {timeSlots.length === 0 && (
+            <div style={{ color: "#94a3b8" }}>
+              No time slots found for this type
+            </div>
+          )}
+
+          {timeSlots.map((slot, index) => (
             <div key={slot.id} style={timeRow}>
 
               <input
                 value={slot.time}
                 style={timeInput}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newTime = e.target.value;
                   setTimeSlots(prev =>
                     prev.map(s =>
-                      s.id === slot.id ? { ...s, time: e.target.value } : s
+                      s.id === slot.id ? { ...s, time: newTime } : s
                     )
-                  )
-                }
-                onBlur={() => saveTimeSlot(slot)}
+                  );
+                }}
+                onBlur={() => saveTimeSlot(slot)} // 🔥 auto save on click away
               />
 
               <button
@@ -124,6 +130,7 @@ export default function FieldManager() {
             </div>
           ))}
 
+          {/* ADD TIME */}
           <button
             style={addBtn}
             onClick={async () => {
@@ -161,7 +168,7 @@ export default function FieldManager() {
             style={tile}
             onClick={() => {
               setActiveField(field);
-              loadTimeSlots(field.type);
+              loadTimeSlots(field.type); // 🔥 ensure times load
             }}
           >
             <div style={fieldName}>{field.name}</div>
@@ -240,8 +247,6 @@ const backBtn = {
   cursor: "pointer",
   marginBottom: 10
 };
-
-/* TIME SLOT STYLES */
 
 const timeRow = {
   display: "flex",
