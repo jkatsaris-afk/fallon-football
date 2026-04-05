@@ -6,7 +6,8 @@ import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import SignUpPage from "./pages/Public/SignUpPage";
 import CoachSignUpPage from "./pages/Public/CoachSignUpPage";
-import RefSignUpPage from "./pages/Public/RefSignUpPage"; // ✅ ADDED
+import RefSignUpPage from "./pages/Public/RefSignUpPage";
+import SignUpSelectPage from "./pages/Public/SignUpSelectPage"; // ✅ ADDED
 
 import LoginModal from "./components/LoginModal";
 import Dashboard from "./pages/Admin/Dashboard";
@@ -16,9 +17,9 @@ import logo from "./resources/logo.png";
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [showLogin, setShowLogin] = useState(false);
 
   const [adminPage, setAdminPage] = useState("dashboard");
+  const [isAdminAuthed, setIsAdminAuthed] = useState(false); // ✅ ADDED
 
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
@@ -26,13 +27,16 @@ export default function App() {
     if (path.includes("/admin")) setPage("dashboard");
     if (path.includes("/sign-up")) setPage("signup");
     if (path.includes("/coach-signup")) setPage("coachSignup");
-    if (path.includes("/ref-signup")) setPage("refSignup"); // ✅ ADDED
+    if (path.includes("/ref-signup")) setPage("refSignup");
+    if (path.includes("/signup")) setPage("signupSelect"); // ✅ ADDED
 
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
 
-      if (path.includes("/admin") && !data.user) {
-        window.location.href = "/";
+      if (data.user) {
+        setIsAdminAuthed(true);
+      } else {
+        setIsAdminAuthed(false);
       }
     };
 
@@ -41,19 +45,24 @@ export default function App() {
 
   return (
     <>
+      {/* ================= ADMIN ================= */}
       {page === "dashboard" ? (
-        <div
-          style={{
-            width: "100vw",
-            height: "100vh",
-            background: "#f8fafc",
-          }}
-        >
-          <Dashboard
-            adminPage={adminPage}
-            setAdminPage={setAdminPage}
-          />
-        </div>
+        !isAdminAuthed ? (
+          <LoginModal onClose={() => setPage("home")} /> // ✅ LOGIN ONLY HERE
+        ) : (
+          <div
+            style={{
+              width: "100vw",
+              height: "100vh",
+              background: "#f8fafc",
+            }}
+          >
+            <Dashboard
+              adminPage={adminPage}
+              setAdminPage={setAdminPage}
+            />
+          </div>
+        )
       ) : (
         <div className="app">
 
@@ -68,9 +77,10 @@ export default function App() {
           {page === "scoreboard" && <ScoreboardPage />}
           {page === "signup" && <SignUpPage />}
           {page === "coachSignup" && <CoachSignUpPage />}
-          {page === "refSignup" && <RefSignUpPage />} {/* ✅ ADDED */}
+          {page === "refSignup" && <RefSignUpPage />}
+          {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />} {/* ✅ ADDED */}
 
-          {/* NAV (UNCHANGED) */}
+          {/* NAV */}
           <div className="bottom-nav">
 
             <button
@@ -95,21 +105,20 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-btn ${page === "signupSelect" ? "active" : ""}`}
+              onClick={() => setPage("signupSelect")}
+            >
+              Sign Up
+            </button>
+
+            <button
               className={`nav-btn ${page === "dashboard" ? "active" : ""}`}
               onClick={() => setPage("dashboard")}
             >
               Admin
             </button>
 
-            <button onClick={() => setShowLogin(true)} className="nav-btn">
-              Login
-            </button>
-
           </div>
-
-          {showLogin && (
-            <LoginModal onClose={() => setShowLogin(false)} />
-          )}
 
         </div>
       )}
