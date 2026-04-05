@@ -26,11 +26,16 @@ export default function CoachManager() {
   };
 
   const getRole = (c) => {
-    return c.role || (c.assistant_coach ? "assistant" : "coach");
+    if (c.role) return c.role; // ✅ PRIMARY SOURCE
+    return c.assistant_coach ? "assistant" : "coach"; // fallback
   };
 
   const getStatus = (c) => {
     return c.status || "pending";
+  };
+
+  const displayRole = (role) => {
+    return role === "coach" ? "Head Coach" : "Assistant";
   };
 
   /* ================= UPDATE ================= */
@@ -77,58 +82,62 @@ export default function CoachManager() {
         </div>
 
         {/* ROWS */}
-        {coaches.map(coach => (
-          <div key={coach.id} style={row}>
+        {coaches.map(coach => {
+          const role = getRole(coach);
 
-            {/* NAME */}
-            <div>{getName(coach)}</div>
+          return (
+            <div key={coach.id} style={row}>
 
-            {/* EMAIL */}
-            <div>{coach.email || "-"}</div>
+              {/* NAME */}
+              <div>{getName(coach)}</div>
 
-            {/* PHONE */}
-            <div>{coach.phone || "-"}</div>
+              {/* EMAIL */}
+              <div>{coach.email || "-"}</div>
 
-            {/* DIVISION */}
-            <div>{coach.division_preference || "-"}</div>
+              {/* PHONE */}
+              <div>{coach.phone || "-"}</div>
 
-            {/* STATUS */}
-            <div style={statusStyle(getStatus(coach))}>
-              {getStatus(coach)}
+              {/* DIVISION */}
+              <div>{coach.division_preference || "-"}</div>
+
+              {/* STATUS */}
+              <div style={statusStyle(getStatus(coach))}>
+                {getStatus(coach)}
+              </div>
+
+              {/* ROLE DROPDOWN */}
+              <div>
+                <select
+                  value={role}
+                  onChange={(e) =>
+                    updateRole(coach, e.target.value)
+                  }
+                >
+                  <option value="assistant">Assistant</option>
+                  <option value="coach">Head Coach</option>
+                </select>
+              </div>
+
+              {/* ACTIONS */}
+              <div style={actions}>
+                <button
+                  style={approveBtn}
+                  onClick={() => updateStatus(coach.id, "approved")}
+                >
+                  Approve
+                </button>
+
+                <button
+                  style={denyBtn}
+                  onClick={() => updateStatus(coach.id, "denied")}
+                >
+                  Deny
+                </button>
+              </div>
+
             </div>
-
-            {/* ROLE */}
-            <div>
-              <select
-                value={getRole(coach)}
-                onChange={(e) =>
-                  updateRole(coach, e.target.value)
-                }
-              >
-                <option value="assistant">Assistant</option>
-                <option value="coach">Coach</option>
-              </select>
-            </div>
-
-            {/* ACTIONS */}
-            <div style={actions}>
-              <button
-                style={approveBtn}
-                onClick={() => updateStatus(coach.id, "approved")}
-              >
-                Approve
-              </button>
-
-              <button
-                style={denyBtn}
-                onClick={() => updateStatus(coach.id, "denied")}
-              >
-                Deny
-              </button>
-            </div>
-
-          </div>
-        ))}
+          );
+        })}
 
       </div>
 
