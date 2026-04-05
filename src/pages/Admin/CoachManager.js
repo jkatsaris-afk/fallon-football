@@ -15,10 +15,13 @@ export default function CoachManager() {
       .order("created_at", { ascending: false });
 
     if (error) console.error(error);
+
+    console.log("Coaches:", data); // 🔥 DEBUG (remove later)
+
     setCoaches(data || []);
   };
 
-  /* ================= ACTIONS ================= */
+  /* ================= UPDATE ================= */
 
   const updateStatus = async (id, status) => {
     await supabase
@@ -36,6 +39,26 @@ export default function CoachManager() {
       .eq("id", id);
 
     loadCoaches();
+  };
+
+  /* ================= HELPERS ================= */
+
+  const getName = (coach) => {
+    return (
+      `${coach.first_name || coach.name || ""} ${coach.last_name || ""}`.trim()
+    );
+  };
+
+  const getEmail = (coach) => {
+    return coach.email || coach.email_address || "";
+  };
+
+  const getRole = (coach) => {
+    return coach.role || "assistant"; // fallback
+  };
+
+  const getStatus = (coach) => {
+    return coach.status || "pending";
   };
 
   /* ================= UI ================= */
@@ -60,18 +83,19 @@ export default function CoachManager() {
         {coaches.map(coach => (
           <div key={coach.id} style={row}>
 
-            <div>{coach.name}</div>
-            <div>{coach.email}</div>
+            <div>{getName(coach)}</div>
+
+            <div>{getEmail(coach)}</div>
 
             {/* STATUS */}
-            <div style={status(coach.status)}>
-              {coach.status}
+            <div style={statusStyle(getStatus(coach))}>
+              {getStatus(coach)}
             </div>
 
-            {/* ROLE */}
+            {/* ROLE DROPDOWN */}
             <div>
               <select
-                value={coach.role}
+                value={getRole(coach)}
                 onChange={(e) =>
                   updateRole(coach.id, e.target.value)
                 }
@@ -155,7 +179,7 @@ const denyBtn = {
   cursor: "pointer"
 };
 
-const status = (s) => ({
+const statusStyle = (s) => ({
   color:
     s === "approved"
       ? "#16a34a"
