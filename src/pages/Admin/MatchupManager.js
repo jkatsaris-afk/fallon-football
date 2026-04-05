@@ -44,8 +44,6 @@ export default function MatchupManager() {
     }
   }, [selectedDivision]);
 
-  /* ================= LOAD DIVISIONS ================= */
-
   const loadDivisions = async () => {
     const { data } = await supabase.from("teams").select("division");
 
@@ -60,14 +58,10 @@ export default function MatchupManager() {
     setDivisions(unique);
   };
 
-  /* ================= LOAD NFL TEAMS ================= */
-
   const loadNFLTeams = async () => {
     const { data } = await supabase.from("nfl_teams").select("*");
     setNflTeams(data || []);
   };
-
-  /* ================= LOAD TEAMS ================= */
 
   const loadTeams = async () => {
     const { data } = await supabase
@@ -78,8 +72,6 @@ export default function MatchupManager() {
     setTeams(data || []);
   };
 
-  /* ================= LOAD MATCHUPS ================= */
-
   const loadMatchups = async () => {
     const { data } = await supabase
       .from("matchups")
@@ -89,8 +81,6 @@ export default function MatchupManager() {
 
     setMatchups(data || []);
   };
-
-  /* ================= GENERATE MATCHUPS ================= */
 
   const generateMatchups = async () => {
     if (teams.length < 2) return alert("Not enough teams");
@@ -160,8 +150,6 @@ export default function MatchupManager() {
     }
   };
 
-  /* ================= HELPERS ================= */
-
   const getTeamDisplay = (teamId) => {
     const team = teams.find(t => t.id === teamId);
     if (!team) return null;
@@ -173,8 +161,6 @@ export default function MatchupManager() {
       logo: teamLogos[nfl?.short_name]
     };
   };
-
-  /* ================= UI ================= */
 
   return (
     <div style={{ paddingBottom: 50 }}>
@@ -194,7 +180,6 @@ export default function MatchupManager() {
         ))}
       </div>
 
-      {/* TEAMS */}
       {selectedDivision && (
         <>
           <h3 style={{ marginTop: 25 }}>{selectedDivision} Teams</h3>
@@ -212,7 +197,6 @@ export default function MatchupManager() {
             })}
           </div>
 
-          {/* MATCHUPS */}
           {matchups.length === 0 ? (
             <button style={btn} onClick={generateMatchups}>
               Generate 8 Week Matchups
@@ -225,35 +209,35 @@ export default function MatchupManager() {
                 <div key={week} style={weekBlock}>
                   <h4>Week {week}</h4>
 
-                  {matchups
-                    .filter(m => m.week === week)
-                    .map(m => {
-                      const home = getTeamDisplay(m.home_team_id);
-                      const away = getTeamDisplay(m.away_team_id);
+                  <div style={matchGrid}>
+                    {matchups
+                      .filter(m => m.week === week)
+                      .map(m => {
+                        const home = getTeamDisplay(m.home_team_id);
+                        const away = getTeamDisplay(m.away_team_id);
 
-                      return (
-                        <div key={m.id} style={matchRow}>
+                        return (
+                          <div key={m.id} style={matchCard}>
 
-                          {/* HOME */}
-                          <div style={teamSide}>
-                            <div style={label}>HOME</div>
-                            <img src={home?.logo} width={30}/>
-                            <div>{home?.name}</div>
+                            <div style={teamColumn}>
+                              <div style={label}>HOME</div>
+                              <img src={home?.logo} style={logo}/>
+                              <div>{home?.name}</div>
+                            </div>
+
+                            <div style={vs}>VS</div>
+
+                            <div style={teamColumn}>
+                              <div style={label}>AWAY</div>
+                              <img src={away?.logo} style={logo}/>
+                              <div>{away?.name}</div>
+                            </div>
+
                           </div>
+                        );
+                      })}
+                  </div>
 
-                          {/* VS */}
-                          <div style={vs}>VS</div>
-
-                          {/* AWAY */}
-                          <div style={teamSide}>
-                            <div style={label}>AWAY</div>
-                            <img src={away?.logo} width={30}/>
-                            <div>{away?.name}</div>
-                          </div>
-
-                        </div>
-                      );
-                    })}
                 </div>
               ))}
             </div>
@@ -272,6 +256,48 @@ const grid = {
   gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
   gap: 15,
   marginTop: 15
+};
+
+const matchGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 15,
+  marginTop: 10
+};
+
+const matchCard = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 12,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
+};
+
+const teamColumn = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  width: "40%",
+  textAlign: "center"
+};
+
+const logo = {
+  width: 35,
+  height: 35,
+  objectFit: "contain",
+  margin: "4px 0"
+};
+
+const label = {
+  fontSize: 10,
+  color: "#94a3b8"
+};
+
+const vs = {
+  fontWeight: "700",
+  fontSize: 14
 };
 
 const tile = (active) => ({
@@ -305,31 +331,4 @@ const weekBlock = {
   padding: 15,
   borderRadius: 12,
   marginBottom: 15
-};
-
-const matchRow = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 20,
-  padding: 10,
-  borderBottom: "1px solid #e5e7eb"
-};
-
-const teamSide = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  width: 120
-};
-
-const label = {
-  fontSize: 10,
-  color: "#64748b",
-  marginBottom: 4
-};
-
-const vs = {
-  fontWeight: "700",
-  fontSize: 14
 };
