@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+// ✅ ADD THIS (adjust path if needed)
+import fallonLogo from "../../assets/fallon-flag.png";
+
 // IMPORTS
 import GameManager from "./GameManager";
 import ScheduleManager from "./ScheduleManager";
@@ -32,10 +35,7 @@ export default function Dashboard({
     loadStats();
   }, []);
 
-  /* ================= LOAD STATS ================= */
-
   const loadStats = async () => {
-
     const { count: playerCount } = await supabase
       .from("players")
       .select("*", { count: "exact", head: true });
@@ -90,7 +90,16 @@ export default function Dashboard({
 
       {/* ================= SIDEBAR ================= */}
       <div style={sidebar}>
-        <h2 style={{ marginBottom: 20 }}>Admin</h2>
+
+        {/* ✅ UPDATED HEADER */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+          <img
+            src={fallonLogo}
+            alt="Fallon Flag"
+            style={{ width: 32, height: 32, objectFit: "contain" }}
+          />
+          <h2 style={{ margin: 0 }}>Admin</h2>
+        </div>
 
         <NavBtn active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} label="Dashboard" />
         <NavBtn active={adminPage === "teams"} onClick={() => setAdminPage("teams")} label="Team Manager" />
@@ -118,7 +127,6 @@ export default function Dashboard({
             </p>
 
             <div style={grid}>
-
               <StatTile title="Players" value={stats.players} />
               <StatTile title="Games" value={stats.games} />
 
@@ -130,7 +138,6 @@ export default function Dashboard({
 
               <StatTile title="Scheduled Games" value={stats.scheduledGames} />
               <StatTile title="Matchups" value={stats.matchups} />
-
             </div>
           </>
         )}
