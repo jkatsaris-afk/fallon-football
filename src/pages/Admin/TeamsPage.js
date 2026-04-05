@@ -143,7 +143,7 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* 🔥 TILE ACTIONS (REPLACED BUTTONS) */}
+        {/* 🔥 ACTION TILES */}
         <div style={actionGrid}>
 
           <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
@@ -181,7 +181,7 @@ export default function TeamsPage() {
 
         </div>
 
-        {/* EXISTING ADD PLAYER PANEL (UNCHANGED) */}
+        {/* ADD PLAYER PANEL */}
         {showAdd && (
           <div style={{ ...section, position: "relative" }}>
             <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
@@ -208,6 +208,7 @@ export default function TeamsPage() {
           </div>
         )}
 
+        {/* AUTO CONFIRM */}
         {confirmAuto && (
           <div style={section}>
             <p>
@@ -287,6 +288,54 @@ export default function TeamsPage() {
 }
 
 /* ================= STYLES ================= */
+
+const headerBar = { marginBottom: 15 };
+
+const backBtn = {
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  cursor: "pointer"
+};
+
+const teamHero = {
+  display: "flex",
+  alignItems: "center",
+  gap: 20,
+  marginBottom: 25
+};
+
+const divisionBadge = {
+  marginTop: 5,
+  padding: "4px 10px",
+  borderRadius: 8,
+  background: "#e2e8f0",
+  fontSize: 13
+};
+
+const coachGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 15,
+  marginBottom: 25
+};
+
+const coachCard = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const coachLabel = { fontSize: 12, color: "#64748b" };
+
+const coachName = {
+  fontSize: 18,
+  fontWeight: "600",
+  marginTop: 5
+};
+
+/* NEW */
 
 const actionGrid = {
   display: "grid",
