@@ -71,13 +71,21 @@ export default function TeamsPage() {
     loadData();
   };
 
+  // ✅ FIXED FUNCTION
   const movePlayerToTeam = async (playerId, newTeamId) => {
     if (!newTeamId) return;
 
-    await supabase
+    const parsedTeamId = newTeamId.toString();
+
+    const { error } = await supabase
       .from("players")
-      .update({ team_id: newTeamId })
+      .update({ team_id: parsedTeamId })
       .eq("id", playerId);
+
+    if (error) {
+      console.error("Move player error:", error);
+      return;
+    }
 
     loadData();
   };
@@ -166,6 +174,7 @@ export default function TeamsPage() {
                   <div style={playerActions}>
 
                     <select
+                      key={p.team_id || "none"}   {/* ✅ FIX */}
                       style={dropdown}
                       onChange={(e) => movePlayerToTeam(p.id, e.target.value)}
                       defaultValue=""
@@ -194,47 +203,38 @@ export default function TeamsPage() {
                 </div>
               );
             })}
+
+          {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
+            <div style={{ color:"#64748b" }}>
+              No players assigned
+            </div>
+          )}
         </div>
 
-        {/* ================= FIXED MODAL ================= */}
+        {/* ADD PLAYER */}
         {showAdd && (
-          <div style={modalOverlay}>
-            <div style={modalBox}>
+          <div style={{ ...section, position: "relative" }}>
+            <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
 
-              <div style={modalHeader}>
-                <h3 style={{ margin: 0 }}>Add Player</h3>
+            <h3>Add Player</h3>
 
-                <button
-                  style={closeBtnFixed}
-                  onClick={() => setShowAdd(false)}
-                >
-                  ✕
-                </button>
-              </div>
+            {players
+              .filter(p =>
+                p.division === activeTeam.division &&
+                !p.team_id
+              )
+              .map(p => (
+                <div key={p.id} style={playerRow}>
+                  {p.first_name} {p.last_name}
 
-              <div style={{ marginTop: 10 }}>
-                {players
-                  .filter(p =>
-                    p.division === activeTeam.division &&
-                    !p.team_id
-                  )
-                  .map(p => (
-                    <div key={p.id} style={playerRowModern}>
-                      <div>
-                        {p.first_name} {p.last_name}
-                      </div>
-
-                      <button
-                        style={addBtn}
-                        onClick={() => addPlayerToTeam(p.id)}
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))}
-              </div>
-
-            </div>
+                  <button
+                    style={smallBtn}
+                    onClick={() => addPlayerToTeam(p.id)}
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
           </div>
         )}
 
@@ -242,61 +242,5 @@ export default function TeamsPage() {
     );
   }
 
-  return <div />; // unchanged
+  return <div />;
 }
-
-/* ================= ORIGINAL STYLES (UNCHANGED) ================= */
-/* ... ALL YOUR EXISTING STYLES STAY EXACTLY AS THEY WERE ... */
-
-/* ================= NEW STYLES (ONLY ADD THESE) ================= */
-
-const modalOverlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
-  background: "rgba(0,0,0,0.4)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  zIndex: 999
-};
-
-const modalBox = {
-  background: "#fff",
-  borderRadius: 14,
-  padding: 20,
-  width: 400,
-  maxHeight: "70vh",
-  overflowY: "auto"
-};
-
-const modalHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
-};
-
-const closeBtnFixed = {
-  border: "none",
-  background: "#f1f5f9",
-  borderRadius: 8,
-  padding: "6px 10px",
-  cursor: "pointer"
-};
-
-const playerRowModern = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "10px 0"
-};
-
-const addBtn = {
-  background: "#2f6ea6",
-  color: "#fff",
-  border: "none",
-  padding: "6px 12px",
-  borderRadius: 6,
-  cursor: "pointer"
-};
