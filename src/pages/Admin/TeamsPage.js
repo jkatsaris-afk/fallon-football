@@ -33,6 +33,10 @@ export default function TeamsPage() {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTeam, setActiveTeam] = useState(null);
 
+  const [division, setDivision] = useState("");
+  const [coach, setCoach] = useState("");
+  const [assistantCoach, setAssistantCoach] = useState("");
+
   const [confirmAuto, setConfirmAuto] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -117,6 +121,7 @@ export default function TeamsPage() {
 
         <div style={teamHero}>
           <img src={teamLogos[nfl?.short_name]} width={90} />
+
           <div>
             <h1 style={{ margin: 0 }}>{nfl?.full_name}</h1>
             <div style={divisionBadge}>{activeTeam.division}</div>
@@ -124,6 +129,7 @@ export default function TeamsPage() {
         </div>
 
         <div style={coachGrid}>
+
           <div style={coachCard}>
             <div style={coachLabel}>Head Coach</div>
             <div style={coachName}>
@@ -137,10 +143,12 @@ export default function TeamsPage() {
               {getCoachName(activeTeam.assistant_coach_id)}
             </div>
           </div>
+
         </div>
 
-        {/* ACTION TILES */}
+        {/* 🔥 UPDATED ACTION TILES */}
         <div style={actionGrid}>
+
           <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
           </div>
@@ -152,11 +160,13 @@ export default function TeamsPage() {
           <div style={dangerTile} onClick={removeTeam}>
             Remove Team
           </div>
+
         </div>
 
-        {/* PLAYERS TILE */}
+        {/* 🔥 PLAYERS TILE */}
         <div style={playersTile}>
-          <h3>Players</h3>
+
+          <h3 style={{ marginBottom: 10 }}>Players</h3>
 
           {players
             .filter(p => p.team_id === activeTeam.id)
@@ -171,9 +181,10 @@ export default function TeamsPage() {
               No players assigned
             </div>
           )}
+
         </div>
 
-        {/* ADD PLAYER */}
+        {/* ADD PLAYER PANEL (UNCHANGED LOGIC) */}
         {showAdd && (
           <div style={{ ...section, position: "relative" }}>
             <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
@@ -200,6 +211,24 @@ export default function TeamsPage() {
           </div>
         )}
 
+        {confirmAuto && (
+          <div style={section}>
+            <p>
+              Make sure all teams are created in this division before running auto roster.
+            </p>
+
+            <button
+              style={primaryBtn}
+              onClick={()=>{
+                setConfirmAuto(false);
+                autoAssign();
+              }}
+            >
+              Confirm
+            </button>
+          </div>
+        )}
+
       </div>
     );
   }
@@ -215,7 +244,7 @@ export default function TeamsPage() {
 
       <div style={grid}>
         {nflTeams.map(team => (
-          <div key={team.id} style={tile}>
+          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
@@ -224,46 +253,43 @@ export default function TeamsPage() {
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
-      <div style={grid}>
-        {teams.map(t => {
-          const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
+        const divTeams = teams.filter(t => t.division === div);
+        if (divTeams.length === 0) return null;
 
-          return (
-            <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
-              <img src={teamLogos[nfl?.short_name]} width={50}/>
-              <div>{nfl?.full_name}</div>
+        return (
+          <div key={div}>
+            <div style={{ fontWeight: 600 }}>{div}</div>
 
-              <div style={{ fontSize: 11 }}>
-                {getCoachName(t.coach_id)}
-              </div>
+            <div style={grid}>
+              {divTeams.map(t => {
+                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
-              <div style={{ fontSize: 11, color:"#64748b" }}>
-                {getCoachName(t.assistant_coach_id)}
-              </div>
+                return (
+                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+                    <img src={teamLogos[nfl?.short_name]} width={50}/>
+                    <div>{nfl?.full_name}</div>
+
+                    <div style={{ fontSize: 11 }}>
+                      {getCoachName(t.coach_id)}
+                    </div>
+
+                    <div style={{ fontSize: 11, color:"#64748b" }}>
+                      {getCoachName(t.assistant_coach_id)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
 
     </div>
   );
 }
 
 /* ================= STYLES ================= */
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-  gap: 15
-};
-
-const tile = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: 10,
-  textAlign: "center",
-  cursor: "pointer"
-};
 
 const actionGrid = {
   display: "grid",
