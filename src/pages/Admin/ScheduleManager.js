@@ -4,54 +4,39 @@ import { supabase } from "../../supabase";
 export default function ScheduleManager() {
   const [schedule, setSchedule] = useState([]);
   const [fields, setFields] = useState([]);
-  const [mode, setMode] = useState("test"); // 🔥 toggle
+  const [matchups, setMatchups] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [nflTeams, setNflTeams] = useState([]);
+
+  const [mode, setMode] = useState("test");
+
+  const TABLE = mode === "test" ? "schedule_test" : "schedule_master";
 
   useEffect(() => {
     loadAll();
   }, [mode]);
 
-  const TABLE = mode === "test" ? "schedule_test" : "schedule_master";
-
   /* ================= LOAD ================= */
 
   const loadAll = async () => {
-    loadSchedule();
-    loadFields();
-  };
+    const { data: s } = await supabase.from(TABLE).select("*");
+    const { data: f } = await supabase.from("fields").select("*").eq("type", "game");
+    const { data: m } = await supabase.from("matchups").select("*");
+    const { data: t } = await supabase.from("teams").select("*");
+    const { data: nfl } = await supabase.from("nfl_teams").select("*");
 
-  const loadSchedule = async () => {
-    const { data } = await supabase
-      .from(TABLE)
-      .select("*")
-      .order("week");
-
-    setSchedule(data || []);
-  };
-
-  const loadFields = async () => {
-    const { data } = await supabase
-      .from("fields")
-      .select("*")
-      .eq("type", "game")
-      .order("field_number");
-
-    setFields(data || []);
+    setSchedule(s || []);
+    setFields(f || []);
+    setMatchups(m || []);
+    setTeams(t || []);
+    setNflTeams(nfl || []);
   };
 
   /* ================= GENERATE ================= */
 
   const generateSchedule = async () => {
-    const { data: matchups } = await supabase
-      .from("matchups")
-      .select("*")
-      .order("week");
-
-    const { data: fields } = await supabase
-      .from("fields")
-      .select("*")
-      .eq("type", "game")
-      .order("field_number");
-
+    const { data: matchups } = await supabase.from("matchups").select("*").order("week");
+    const { data: fields } = await supabase.from("fields").select("*").eq("type", "game");
     const { data: timeSlots } = await supabase
       .from("field_time_slots")
       .select("*")
@@ -60,42 +45,55 @@ export default function ScheduleManager() {
 
     await supabase.from(TABLE).delete();
 
-    let scheduleInsert = [];
+    let insert = [];
 
     const weeks = [...new Set(matchups.map(m => m.week))];
 
     weeks.forEach(week => {
       const weekGames = matchups.filter(m => m.week === week);
 
-      let gameIndex = 0;
+      let i = 0;
 
       timeSlots.forEach(time => {
         fields.forEach(field => {
-          const game = weekGames[gameIndex];
+          const game = weekGames[i];
           if (!game) return;
 
-          scheduleInsert.push({
+          insert.push({
             matchup_id: game.id,
-            week: week,
+            week,
             field_id: field.id,
             time: time.time,
             event_type: "game"
           });
 
-          gameIndex++;
+          i++;
         });
       });
     });
 
-    const { error } = await supabase.from(TABLE).insert(scheduleInsert);
+    await supabase.from(TABLE).insert(insert);
+    loadAll();
+  };
 
-    if (error) {
-      console.error(error);
-      alert("Error creating schedule");
-    } else {
-      loadSchedule();
-      alert(`Schedule created in ${TABLE}`);
-    }
+  /* ================= HELPERS ================= */
+
+  const getTeamName = (teamId) => {
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return "";
+
+    const nfl = nflTeams.find(n => n.id === team.nfl_team_id);
+    return nfl?.full_name || "";
+  };
+
+  const getMatchupTeams = (matchupId) => {
+    const m = matchups.find(x => x.id === matchupId);
+    if (!m) return "";
+
+    const home = getTeamName(m.home_team_id);
+    const away = getTeamName(m.away_team_id);
+
+    return `${home} vs ${away}`;
   };
 
   /* ================= GROUP ================= */
@@ -107,28 +105,17 @@ export default function ScheduleManager() {
 
       <h1>Schedule Manager</h1>
 
-      {/* 🔥 TOGGLE */}
+      {/* TOGGLE */}
       <div style={toggleRow}>
-        <button
-          style={toggleBtn(mode === "test")}
-          onClick={() => setMode("test")}
-        >
-          Test
-        </button>
-
-        <button
-          style={toggleBtn(mode === "live")}
-          onClick={() => setMode("live")}
-        >
-          Live
-        </button>
+        <button style={toggleBtn(mode === "test")} onClick={() => setMode("test")}>Test</button>
+        <button style={toggleBtn(mode === "live")} onClick={() => setMode("live")}>Live</button>
       </div>
 
       <button style={btn} onClick={generateSchedule}>
         Generate Schedule ({mode})
       </button>
 
-      {/* ================= SCHEDULE ================= */}
+      {/* DISPLAY */}
 
       {weeks.map(week => {
         const weekGames = schedule.filter(s => s.week === week);
@@ -139,7 +126,6 @@ export default function ScheduleManager() {
 
             <div style={weekHeader}>WEEK {week}</div>
 
-            {/* HEADER */}
             <div style={rowHeader}>
               <div style={timeCell}></div>
               {fields.map(field => (
@@ -149,7 +135,6 @@ export default function ScheduleManager() {
               ))}
             </div>
 
-            {/* ROWS */}
             {times.map(time => (
               <div key={time} style={row}>
 
@@ -162,7 +147,7 @@ export default function ScheduleManager() {
 
                   return (
                     <div key={field.id} style={cell}>
-                      {game ? "Game" : ""}
+                      {game ? getMatchupTeams(game.matchup_id) : ""}
                     </div>
                   );
                 })}
@@ -186,8 +171,7 @@ const btn = {
   background: "#2f6ea6",
   color: "#fff",
   border: "none",
-  borderRadius: 10,
-  cursor: "pointer"
+  borderRadius: 10
 };
 
 const toggleRow = {
@@ -209,8 +193,7 @@ const weekBlock = {
   marginTop: 25,
   background: "#fff",
   padding: 20,
-  borderRadius: 16,
-  boxShadow: "0 8px 20px rgba(0,0,0,0.08)"
+  borderRadius: 16
 };
 
 const weekHeader = {
@@ -247,5 +230,6 @@ const cell = {
   borderRadius: 6,
   margin: 2,
   padding: 8,
-  textAlign: "center"
+  textAlign: "center",
+  fontSize: 12
 };
