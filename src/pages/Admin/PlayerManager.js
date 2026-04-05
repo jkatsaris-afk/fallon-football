@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+/* ================= MASTER DIVISIONS ================= */
+const MASTER_DIVISIONS = [
+  "K-1",
+  "2nd-3rd",
+  "4th-5th",
+  "6th-8th"
+];
+
 export default function PlayerManager() {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -25,21 +33,16 @@ export default function PlayerManager() {
 
     const { data: divisionData } = await supabase
       .from("divisions")
-      .select("*")
-      .order("name");
+      .select("*");
 
     setPlayers(playerData || []);
     setTeams(teamData || []);
 
-    // fallback if divisions table empty
-    if (!divisionData || divisionData.length === 0) {
-      const fallback = [
-        ...new Set(playerData?.map(p => p.division).filter(Boolean))
-      ];
-      setDivisions(fallback.map(name => ({ name })));
-    } else {
-      setDivisions(divisionData);
-    }
+    // ✅ Merge MASTER + DB divisions
+    const dbDivisions = (divisionData || []).map(d => d.name);
+    const merged = [...new Set([...MASTER_DIVISIONS, ...dbDivisions])];
+
+    setDivisions(merged);
   };
 
   const updatePlayer = async (id, field, value) => {
@@ -74,7 +77,7 @@ export default function PlayerManager() {
     <div style={{ padding: 20 }}>
       <h2>Player Manager</h2>
 
-      {/* TOP BAR */}
+      {/* ================= TOP BAR ================= */}
       <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
         <input
           placeholder="Search..."
@@ -83,7 +86,7 @@ export default function PlayerManager() {
           style={searchInput}
         />
 
-        {["ALL", ...divisions.map(d => d.name)].map(d => (
+        {["ALL", ...divisions].map(d => (
           <button
             key={d}
             onClick={() => setSelectedDivision(d)}
@@ -102,7 +105,7 @@ export default function PlayerManager() {
         ))}
       </div>
 
-      {/* TILE */}
+      {/* ================= TILE ================= */}
       <div style={tileWrapper}>
 
         {/* HEADER */}
@@ -151,8 +154,8 @@ export default function PlayerManager() {
                   >
                     <option value="">Select</option>
                     {divisions.map(d => (
-                      <option key={d.name} value={d.name}>
-                        {d.name}
+                      <option key={d} value={d}>
+                        {d}
                       </option>
                     ))}
                   </select>
@@ -206,26 +209,24 @@ export default function PlayerManager() {
 
                 {/* TEAM */}
                 <div style={cellLast}>
-                  <div style={{ width: "100%" }}>
-                    <select
-                      value={p.team_id || ""}
-                      onChange={(e) =>
-                        updatePlayer(p.id, "team_id", e.target.value)
-                      }
-                      style={input}
-                    >
-                      <option value="">Unassigned</option>
+                  <select
+                    value={p.team_id || ""}
+                    onChange={(e) =>
+                      updatePlayer(p.id, "team_id", e.target.value)
+                    }
+                    style={teamSelect}
+                  >
+                    <option value="">Unassigned</option>
 
-                      {divisionTeams.map(t => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                    {divisionTeams.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
 
-                    <div style={teamLabel}>
-                      {playerTeam?.name || "No team"}
-                    </div>
+                  <div style={teamLabel}>
+                    {playerTeam?.name || "No team"}
                   </div>
                 </div>
               </div>
@@ -270,15 +271,23 @@ const cell = {
 const cellLast = {
   padding: "8px 10px",
   display: "flex",
-  alignItems: "center"
+  flexDirection: "column"
 };
 
 const input = {
   width: "100%",
   height: 32,
-  padding: "4px 8px",
   borderRadius: 6,
   border: "1px solid #e5e7eb"
+};
+
+const teamSelect = {
+  width: "100%",
+  maxWidth: 180,
+  height: 32,
+  borderRadius: 6,
+  border: "1px solid #e5e7eb",
+  background: "#f8fafc"
 };
 
 const teamLabel = {
