@@ -82,6 +82,14 @@ export default function Dashboard({
           Player Manager
         </button>
 
+        {/* ✅ MOVED UP */}
+        <button
+          style={navBtn(adminPage === "matchups")}
+          onClick={() => setAdminPage("matchups")}
+        >
+          Matchup Manager
+        </button>
+
         <button
           style={navBtn(adminPage === "schedule")}
           onClick={() => setAdminPage("schedule")}
@@ -89,6 +97,7 @@ export default function Dashboard({
           Schedule Manager
         </button>
 
+        {/* ✅ MOVED UNDER MATCHUPS */}
         <button
           style={navBtn(adminPage === "games")}
           onClick={() => setAdminPage("games")}
@@ -96,19 +105,11 @@ export default function Dashboard({
           Game Manager
         </button>
 
-        {/* ✅ NEW NAV ITEMS */}
         <button
           style={navBtn(adminPage === "coaches")}
           onClick={() => setAdminPage("coaches")}
         >
           Coach Manager
-        </button>
-
-        <button
-          style={navBtn(adminPage === "matchups")}
-          onClick={() => setAdminPage("matchups")}
-        >
-          Matchup Manager
         </button>
 
         <button
@@ -161,12 +162,9 @@ export default function Dashboard({
         {adminPage === "players" && <PlayerManager />}
         {adminPage === "schedule" && <ScheduleManager />}
         {adminPage === "games" && <GameManager />}
-
-        {/* ✅ NEW PAGE RENDERS */}
-        {adminPage === "coaches" && <CoachManager />}
         {adminPage === "matchups" && <MatchupManager />}
+        {adminPage === "coaches" && <CoachManager />}
         {adminPage === "referees" && <RefereeManager />}
-
         {adminPage === "settings" && <AdminSettings />}
 
       </div>
