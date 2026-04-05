@@ -1,13 +1,35 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+/* ================= LOGOS ================= */
+
+import bills from "../../resources/Buffalo Bills.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
+import broncos from "../../resources/Denver Broncos.png";
+import lions from "../../resources/Detroit Lions.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
+import raiders from "../../resources/Las Vegas Raiders.png";
+import rams from "../../resources/Los Angeles Rams.png";
+import jets from "../../resources/New York Jets.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
+import steelers from "../../resources/Pittsburgh Steelers.png";
+import niners from "../../resources/San Francisco 49ers.png";
+import ravens from "../../resources/Baltimore Ravens.png";
+
+const teamLogos = {
+  bills, bengals, broncos, lions, colts,
+  chiefs, raiders, rams, jets, eagles,
+  steelers, "49ers": niners,
+  ravens
+};
+
 export default function ScheduleManager() {
   const [schedule, setSchedule] = useState([]);
   const [fields, setFields] = useState([]);
   const [matchups, setMatchups] = useState([]);
   const [teams, setTeams] = useState([]);
   const [nflTeams, setNflTeams] = useState([]);
-
   const [mode, setMode] = useState("test");
 
   const TABLE = mode === "test" ? "schedule_test" : "schedule_master";
@@ -36,14 +58,18 @@ export default function ScheduleManager() {
 
   const generateSchedule = async () => {
     const { data: matchups } = await supabase.from("matchups").select("*").order("week");
-    const { data: fields } = await supabase.from("fields").select("*").eq("type", "game").order("field_number");
+    const { data: fields } = await supabase.from("fields").select("*").eq("type", "game");
     const { data: timeSlots } = await supabase
       .from("field_time_slots")
       .select("*")
       .eq("field_type", "game")
       .order("sort_order");
 
-    await supabase.from(TABLE).delete();
+    // 🔥 FIXED DELETE
+    await supabase
+      .from(TABLE)
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
 
     let insert = [];
 
@@ -76,7 +102,24 @@ export default function ScheduleManager() {
     loadAll();
   };
 
-  /* ================= GROUP ================= */
+  /* ================= HELPERS ================= */
+
+  const getGameDisplay = (matchupId) => {
+    const m = matchups.find(x => x.id === matchupId);
+    if (!m) return null;
+
+    const homeTeam = teams.find(t => t.id === m.home_team_id);
+    const awayTeam = teams.find(t => t.id === m.away_team_id);
+
+    const homeNFL = nflTeams.find(n => n.id === homeTeam?.nfl_team_id);
+    const awayNFL = nflTeams.find(n => n.id === awayTeam?.nfl_team_id);
+
+    return {
+      division: m.division,
+      home: homeNFL,
+      away: awayNFL
+    };
+  };
 
   const weeks = [...new Set(schedule.map(s => s.week))];
 
@@ -90,7 +133,6 @@ export default function ScheduleManager() {
         <button style={toggleBtn(mode === "test")} onClick={() => setMode("test")}>
           Test
         </button>
-
         <button style={toggleBtn(mode === "live")} onClick={() => setMode("live")}>
           Live
         </button>
@@ -136,40 +178,32 @@ export default function ScheduleManager() {
                       g => g.time === time && g.field_id === field.id
                     );
 
-                    if (!game) {
-                      return <div key={field.id} style={cell}></div>;
-                    }
+                    if (!game) return <div key={field.id} style={cell}></div>;
 
-                    const matchup = matchups.find(m => m.id === game.matchup_id);
-                    if (!matchup) return <div style={cell}></div>;
-
-                    const homeTeam = teams.find(t => t.id === matchup.home_team_id);
-                    const awayTeam = teams.find(t => t.id === matchup.away_team_id);
-
-                    const homeNFL = nflTeams.find(n => n.id === homeTeam?.nfl_team_id);
-                    const awayNFL = nflTeams.find(n => n.id === awayTeam?.nfl_team_id);
+                    const g = getGameDisplay(game.matchup_id);
+                    if (!g) return <div style={cell}></div>;
 
                     return (
                       <div key={field.id} style={cell}>
 
-                        <div style={matchTile}>
+                        <div style={gameTile}>
 
-                          <div style={divisionLabel}>
-                            {matchup.division}
+                          <div style={division}>
+                            {g.division}
                           </div>
 
-                          <div style={teamRow}>
+                          <div style={teamsRow}>
 
-                            <div style={teamBlock}>
-                              <img src={homeNFL?.logo} style={logo}/>
-                              <div style={teamName}>{homeNFL?.short_name}</div>
+                            <div style={team}>
+                              <img src={teamLogos[g.home?.short_name]} style={logo}/>
+                              <div>{g.home?.short_name}</div>
                             </div>
 
                             <div style={vs}>VS</div>
 
-                            <div style={teamBlock}>
-                              <img src={awayNFL?.logo} style={logo}/>
-                              <div style={teamName}>{awayNFL?.short_name}</div>
+                            <div style={team}>
+                              <img src={teamLogos[g.away?.short_name]} style={logo}/>
+                              <div>{g.away?.short_name}</div>
                             </div>
 
                           </div>
@@ -257,30 +291,30 @@ const cell = {
   margin: 2
 };
 
-/* 🔥 MATCH TILE */
+/* 🔥 GAME TILE */
 
-const matchTile = {
+const gameTile = {
   background: "rgba(255,255,255,0.25)",
   backdropFilter: "blur(12px)",
-  borderRadius: 10,
-  padding: 6,
-  textAlign: "center",
+  borderRadius: 12,
+  padding: 8,
   border: "1px solid rgba(255,255,255,0.3)"
 };
 
-const divisionLabel = {
-  fontSize: 9,
+const division = {
+  fontSize: 10,
   color: "#64748b",
+  textAlign: "center",
   marginBottom: 4
 };
 
-const teamRow = {
+const teamsRow = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center"
 };
 
-const teamBlock = {
+const team = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -288,17 +322,12 @@ const teamBlock = {
 };
 
 const logo = {
-  width: 24,
-  height: 24,
+  width: 28,
+  height: 28,
   objectFit: "contain"
 };
 
-const teamName = {
-  fontSize: 10,
-  fontWeight: "600"
-};
-
 const vs = {
-  fontSize: 10,
-  fontWeight: "700"
+  fontWeight: "700",
+  fontSize: 12
 };
