@@ -112,13 +112,19 @@ export default function PlayerManager() {
           <div style={{ width: 140 }}>Division</div>
           <div style={{ width: 120 }}>Shirt</div>
           <div style={{ width: 140 }}>Payment</div>
-          <div style={{ flex: 1 }}>Team</div>
+          <div style={{ flex: 1, maxWidth: 220 }}>Team</div>
         </div>
 
         {/* LIST */}
         <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
           {filteredPlayers.map((p) => {
             const playerTeam = teams.find((t) => t.id === p.team_id);
+
+            const divisionTeams = teams
+              .filter(
+                (t) => !p.division || t.division === p.division
+              )
+              .sort((a, b) => a.name.localeCompare(b.name));
 
             return (
               <div key={p.id} style={row}>
@@ -127,7 +133,7 @@ export default function PlayerManager() {
                   {p.first_name} {p.last_name}
                 </div>
 
-                {/* DIVISION DROPDOWN */}
+                {/* DIVISION */}
                 <div style={{ width: 140 }}>
                   <select
                     value={p.division || ""}
@@ -187,30 +193,32 @@ export default function PlayerManager() {
                   </select>
                 </div>
 
-                {/* TEAM */}
-                <div style={{ flex: 1 }}>
+                {/* TEAM (CLEAN VERSION) */}
+                <div style={{ flex: 1, maxWidth: 220 }}>
                   <select
                     value={p.team_id || ""}
                     onChange={(e) =>
                       updatePlayer(p.id, "team_id", e.target.value)
                     }
-                    style={input}
+                    style={selectClean}
                   >
                     <option value="">Unassigned</option>
-                    {teams
-                      .filter(
-                        (t) =>
-                          !p.division || t.division === p.division
-                      )
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
+
+                    {divisionTeams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+
+                    {divisionTeams.length === 0 && (
+                      <option disabled>No teams in division</option>
+                    )}
                   </select>
 
                   <div style={teamLabel}>
-                    {playerTeam ? playerTeam.name : "No team"}
+                    {playerTeam
+                      ? `Current: ${playerTeam.name}`
+                      : "No team"}
                   </div>
                 </div>
               </div>
@@ -254,9 +262,20 @@ const input = {
   border: "1px solid #e5e7eb"
 };
 
+const selectClean = {
+  width: "100%",
+  padding: "6px 8px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  background: "#f8fafc",
+  fontSize: 13,
+  cursor: "pointer"
+};
+
 const teamLabel = {
   fontSize: 11,
-  color: "#64748b"
+  color: "#64748b",
+  marginTop: 2
 };
 
 const searchInput = {
