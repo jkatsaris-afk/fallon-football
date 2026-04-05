@@ -139,7 +139,7 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* 🔥 TILE ACTIONS */}
+        {/* ACTION TILES */}
         <div style={actionGrid}>
           <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
@@ -154,7 +154,7 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* 🔥 PLAYERS TILE */}
+        {/* PLAYERS TILE */}
         <div style={playersTile}>
           <h3>Players</h3>
 
@@ -215,7 +215,7 @@ export default function TeamsPage() {
 
       <div style={grid}>
         {nflTeams.map(team => (
-          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
+          <div key={team.id} style={tile}>
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
@@ -224,37 +224,26 @@ export default function TeamsPage() {
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
-      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
-        const divTeams = teams.filter(t => t.division === div);
-        if (divTeams.length === 0) return null;
+      <div style={grid}>
+        {teams.map(t => {
+          const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
-        return (
-          <div key={div}>
-            <div style={{ fontWeight: 600 }}>{div}</div>
+          return (
+            <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+              <img src={teamLogos[nfl?.short_name]} width={50}/>
+              <div>{nfl?.full_name}</div>
 
-            <div style={grid}>
-              {divTeams.map(t => {
-                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+              <div style={{ fontSize: 11 }}>
+                {getCoachName(t.coach_id)}
+              </div>
 
-                return (
-                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
-                    <img src={teamLogos[nfl?.short_name]} width={50}/>
-                    <div>{nfl?.full_name}</div>
-
-                    <div style={{ fontSize: 11 }}>
-                      {getCoachName(t.coach_id)}
-                    </div>
-
-                    <div style={{ fontSize: 11, color:"#64748b" }}>
-                      {getCoachName(t.assistant_coach_id)}
-                    </div>
-                  </div>
-                );
-              })}
+              <div style={{ fontSize: 11, color:"#64748b" }}>
+                {getCoachName(t.assistant_coach_id)}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
     </div>
   );
@@ -262,53 +251,19 @@ export default function TeamsPage() {
 
 /* ================= STYLES ================= */
 
-const headerBar = { marginBottom: 15 };
-
-const backBtn = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  cursor: "pointer"
-};
-
-const teamHero = {
-  display: "flex",
-  alignItems: "center",
-  gap: 20,
-  marginBottom: 25
-};
-
-const divisionBadge = {
-  marginTop: 5,
-  padding: "4px 10px",
-  borderRadius: 8,
-  background: "#e2e8f0",
-  fontSize: 13
-};
-
-const coachGrid = {
+const grid = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 15,
-  marginBottom: 25
+  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+  gap: 15
 };
 
-const coachCard = {
+const tile = {
   background: "#fff",
   borderRadius: 12,
-  padding: 15,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+  padding: 10,
+  textAlign: "center",
+  cursor: "pointer"
 };
-
-const coachLabel = { fontSize: 12, color: "#64748b" };
-
-const coachName = {
-  fontSize: 18,
-  fontWeight: "600",
-  marginTop: 5
-};
-
-/* NEW */
 
 const actionGrid = {
   display: "grid",
@@ -338,28 +293,4 @@ const playersTile = {
   borderRadius: 12,
   padding: 15,
   boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
-};
-
-const playerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "6px 0"
-};
-
-const smallBtn = {
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "1px solid #e2e8f0"
-};
-
-const section = { marginTop: 20 };
-
-const closeBtn = {
-  position: "absolute",
-  top: 0,
-  right: 0,
-  border: "none",
-  background: "transparent",
-  fontSize: 16,
-  cursor: "pointer"
 };
