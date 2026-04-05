@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ✅ UPDATED IMPORTS
+// ✅ EXISTING IMPORTS
 import GameManager from "./GameManager";
 import ScheduleManager from "./ScheduleManager";
 import TeamsPage from "./TeamsPage";
 import PlayerManager from "./PlayerManager";
+
+// ✅ NEW IMPORTS
+import CoachManager from "./CoachManager";
+import MatchupManager from "./MatchupManager";
+import RefereeManager from "./RefereeManager";
 
 // ✅ SETTINGS PAGE
 import AdminSettings from "./AdminSettings";
@@ -70,7 +75,6 @@ export default function Dashboard({
           Team Manager
         </button>
 
-        {/* ✅ NEW */}
         <button
           style={navBtn(adminPage === "players")}
           onClick={() => setAdminPage("players")}
@@ -78,7 +82,6 @@ export default function Dashboard({
           Player Manager
         </button>
 
-        {/* ✅ RENAMED */}
         <button
           style={navBtn(adminPage === "schedule")}
           onClick={() => setAdminPage("schedule")}
@@ -86,12 +89,33 @@ export default function Dashboard({
           Schedule Manager
         </button>
 
-        {/* ✅ RENAMED */}
         <button
           style={navBtn(adminPage === "games")}
           onClick={() => setAdminPage("games")}
         >
           Game Manager
+        </button>
+
+        {/* ✅ NEW NAV ITEMS */}
+        <button
+          style={navBtn(adminPage === "coaches")}
+          onClick={() => setAdminPage("coaches")}
+        >
+          Coach Manager
+        </button>
+
+        <button
+          style={navBtn(adminPage === "matchups")}
+          onClick={() => setAdminPage("matchups")}
+        >
+          Matchup Manager
+        </button>
+
+        <button
+          style={navBtn(adminPage === "referees")}
+          onClick={() => setAdminPage("referees")}
+        >
+          Referee Manager
         </button>
 
         <button style={navBtn(false)}>Reports</button>
@@ -137,6 +161,12 @@ export default function Dashboard({
         {adminPage === "players" && <PlayerManager />}
         {adminPage === "schedule" && <ScheduleManager />}
         {adminPage === "games" && <GameManager />}
+
+        {/* ✅ NEW PAGE RENDERS */}
+        {adminPage === "coaches" && <CoachManager />}
+        {adminPage === "matchups" && <MatchupManager />}
+        {adminPage === "referees" && <RefereeManager />}
+
         {adminPage === "settings" && <AdminSettings />}
 
       </div>
