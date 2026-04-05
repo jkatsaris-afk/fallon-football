@@ -30,7 +30,9 @@ export default function TeamsPage() {
   const [coaches, setCoaches] = useState([]);
   const [players, setPlayers] = useState([]);
 
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTeam, setActiveTeam] = useState(null);
+
   const [confirmAuto, setConfirmAuto] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -62,6 +64,34 @@ export default function TeamsPage() {
     loadData();
   };
 
+  const autoAssign = async () => {
+    const divisionTeams = teams.filter(
+      t => t.division === activeTeam.division
+    );
+
+    const available = players.filter(
+      p => p.division === activeTeam.division && !p.team_id
+    );
+
+    const perTeam = Math.ceil(available.length / divisionTeams.length);
+
+    let index = 0;
+
+    for (let team of divisionTeams) {
+      const chunk = available.slice(index, index + perTeam);
+
+      for (let p of chunk) {
+        await supabase.from("players")
+          .update({ team_id: team.id })
+          .eq("id", p.id);
+      }
+
+      index += perTeam;
+    }
+
+    loadData();
+  };
+
   const removeTeam = async () => {
     await supabase.from("teams")
       .delete()
@@ -71,7 +101,7 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= SAFE OVERLAY ================= */
+  /* ================= OVERLAY VIEW ================= */
 
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
@@ -86,13 +116,9 @@ export default function TeamsPage() {
         </div>
 
         <div style={teamHero}>
-          <img
-            src={teamLogos[nfl?.short_name] || ""}
-            width={90}
-            alt=""
-          />
+          <img src={teamLogos[nfl?.short_name]} width={90} />
           <div>
-            <h1 style={{ margin: 0 }}>{nfl?.full_name || ""}</h1>
+            <h1 style={{ margin: 0 }}>{nfl?.full_name}</h1>
             <div style={divisionBadge}>{activeTeam.division}</div>
           </div>
         </div>
@@ -113,9 +139,8 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* 🔥 TILE ACTIONS (SAFE) */}
+        {/* 🔥 TILE ACTIONS */}
         <div style={actionGrid}>
-
           <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
           </div>
@@ -127,15 +152,13 @@ export default function TeamsPage() {
           <div style={dangerTile} onClick={removeTeam}>
             Remove Team
           </div>
-
         </div>
 
-        {/* 🔥 PLAYERS TILE (SAFE) */}
+        {/* 🔥 PLAYERS TILE */}
         <div style={playersTile}>
-
           <h3>Players</h3>
 
-          {(players || [])
+          {players
             .filter(p => p.team_id === activeTeam.id)
             .map(p => (
               <div key={p.id} style={playerRow}>
@@ -143,12 +166,11 @@ export default function TeamsPage() {
               </div>
             ))}
 
-          {(players || []).filter(p => p.team_id === activeTeam.id).length === 0 && (
+          {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
             <div style={{ color:"#64748b" }}>
               No players assigned
             </div>
           )}
-
         </div>
 
         {/* ADD PLAYER */}
@@ -158,7 +180,7 @@ export default function TeamsPage() {
 
             <h3>Add Player</h3>
 
-            {(players || [])
+            {players
               .filter(p =>
                 p.division === activeTeam.division &&
                 !p.team_id
@@ -182,40 +204,63 @@ export default function TeamsPage() {
     );
   }
 
-  return <div />; // safe fallback
+  /* ================= MAIN VIEW ================= */
+
+  return (
+    <div>
+
+      <h1>Teams Manager</h1>
+
+      <h3>Select NFL Team</h3>
+
+      <div style={grid}>
+        {nflTeams.map(team => (
+          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
+            <img src={teamLogos[team.short_name]} width={60}/>
+            <div>{team.full_name}</div>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
+
+      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
+        const divTeams = teams.filter(t => t.division === div);
+        if (divTeams.length === 0) return null;
+
+        return (
+          <div key={div}>
+            <div style={{ fontWeight: 600 }}>{div}</div>
+
+            <div style={grid}>
+              {divTeams.map(t => {
+                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
+                return (
+                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+                    <img src={teamLogos[nfl?.short_name]} width={50}/>
+                    <div>{nfl?.full_name}</div>
+
+                    <div style={{ fontSize: 11 }}>
+                      {getCoachName(t.coach_id)}
+                    </div>
+
+                    <div style={{ fontSize: 11, color:"#64748b" }}>
+                      {getCoachName(t.assistant_coach_id)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+    </div>
+  );
 }
 
-/* ================= STYLES (ORDER FIXED) ================= */
-
-const actionTile = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: 15,
-  textAlign: "center",
-  cursor: "pointer",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
-  fontWeight: "600"
-};
-
-const dangerTile = {
-  ...actionTile,
-  background: "#fee2e2",
-  color: "#991b1b"
-};
-
-const actionGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
-  gap: 12,
-  marginBottom: 25
-};
-
-const playersTile = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: 15,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
-};
+/* ================= STYLES ================= */
 
 const headerBar = { marginBottom: 15 };
 
@@ -261,6 +306,38 @@ const coachName = {
   fontSize: 18,
   fontWeight: "600",
   marginTop: 5
+};
+
+/* NEW */
+
+const actionGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 12,
+  marginBottom: 25
+};
+
+const actionTile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  textAlign: "center",
+  cursor: "pointer",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
+  fontWeight: "600"
+};
+
+const dangerTile = {
+  ...actionTile,
+  background: "#fee2e2",
+  color: "#991b1b"
+};
+
+const playersTile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
 };
 
 const playerRow = {
