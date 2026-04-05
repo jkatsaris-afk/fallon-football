@@ -71,19 +71,13 @@ export default function TeamsPage() {
     loadData();
   };
 
-  // ✅ FIXED MOVE FUNCTION
   const movePlayerToTeam = async (playerId, newTeamId) => {
     if (!newTeamId) return;
 
-    const { error } = await supabase
+    await supabase
       .from("players")
       .update({ team_id: newTeamId })
       .eq("id", playerId);
-
-    if (error) {
-      console.error("Move player error:", error);
-      return;
-    }
 
     loadData();
   };
@@ -97,7 +91,7 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= TEAM VIEW ================= */
+  /* ================= TEAM MANAGER ================= */
 
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
@@ -135,6 +129,7 @@ export default function TeamsPage() {
           </div>
         </div>
 
+        {/* ACTION TILES */}
         <div style={actionGrid}>
           <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
@@ -149,6 +144,7 @@ export default function TeamsPage() {
           </div>
         </div>
 
+        {/* PLAYERS */}
         <div style={playersTile}>
           <h3>Players</h3>
 
@@ -206,6 +202,7 @@ export default function TeamsPage() {
           )}
         </div>
 
+        {/* ADD PLAYER */}
         {showAdd && (
           <div style={{ ...section, position: "relative" }}>
             <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
@@ -236,7 +233,7 @@ export default function TeamsPage() {
     );
   }
 
-  /* ================= MAIN VIEW ================= */
+  /* ================= MAIN ================= */
 
   return (
     <div>
