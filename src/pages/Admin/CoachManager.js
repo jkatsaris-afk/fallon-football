@@ -8,11 +8,14 @@ export default function CoachManager() {
     loadCoaches();
   }, []);
 
+  /* ================= LOAD ================= */
+
   const loadCoaches = async () => {
     const { data, error } = await supabase
       .from("coaches")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("first_name", { ascending: true })
+      .order("last_name", { ascending: true });
 
     if (error) console.error(error);
 
@@ -25,7 +28,6 @@ export default function CoachManager() {
     return `${c.first_name || ""} ${c.last_name || ""}`.trim();
   };
 
-  // 🔥 NORMALIZE ROLE FROM DB
   const getRole = (c) => {
     if (!c.role) return "assistant";
 
@@ -37,7 +39,6 @@ export default function CoachManager() {
     return "assistant";
   };
 
-  // 🔥 DISPLAY CLEAN ROLE
   const displayRole = (c) => {
     if (!c.role) return "Assistant";
 
@@ -56,22 +57,34 @@ export default function CoachManager() {
   /* ================= UPDATE ================= */
 
   const updateStatus = async (id, status) => {
-    await supabase
+    const { error } = await supabase
       .from("coaches")
       .update({ status })
       .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Failed to update status");
+      return;
+    }
 
     loadCoaches();
   };
 
   const updateRole = async (coach, newRole) => {
-    await supabase
+    const { error } = await supabase
       .from("coaches")
       .update({
         role: newRole === "coach" ? "Head Coach" : "Assistant",
         assistant_coach: newRole === "assistant"
       })
       .eq("id", coach.id);
+
+    if (error) {
+      console.error(error);
+      alert("Failed to update role");
+      return;
+    }
 
     loadCoaches();
   };
@@ -97,63 +110,66 @@ export default function CoachManager() {
         </div>
 
         {/* ROWS */}
-        {coaches.map(coach => (
-          <div key={coach.id} style={row}>
+        {coaches.map(coach => {
+          const role = getRole(coach);
 
-            {/* NAME */}
-            <div>{getName(coach)}</div>
+          return (
+            <div key={coach.id} style={row}>
 
-            {/* EMAIL */}
-            <div>{coach.email || "-"}</div>
+              {/* NAME */}
+              <div>{getName(coach)}</div>
 
-            {/* PHONE */}
-            <div>{coach.phone || "-"}</div>
+              {/* EMAIL */}
+              <div>{coach.email || "-"}</div>
 
-            {/* DIVISION */}
-            <div>{coach.division_preference || "-"}</div>
+              {/* PHONE */}
+              <div>{coach.phone || "-"}</div>
 
-            {/* STATUS */}
-            <div style={statusStyle(getStatus(coach))}>
-              {getStatus(coach)}
-            </div>
+              {/* DIVISION */}
+              <div>{coach.division_preference || "-"}</div>
 
-            {/* ROLE DROPDOWN */}
-            <div>
-              <select
-                value={getRole(coach)}
-                onChange={(e) =>
-                  updateRole(coach, e.target.value)
-                }
-              >
-                <option value="assistant">Assistant</option>
-                <option value="coach">Head Coach</option>
-              </select>
-
-              {/* OPTIONAL DISPLAY LABEL */}
-              <div style={{ fontSize: 11, color: "#64748b" }}>
-                {displayRole(coach)}
+              {/* STATUS */}
+              <div style={statusStyle(getStatus(coach))}>
+                {getStatus(coach)}
               </div>
+
+              {/* ROLE */}
+              <div>
+                <select
+                  value={role}
+                  onChange={(e) =>
+                    updateRole(coach, e.target.value)
+                  }
+                >
+                  <option value="assistant">Assistant</option>
+                  <option value="coach">Head Coach</option>
+                </select>
+
+                <div style={roleText}>
+                  {displayRole(coach)}
+                </div>
+              </div>
+
+              {/* ACTIONS */}
+              <div style={actions}>
+                <button
+                  style={approveBtn}
+                  onClick={() => updateStatus(coach.id, "approved")}
+                >
+                  Approve
+                </button>
+
+                <button
+                  style={denyBtn}
+                  onClick={() => updateStatus(coach.id, "denied")}
+                >
+                  Deny
+                </button>
+              </div>
+
             </div>
-
-            {/* ACTIONS */}
-            <div style={actions}>
-              <button
-                style={approveBtn}
-                onClick={() => updateStatus(coach.id, "approved")}
-              >
-                Approve
-              </button>
-
-              <button
-                style={denyBtn}
-                onClick={() => updateStatus(coach.id, "denied")}
-              >
-                Deny
-              </button>
-            </div>
-
-          </div>
-        ))}
+          );
+        })}
 
       </div>
 
@@ -218,3 +234,9 @@ const statusStyle = (s) => ({
       : "#f59e0b",
   fontWeight: "600"
 });
+
+const roleText = {
+  fontSize: 11,
+  color: "#64748b",
+  marginTop: 4
+};
