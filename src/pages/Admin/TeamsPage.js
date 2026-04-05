@@ -199,6 +199,11 @@ export default function TeamsPage() {
               );
             })}
 
+          {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
+            <div style={{ color:"#64748b" }}>
+              No players assigned
+            </div>
+          )}
         </div>
 
         {showAdd && (
@@ -286,3 +291,157 @@ export default function TeamsPage() {
     </div>
   );
 }
+
+/* ================= STYLES ================= */
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+  gap: 15
+};
+
+const tile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 10,
+  textAlign: "center",
+  cursor: "pointer"
+};
+
+const divisionTile = {
+  background: "#fff",
+  borderRadius: 14,
+  padding: 15,
+  marginBottom: 20,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const divisionHeader = {
+  fontWeight: "600",
+  marginBottom: 10,
+  fontSize: 16
+};
+
+const actionGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 12,
+  marginBottom: 25
+};
+
+const actionTile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  textAlign: "center",
+  cursor: "pointer",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
+  fontWeight: "600"
+};
+
+const dangerTile = {
+  ...actionTile,
+  background: "#fee2e2",
+  color: "#991b1b"
+};
+
+const playersTile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const playerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "6px 0"
+};
+
+const playerActions = {
+  display: "flex",
+  gap: 8
+};
+
+const dropdown = {
+  padding: "4px 6px",
+  borderRadius: 6,
+  border: "1px solid #e2e8f0"
+};
+
+const removeBtn = {
+  padding: "4px 8px",
+  borderRadius: 6,
+  border: "none",
+  background: "#fee2e2",
+  color: "#991b1b",
+  cursor: "pointer"
+};
+
+const smallBtn = {
+  padding: "6px 10px",
+  borderRadius: 6,
+  border: "1px solid #e2e8f0"
+};
+
+const section = { marginTop: 20 };
+
+const closeBtn = {
+  position: "absolute",
+  top: 0,
+  right: 0,
+  border: "none",
+  background: "transparent",
+  fontSize: 16,
+  cursor: "pointer"
+};
+
+const headerBar = { marginBottom: 15 };
+
+const backBtn = {
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  cursor: "pointer"
+};
+
+const teamHero = {
+  display: "flex",
+  alignItems: "center",
+  gap: 20,
+  marginBottom: 25
+};
+
+const divisionBadge = {
+  marginTop: 5,
+  padding: "4px 10px",
+  borderRadius: 8,
+  background: "#e2e8f0",
+  fontSize: 13
+};
+
+const coachGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 15,
+  marginBottom: 25
+};
+
+const coachCard = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const coachLabel = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+const coachName = {
+  fontSize: 18,
+  fontWeight: "600",
+  marginTop: 5
+};
