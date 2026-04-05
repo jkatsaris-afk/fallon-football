@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ✅ ADD THIS (adjust path if needed)
-import fallonLogo from "../../assets/fallon-flag.png";
+// ✅ FIXED PATH
+import fallonLogo from "../../resources/fallon-flag.png";
 
 // IMPORTS
 import GameManager from "./GameManager";
@@ -91,7 +91,7 @@ export default function Dashboard({
       {/* ================= SIDEBAR ================= */}
       <div style={sidebar}>
 
-        {/* ✅ UPDATED HEADER */}
+        {/* ✅ HEADER WITH LOGO */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
           <img
             src={fallonLogo}
