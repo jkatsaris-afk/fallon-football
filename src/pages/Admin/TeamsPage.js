@@ -113,14 +113,12 @@ export default function TeamsPage() {
     return (
       <div>
 
-        {/* HEADER */}
         <div style={headerBar}>
           <button style={backBtn} onClick={() => setActiveTeam(null)}>
             ← Back to Teams
           </button>
         </div>
 
-        {/* 🔥 IMPROVED TEAM HEADER */}
         <div style={teamHero}>
           <img src={teamLogos[nfl?.short_name]} width={90} />
 
@@ -130,7 +128,6 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* 🔥 IMPROVED COACH DISPLAY */}
         <div style={coachGrid}>
 
           <div style={coachCard}>
@@ -149,7 +146,6 @@ export default function TeamsPage() {
 
         </div>
 
-        {/* ACTIONS */}
         <div style={actionBar}>
           <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
@@ -164,9 +160,17 @@ export default function TeamsPage() {
           </button>
         </div>
 
-        {/* ADD PLAYER */}
+        {/* 🔥 ADD PLAYER (UPDATED WITH CLOSE BUTTON) */}
         {showAdd && (
-          <div style={section}>
+          <div style={{ ...section, position: "relative" }}>
+
+            <button
+              style={closeBtn}
+              onClick={() => setShowAdd(false)}
+            >
+              ✕
+            </button>
+
             <h3>Add Player</h3>
 
             {players
@@ -189,7 +193,6 @@ export default function TeamsPage() {
           </div>
         )}
 
-        {/* AUTO CONFIRM */}
         {confirmAuto && (
           <div style={section}>
             <p>
@@ -270,9 +273,7 @@ export default function TeamsPage() {
 
 /* ================= STYLES ================= */
 
-const headerBar = {
-  marginBottom: 15
-};
+const headerBar = { marginBottom: 15 };
 
 const backBtn = {
   padding: "8px 12px",
@@ -378,4 +379,15 @@ const dangerBtn = {
   color: "#fff",
   border: "none",
   borderRadius: 10
+};
+
+/* ✅ NEW STYLE ONLY */
+const closeBtn = {
+  position: "absolute",
+  top: 0,
+  right: 0,
+  border: "none",
+  background: "transparent",
+  fontSize: 16,
+  cursor: "pointer"
 };
