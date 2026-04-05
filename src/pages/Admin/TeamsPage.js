@@ -33,12 +33,6 @@ export default function TeamsPage() {
   const [activeTeam, setActiveTeam] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
 
-  // ✅ NEW CREATE FLOW
-  const [selectedNFL, setSelectedNFL] = useState(null);
-  const [newDivision, setNewDivision] = useState("");
-  const [newCoach, setNewCoach] = useState("");
-  const [newAssistant, setNewAssistant] = useState("");
-
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
@@ -58,40 +52,8 @@ export default function TeamsPage() {
     return c ? `${c.first_name} ${c.last_name}` : "—";
   };
 
-  /* ================= CREATE TEAM ================= */
-
-  const createTeam = async () => {
-    if (!selectedNFL || !newDivision) {
-      alert("Select team and division");
-      return;
-    }
-
-    const { error } = await supabase.from("teams").insert({
-      nfl_team_id: selectedNFL.id,
-      division: newDivision,
-      coach_id: newCoach || null,
-      assistant_coach_id: newAssistant || null
-    });
-
-    if (error) {
-      console.error(error);
-      alert("Failed to create team");
-      return;
-    }
-
-    setSelectedNFL(null);
-    setNewDivision("");
-    setNewCoach("");
-    setNewAssistant("");
-
-    loadData();
-  };
-
-  /* ================= PLAYER ACTIONS ================= */
-
   const addPlayerToTeam = async (playerId) => {
-    await supabase
-      .from("players")
+    await supabase.from("players")
       .update({ team_id: activeTeam.id })
       .eq("id", playerId);
 
@@ -99,11 +61,29 @@ export default function TeamsPage() {
   };
 
   const removePlayerFromTeam = async (playerId) => {
-    await supabase
-      .from("players")
+    await supabase.from("players")
       .update({ team_id: null })
       .eq("id", playerId);
 
+    loadData();
+  };
+
+  const movePlayerToTeam = async (playerId, newTeamId) => {
+    if (!newTeamId) return;
+
+    await supabase.from("players")
+      .update({ team_id: newTeamId })
+      .eq("id", playerId);
+
+    loadData();
+  };
+
+  const removeTeam = async () => {
+    await supabase.from("teams")
+      .delete()
+      .eq("id", activeTeam.id);
+
+    setActiveTeam(null);
     loadData();
   };
 
@@ -115,31 +95,119 @@ export default function TeamsPage() {
     return (
       <div>
 
-        <button onClick={() => setActiveTeam(null)}>← Back</button>
+        <button style={backBtn} onClick={() => setActiveTeam(null)}>
+          ← Back to Teams
+        </button>
 
-        <h1>{nfl?.full_name}</h1>
-        <div>{activeTeam.division}</div>
-
-        <div>
-          <div>Head Coach: {getCoachName(activeTeam.coach_id)}</div>
-          <div>Assistant: {getCoachName(activeTeam.assistant_coach_id)}</div>
+        <div style={teamHero}>
+          <img src={teamLogos[nfl?.short_name]} width={90} />
+          <div>
+            <h1>{nfl?.full_name}</h1>
+            <div style={divisionBadge}>{activeTeam.division}</div>
+          </div>
         </div>
 
-        <button onClick={() => setShowAdd(true)}>Add Player</button>
+        {/* ACTIONS */}
+        <div style={actionGrid}>
+          <div style={actionTile} onClick={() => setShowAdd(true)}>
+            Add Player
+          </div>
 
-        {/* ADD PLAYER */}
-        {showAdd && (
-          <div>
-            <h3>Add Player</h3>
+          <div style={dangerTile} onClick={removeTeam}>
+            Remove Team
+          </div>
+        </div>
 
-            {players
-              .filter(p => p.division === activeTeam.division && !p.team_id)
-              .map(p => (
-                <div key={p.id}>
+        {/* PLAYERS */}
+        <div style={playersTile}>
+          <h3>Players</h3>
+
+          {players.filter(p => p.team_id === activeTeam.id).map(p => {
+
+            const divisionTeams = teams.filter(
+              t => t.division === activeTeam.division
+            );
+
+            return (
+              <div key={p.id} style={playerRowModern}>
+
+                <div>
                   {p.first_name} {p.last_name}
-                  <button onClick={() => addPlayerToTeam(p.id)}>Add</button>
                 </div>
-              ))}
+
+                <div style={playerActions}>
+
+                  <select
+                    style={dropdown}
+                    onChange={(e) => movePlayerToTeam(p.id, e.target.value)}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Move</option>
+
+                    {divisionTeams.map(t => {
+                      const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+                      return (
+                        <option key={t.id} value={t.id}>
+                          {nfl?.full_name}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  <button
+                    style={removeBtn}
+                    onClick={() => removePlayerFromTeam(p.id)}
+                  >
+                    Remove
+                  </button>
+
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ================= MODAL ================= */}
+        {showAdd && (
+          <div style={modalOverlay}>
+
+            <div style={modalBox}>
+
+              <div style={modalHeader}>
+                <h3>Add Player</h3>
+
+                <button
+                  style={closeBtn}
+                  onClick={() => setShowAdd(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {players
+                .filter(p =>
+                  p.division === activeTeam.division &&
+                  !p.team_id
+                )
+                .map(p => (
+                  <div key={p.id} style={playerRowModern}>
+
+                    <div>
+                      {p.first_name} {p.last_name}
+                    </div>
+
+                    <button
+                      style={addBtn}
+                      onClick={() => addPlayerToTeam(p.id)}
+                    >
+                      Add
+                    </button>
+
+                  </div>
+                ))}
+
+            </div>
           </div>
         )}
 
@@ -151,85 +219,15 @@ export default function TeamsPage() {
 
   return (
     <div>
-
       <h1>Teams Manager</h1>
-
-      {/* ================= SELECT NFL ================= */}
-      <h3>Select NFL Team</h3>
-
-      <div style={grid}>
-        {nflTeams.map(team => (
-          <div
-            key={team.id}
-            style={tile}
-            onClick={() => setSelectedNFL(team)}
-          >
-            <img src={teamLogos[team.short_name]} width={60}/>
-            <div>{team.full_name}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ================= CREATE TEAM ================= */}
-
-      {selectedNFL && (
-        <div style={createBox}>
-
-          <h3>Create Team: {selectedNFL.full_name}</h3>
-
-          <div>
-            <div>Division</div>
-            <select value={newDivision} onChange={(e)=>setNewDivision(e.target.value)}>
-              <option value="">Select</option>
-              <option value="K-1">K-1</option>
-              <option value="2nd-3rd">2nd-3rd</option>
-              <option value="4th-5th">4th-5th</option>
-              <option value="6th+">6th+</option>
-            </select>
-          </div>
-
-          <div>
-            <div>Head Coach</div>
-            <select value={newCoach} onChange={(e)=>setNewCoach(e.target.value)}>
-              <option value="">Select</option>
-              {coaches.filter(c => c.status === "approved").map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.first_name} {c.last_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <div>Assistant Coach</div>
-            <select value={newAssistant} onChange={(e)=>setNewAssistant(e.target.value)}>
-              <option value="">Select</option>
-              {coaches.filter(c => c.status === "approved").map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.first_name} {c.last_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button style={btn} onClick={createTeam}>
-            Create Team
-          </button>
-
-        </div>
-      )}
-
-      {/* ================= ASSIGNED TEAMS ================= */}
-
-      <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
       {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
         const divTeams = teams.filter(t => t.division === div);
-        if (divTeams.length === 0) return null;
+        if (!divTeams.length) return null;
 
         return (
-          <div key={div}>
-            <h4>{div}</h4>
+          <div key={div} style={divisionTile}>
+            <div style={divisionHeader}>{div}</div>
 
             <div style={grid}>
               {divTeams.map(t => {
@@ -239,9 +237,8 @@ export default function TeamsPage() {
                   <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
-                    <div style={{ fontSize: 11 }}>{getCoachName(t.coach_id)}</div>
-                    <div style={{ fontSize: 11, color:"#64748b" }}>
-                      {getCoachName(t.assistant_coach_id)}
+                    <div style={{ fontSize: 11 }}>
+                      {getCoachName(t.coach_id)}
                     </div>
                   </div>
                 );
@@ -250,12 +247,82 @@ export default function TeamsPage() {
           </div>
         );
       })}
-
     </div>
   );
 }
 
 /* ================= STYLES ================= */
+
+const modalOverlay = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  background: "rgba(0,0,0,0.4)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 999
+};
+
+const modalBox = {
+  background: "#fff",
+  borderRadius: 14,
+  padding: 20,
+  width: 400,
+  maxHeight: "70vh",
+  overflowY: "auto"
+};
+
+const modalHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 10
+};
+
+const closeBtn = {
+  border: "none",
+  background: "#f1f5f9",
+  borderRadius: 8,
+  padding: "6px 10px",
+  cursor: "pointer"
+};
+
+const addBtn = {
+  background: "#2f6ea6",
+  color: "#fff",
+  border: "none",
+  padding: "6px 12px",
+  borderRadius: 6,
+  cursor: "pointer"
+};
+
+const playerRowModern = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "10px 0",
+  borderBottom: "1px solid #f1f5f9"
+};
+
+const dropdown = {
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0"
+};
+
+const removeBtn = {
+  background: "#fee2e2",
+  color: "#991b1b",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6,
+  cursor: "pointer"
+};
+
+const playerActions = { display: "flex", gap: 8 };
 
 const grid = {
   display: "grid",
@@ -265,24 +332,65 @@ const grid = {
 
 const tile = {
   background: "#fff",
+  borderRadius: 12,
   padding: 10,
-  borderRadius: 10,
   textAlign: "center",
   cursor: "pointer"
 };
 
-const createBox = {
-  marginTop: 20,
-  padding: 15,
+const divisionTile = {
   background: "#fff",
-  borderRadius: 10
+  borderRadius: 14,
+  padding: 15,
+  marginBottom: 20
 };
 
-const btn = {
-  marginTop: 10,
-  padding: "10px 14px",
-  background: "#2f6ea6",
-  color: "#fff",
-  border: "none",
+const divisionHeader = { fontWeight: "600", marginBottom: 10 };
+
+const actionGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+  marginBottom: 20
+};
+
+const actionTile = {
+  background: "#fff",
+  padding: 15,
+  borderRadius: 12,
+  textAlign: "center",
+  cursor: "pointer"
+};
+
+const dangerTile = {
+  ...actionTile,
+  background: "#fee2e2",
+  color: "#991b1b"
+};
+
+const playersTile = {
+  background: "#fff",
+  padding: 15,
+  borderRadius: 12
+};
+
+const backBtn = {
+  marginBottom: 15,
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  cursor: "pointer"
+};
+
+const teamHero = {
+  display: "flex",
+  alignItems: "center",
+  gap: 20,
+  marginBottom: 20
+};
+
+const divisionBadge = {
+  background: "#e2e8f0",
+  padding: "4px 10px",
   borderRadius: 8
 };
