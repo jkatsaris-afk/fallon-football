@@ -51,7 +51,6 @@ export default function MatchupManager() {
 
     let unique = [...new Set(data.map(t => t.division).filter(Boolean))];
 
-    // ✅ FORCE K-1 FIRST
     unique = unique.sort((a, b) => {
       if (a === "K-1") return -1;
       if (b === "K-1") return 1;
@@ -96,7 +95,6 @@ export default function MatchupManager() {
   const generateMatchups = async () => {
     if (teams.length < 2) return alert("Not enough teams");
 
-    // delete old
     await supabase
       .from("matchups")
       .delete()
@@ -104,32 +102,58 @@ export default function MatchupManager() {
 
     let list = [...teams];
 
-    // shuffle
-    list.sort(() => Math.random() - 0.5);
+    if (list.length % 2 !== 0) {
+      list.push({ id: "bye" });
+    }
 
-    const weeks = 8;
-    const newMatchups = [];
+    const totalTeams = list.length;
+    const rounds = totalTeams - 1;
 
-    for (let week = 1; week <= weeks; week++) {
-      for (let i = 0; i < list.length / 2; i++) {
-        newMatchups.push({
-          season_year: 2026,
-          week,
-          division: selectedDivision,
-          home_team_id: list[i].id,
-          away_team_id: list[list.length - 1 - i].id
-        });
+    let schedule = [];
+
+    for (let round = 0; round < rounds; round++) {
+      let weekGames = [];
+
+      for (let i = 0; i < totalTeams / 2; i++) {
+        const home = list[i];
+        const away = list[totalTeams - 1 - i];
+
+        if (home.id !== "bye" && away.id !== "bye") {
+          weekGames.push({
+            home_team_id: home.id,
+            away_team_id: away.id
+          });
+        }
       }
 
-      // rotate
+      schedule.push(weekGames);
+
       const last = list.pop();
       list.splice(1, 0, last);
     }
 
-    const { error } = await supabase.from("matchups").insert(newMatchups);
+    const finalSchedule = [];
+
+    for (let i = 0; i < 8; i++) {
+      const weekGames = schedule[i % schedule.length];
+
+      weekGames.forEach(game => {
+        finalSchedule.push({
+          season_year: 2026,
+          week: i + 1,
+          division: selectedDivision,
+          home_team_id: game.home_team_id,
+          away_team_id: game.away_team_id
+        });
+      });
+    }
+
+    const { error } = await supabase
+      .from("matchups")
+      .insert(finalSchedule);
 
     if (error) {
-      console.error("INSERT ERROR:", error);
+      console.error(error);
       alert(error.message);
     } else {
       loadMatchups();
@@ -153,11 +177,11 @@ export default function MatchupManager() {
   /* ================= UI ================= */
 
   return (
-    <div>
+    <div style={{ paddingBottom: 50 }}>
 
       <h1>Matchup Manager</h1>
 
-      {/* ================= DIVISIONS ================= */}
+      {/* DIVISIONS */}
       <div style={grid}>
         {divisions.map(d => (
           <div
@@ -170,7 +194,7 @@ export default function MatchupManager() {
         ))}
       </div>
 
-      {/* ================= TEAMS ================= */}
+      {/* TEAMS */}
       {selectedDivision && (
         <>
           <h3 style={{ marginTop: 25 }}>{selectedDivision} Teams</h3>
@@ -188,8 +212,7 @@ export default function MatchupManager() {
             })}
           </div>
 
-          {/* ================= MATCHUPS ================= */}
-
+          {/* MATCHUPS */}
           {matchups.length === 0 ? (
             <button style={btn} onClick={generateMatchups}>
               Generate 8 Week Matchups
@@ -198,7 +221,6 @@ export default function MatchupManager() {
             <div style={{ marginTop: 20 }}>
               <h3>Matchups</h3>
 
-              {/* GROUP BY WEEK */}
               {[...new Set(matchups.map(m => m.week))].map(week => (
                 <div key={week} style={weekBlock}>
                   <h4>Week {week}</h4>
@@ -211,13 +233,24 @@ export default function MatchupManager() {
 
                       return (
                         <div key={m.id} style={matchRow}>
-                          <img src={home?.logo} width={30}/>
-                          {home?.name}
 
-                          <span style={{ margin: "0 10px" }}>vs</span>
+                          {/* HOME */}
+                          <div style={teamSide}>
+                            <div style={label}>HOME</div>
+                            <img src={home?.logo} width={30}/>
+                            <div>{home?.name}</div>
+                          </div>
 
-                          {away?.name}
-                          <img src={away?.logo} width={30}/>
+                          {/* VS */}
+                          <div style={vs}>VS</div>
+
+                          {/* AWAY */}
+                          <div style={teamSide}>
+                            <div style={label}>AWAY</div>
+                            <img src={away?.logo} width={30}/>
+                            <div>{away?.name}</div>
+                          </div>
+
                         </div>
                       );
                     })}
@@ -278,6 +311,25 @@ const matchRow = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 10,
-  padding: 8
+  gap: 20,
+  padding: 10,
+  borderBottom: "1px solid #e5e7eb"
+};
+
+const teamSide = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  width: 120
+};
+
+const label = {
+  fontSize: 10,
+  color: "#64748b",
+  marginBottom: 4
+};
+
+const vs = {
+  fontWeight: "700",
+  fontSize: 14
 };
