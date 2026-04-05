@@ -16,9 +16,21 @@ export default function CoachManager() {
 
     if (error) console.error(error);
 
-    console.log("Coaches:", data); // 🔥 DEBUG (remove later)
-
     setCoaches(data || []);
+  };
+
+  /* ================= HELPERS ================= */
+
+  const getName = (c) => {
+    return `${c.first_name || ""} ${c.last_name || ""}`.trim();
+  };
+
+  const getRole = (c) => {
+    return c.role || (c.assistant_coach ? "assistant" : "coach");
+  };
+
+  const getStatus = (c) => {
+    return c.status || "pending";
   };
 
   /* ================= UPDATE ================= */
@@ -32,33 +44,16 @@ export default function CoachManager() {
     loadCoaches();
   };
 
-  const updateRole = async (id, role) => {
+  const updateRole = async (coach, newRole) => {
     await supabase
       .from("coaches")
-      .update({ role })
-      .eq("id", id);
+      .update({
+        role: newRole,
+        assistant_coach: newRole === "assistant"
+      })
+      .eq("id", coach.id);
 
     loadCoaches();
-  };
-
-  /* ================= HELPERS ================= */
-
-  const getName = (coach) => {
-    return (
-      `${coach.first_name || coach.name || ""} ${coach.last_name || ""}`.trim()
-    );
-  };
-
-  const getEmail = (coach) => {
-    return coach.email || coach.email_address || "";
-  };
-
-  const getRole = (coach) => {
-    return coach.role || "assistant"; // fallback
-  };
-
-  const getStatus = (coach) => {
-    return coach.status || "pending";
   };
 
   /* ================= UI ================= */
@@ -74,6 +69,8 @@ export default function CoachManager() {
         <div style={rowHeader}>
           <div>Name</div>
           <div>Email</div>
+          <div>Phone</div>
+          <div>Division Pref</div>
           <div>Status</div>
           <div>Role</div>
           <div>Actions</div>
@@ -83,21 +80,29 @@ export default function CoachManager() {
         {coaches.map(coach => (
           <div key={coach.id} style={row}>
 
+            {/* NAME */}
             <div>{getName(coach)}</div>
 
-            <div>{getEmail(coach)}</div>
+            {/* EMAIL */}
+            <div>{coach.email || "-"}</div>
+
+            {/* PHONE */}
+            <div>{coach.phone || "-"}</div>
+
+            {/* DIVISION */}
+            <div>{coach.division_preference || "-"}</div>
 
             {/* STATUS */}
             <div style={statusStyle(getStatus(coach))}>
               {getStatus(coach)}
             </div>
 
-            {/* ROLE DROPDOWN */}
+            {/* ROLE */}
             <div>
               <select
                 value={getRole(coach)}
                 onChange={(e) =>
-                  updateRole(coach.id, e.target.value)
+                  updateRole(coach, e.target.value)
                 }
               >
                 <option value="assistant">Assistant</option>
@@ -142,7 +147,7 @@ const table = {
 
 const rowHeader = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr 120px 150px 200px",
+  gridTemplateColumns: "1fr 1fr 1fr 140px 120px 150px 200px",
   padding: 12,
   fontWeight: "600",
   background: "#f1f5f9"
@@ -150,7 +155,7 @@ const rowHeader = {
 
 const row = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr 120px 150px 200px",
+  gridTemplateColumns: "1fr 1fr 1fr 140px 120px 150px 200px",
   padding: 12,
   borderTop: "1px solid #e5e7eb",
   alignItems: "center"
