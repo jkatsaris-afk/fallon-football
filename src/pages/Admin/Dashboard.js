@@ -7,10 +7,13 @@ import ScheduleManager from "./ScheduleManager";
 import TeamsPage from "./TeamsPage";
 import PlayerManager from "./PlayerManager";
 
-// ✅ NEW IMPORTS
+// ✅ EXISTING NEW IMPORTS
 import CoachManager from "./CoachManager";
 import MatchupManager from "./MatchupManager";
 import RefereeManager from "./RefereeManager";
+
+// ✅ NEW FIELD MANAGER
+import FieldManager from "./FieldManager";
 
 // ✅ SETTINGS PAGE
 import AdminSettings from "./AdminSettings";
@@ -61,75 +64,51 @@ export default function Dashboard({
       >
         <h2 style={{ marginBottom: 20 }}>Admin</h2>
 
-        <button
-          style={navBtn(adminPage === "dashboard")}
-          onClick={() => setAdminPage("dashboard")}
-        >
+        <button style={navBtn(adminPage === "dashboard")} onClick={() => setAdminPage("dashboard")}>
           Dashboard
         </button>
 
-        <button
-          style={navBtn(adminPage === "teams")}
-          onClick={() => setAdminPage("teams")}
-        >
+        <button style={navBtn(adminPage === "teams")} onClick={() => setAdminPage("teams")}>
           Team Manager
         </button>
 
-        <button
-          style={navBtn(adminPage === "players")}
-          onClick={() => setAdminPage("players")}
-        >
+        <button style={navBtn(adminPage === "players")} onClick={() => setAdminPage("players")}>
           Player Manager
         </button>
 
-        {/* ✅ MOVED UP */}
-        <button
-          style={navBtn(adminPage === "matchups")}
-          onClick={() => setAdminPage("matchups")}
-        >
+        <button style={navBtn(adminPage === "matchups")} onClick={() => setAdminPage("matchups")}>
           Matchup Manager
         </button>
 
-        <button
-          style={navBtn(adminPage === "schedule")}
-          onClick={() => setAdminPage("schedule")}
-        >
+        <button style={navBtn(adminPage === "schedule")} onClick={() => setAdminPage("schedule")}>
           Schedule Manager
         </button>
 
-        {/* ✅ MOVED UNDER MATCHUPS */}
-        <button
-          style={navBtn(adminPage === "games")}
-          onClick={() => setAdminPage("games")}
-        >
+        <button style={navBtn(adminPage === "games")} onClick={() => setAdminPage("games")}>
           Game Manager
         </button>
 
-        <button
-          style={navBtn(adminPage === "coaches")}
-          onClick={() => setAdminPage("coaches")}
-        >
+        <button style={navBtn(adminPage === "coaches")} onClick={() => setAdminPage("coaches")}>
           Coach Manager
         </button>
 
-        <button
-          style={navBtn(adminPage === "referees")}
-          onClick={() => setAdminPage("referees")}
-        >
+        <button style={navBtn(adminPage === "referees")} onClick={() => setAdminPage("referees")}>
           Referee Manager
+        </button>
+
+        {/* ✅ NEW FIELD MANAGER */}
+        <button style={navBtn(adminPage === "fields")} onClick={() => setAdminPage("fields")}>
+          Field Manager
         </button>
 
         <button style={navBtn(false)}>Reports</button>
 
-        {/* ================= SETTINGS SECTION ================= */}
+        {/* SETTINGS */}
         <div style={{ marginTop: 20, fontSize: 12, color: "#94a3b8" }}>
           SETTINGS
         </div>
 
-        <button
-          style={navBtn(adminPage === "settings")}
-          onClick={() => setAdminPage("settings")}
-        >
+        <button style={navBtn(adminPage === "settings")} onClick={() => setAdminPage("settings")}>
           Settings
         </button>
       </div>
@@ -165,6 +144,7 @@ export default function Dashboard({
         {adminPage === "matchups" && <MatchupManager />}
         {adminPage === "coaches" && <CoachManager />}
         {adminPage === "referees" && <RefereeManager />}
+        {adminPage === "fields" && <FieldManager />}
         {adminPage === "settings" && <AdminSettings />}
 
       </div>
@@ -188,13 +168,7 @@ function StatTile({ title, value }) {
       }}
     >
       <div style={{ fontSize: 14, color: "#64748b" }}>{title}</div>
-      <div
-        style={{
-          fontSize: 28,
-          fontWeight: "700",
-          marginTop: 5
-        }}
-      >
+      <div style={{ fontSize: 28, fontWeight: "700", marginTop: 5 }}>
         {value}
       </div>
     </div>
