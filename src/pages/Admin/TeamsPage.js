@@ -113,31 +113,44 @@ export default function TeamsPage() {
     return (
       <div>
 
-        {/* 🔥 HEADER */}
+        {/* HEADER */}
         <div style={headerBar}>
           <button style={backBtn} onClick={() => setActiveTeam(null)}>
             ← Back to Teams
           </button>
         </div>
 
-        {/* TEAM INFO */}
-        <div style={teamHeader}>
-          <img src={teamLogos[nfl?.short_name]} width={80}/>
+        {/* 🔥 IMPROVED TEAM HEADER */}
+        <div style={teamHero}>
+          <img src={teamLogos[nfl?.short_name]} width={90} />
+
           <div>
-            <h2 style={{ margin: 0 }}>{nfl?.full_name}</h2>
-            <div style={{ color: "#64748b" }}>{activeTeam.division}</div>
+            <h1 style={{ margin: 0 }}>{nfl?.full_name}</h1>
+            <div style={divisionBadge}>{activeTeam.division}</div>
           </div>
         </div>
 
-        <div>
-          <strong>Head Coach:</strong> {getCoachName(activeTeam.coach_id)}
+        {/* 🔥 IMPROVED COACH DISPLAY */}
+        <div style={coachGrid}>
+
+          <div style={coachCard}>
+            <div style={coachLabel}>Head Coach</div>
+            <div style={coachName}>
+              {getCoachName(activeTeam.coach_id)}
+            </div>
+          </div>
+
+          <div style={coachCard}>
+            <div style={coachLabel}>Assistant Coach</div>
+            <div style={coachName}>
+              {getCoachName(activeTeam.assistant_coach_id)}
+            </div>
+          </div>
+
         </div>
 
-        <div>
-          <strong>Assistant:</strong> {getCoachName(activeTeam.assistant_coach_id)}
-        </div>
-
-        <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
+        {/* ACTIONS */}
+        <div style={actionBar}>
           <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
           </button>
@@ -153,7 +166,7 @@ export default function TeamsPage() {
 
         {/* ADD PLAYER */}
         {showAdd && (
-          <div style={{ marginTop: 20 }}>
+          <div style={section}>
             <h3>Add Player</h3>
 
             {players
@@ -178,7 +191,7 @@ export default function TeamsPage() {
 
         {/* AUTO CONFIRM */}
         {confirmAuto && (
-          <div style={{ marginTop: 20 }}>
+          <div style={section}>
             <p>
               Make sure all teams are created in this division before running auto roster.
             </p>
@@ -268,11 +281,55 @@ const backBtn = {
   cursor: "pointer"
 };
 
-const teamHeader = {
+const teamHero = {
   display: "flex",
   alignItems: "center",
+  gap: 20,
+  marginBottom: 25
+};
+
+const divisionBadge = {
+  marginTop: 5,
+  padding: "4px 10px",
+  borderRadius: 8,
+  background: "#e2e8f0",
+  display: "inline-block",
+  fontSize: 13
+};
+
+const coachGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
   gap: 15,
-  marginBottom: 20
+  marginBottom: 25
+};
+
+const coachCard = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const coachLabel = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+const coachName = {
+  fontSize: 18,
+  fontWeight: "600",
+  marginTop: 5
+};
+
+const actionBar = {
+  display: "flex",
+  gap: 10,
+  marginBottom: 25
+};
+
+const section = {
+  marginTop: 20
 };
 
 const grid = {
