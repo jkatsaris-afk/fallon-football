@@ -76,12 +76,12 @@ export default function Dashboard({
           Player Manager
         </button>
 
-        {/* ✅ MATCHUPS */}
+        {/* MATCHUPS */}
         <button style={navBtn(adminPage === "matchups")} onClick={() => setAdminPage("matchups")}>
           Matchup Manager
         </button>
 
-        {/* ✅ FIELD MANAGER (MOVED HERE) */}
+        {/* FIELD MANAGER */}
         <button style={navBtn(adminPage === "fields")} onClick={() => setAdminPage("fields")}>
           Field Manager
         </button>
@@ -115,7 +115,7 @@ export default function Dashboard({
       </div>
 
       {/* ================= RIGHT PANEL ================= */}
-      <div style={{ flex: 1, padding: 25, overflow: "hidden" }}>
+      <div style={{ flex: 1, padding: 25, overflow: "auto" }}>
 
         {adminPage === "dashboard" && (
           <>
