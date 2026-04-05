@@ -31,7 +31,7 @@ export default function ScheduleManager() {
   const [teams, setTeams] = useState([]);
   const [nflTeams, setNflTeams] = useState([]);
 
-  const TABLE = "schedule_test"; // 🔥 keep safe for now
+  const TABLE = "schedule_master_auto";
 
   useEffect(() => {
     loadAll();
@@ -44,7 +44,7 @@ export default function ScheduleManager() {
     const { data: f } = await supabase
       .from("fields")
       .select("*")
-      .eq("type", "game")
+      .eq("type", "game") // ONLY game fields in grid
       .order("field_number");
 
     const { data: m } = await supabase.from("matchups").select("*");
@@ -63,16 +63,14 @@ export default function ScheduleManager() {
   const generateSchedule = async () => {
     const { data: matchups } = await supabase.from("matchups").select("*");
     const { data: fields } = await supabase.from("fields").select("*");
-    const { data: timeSlots } = await supabase
-      .from("field_time_slots")
-      .select("*");
+    const { data: timeSlots } = await supabase.from("field_time_slots").select("*");
 
     if (!matchups || !fields || !timeSlots) {
       alert("Missing data");
       return;
     }
 
-    // ✅ SAFE DELETE
+    // SAFE DELETE
     await supabase
       .from(TABLE)
       .delete()
@@ -154,7 +152,7 @@ export default function ScheduleManager() {
 
       <h1>Schedule Manager</h1>
 
-      {/* 🔥 ALWAYS SHOW BUTTON */}
+      {/* GENERATE BUTTON */}
       <button style={btn} onClick={generateSchedule}>
         Generate Schedule
       </button>
@@ -168,7 +166,7 @@ export default function ScheduleManager() {
         return (
           <div key={week} style={weekBlock}>
 
-            <h2>Week {week}</h2>
+            <h2 style={weekHeader}>Week {week}</h2>
 
             {/* HEADER */}
             <div style={headerRow}>
@@ -201,12 +199,20 @@ export default function ScheduleManager() {
                     <div style={cell}>
 
                       <div style={tile}>
-                        <div>{g.division}</div>
+                        <div style={division}>{g.division}</div>
 
-                        <div style={teams}>
-                          <div>{g.home?.short_name}</div>
-                          <div>VS</div>
-                          <div>{g.away?.short_name}</div>
+                        <div style={teamsRow}>
+                          <div style={team}>
+                            <img src={teamLogos[g.home?.short_name]} style={logo}/>
+                            <div>{g.home?.short_name}</div>
+                          </div>
+
+                          <div style={vs}>VS</div>
+
+                          <div style={team}>
+                            <img src={teamLogos[g.away?.short_name]} style={logo}/>
+                            <div>{g.away?.short_name}</div>
+                          </div>
                         </div>
                       </div>
 
@@ -239,9 +245,14 @@ const btn = {
 
 const weekBlock = {
   marginTop: 25,
-  background: "#fff",
+  background: "#ffffff",
   padding: 20,
   borderRadius: 12
+};
+
+const weekHeader = {
+  textAlign: "center",
+  marginBottom: 15
 };
 
 const headerRow = {
@@ -271,17 +282,39 @@ const cell = {
   border: "1px solid #ddd",
   borderRadius: 6,
   padding: 5,
-  minHeight: 70
+  minHeight: 80
 };
 
 const tile = {
-  background: "#f1f5f9",
-  padding: 5,
-  borderRadius: 6,
+  background: "#f8fafc",
+  borderRadius: 8,
+  padding: 6,
   textAlign: "center"
 };
 
-const teams = {
+const division = {
+  fontSize: 10,
+  color: "#64748b"
+};
+
+const teamsRow = {
   display: "flex",
-  justifyContent: "space-between"
+  justifyContent: "space-between",
+  alignItems: "center"
+};
+
+const team = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  width: "40%"
+};
+
+const logo = {
+  width: 26,
+  height: 26
+};
+
+const vs = {
+  fontWeight: "700"
 };
