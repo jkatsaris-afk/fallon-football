@@ -37,9 +37,10 @@ export default function PlayerManager() {
   /* ================= DIVISIONS ================= */
 
   const divisions = [
-    "ALL",
     ...new Set(players.map((p) => p.division).filter(Boolean))
   ];
+
+  const divisionOptions = ["", ...divisions];
 
   /* ================= FILTER ================= */
 
@@ -60,8 +61,6 @@ export default function PlayerManager() {
       );
     });
 
-  /* ================= UI ================= */
-
   return (
     <div style={{ padding: 20 }}>
       <h2>Player Manager</h2>
@@ -81,16 +80,11 @@ export default function PlayerManager() {
           placeholder="Search players or teams..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #e5e7eb",
-            width: 250
-          }}
+          style={searchInput}
         />
 
-        {/* DIVISIONS */}
-        {divisions.map((d) => (
+        {/* DIVISION FILTER */}
+        {["ALL", ...divisions].map((d) => (
           <button
             key={d}
             onClick={() => setSelectedDivision(d)}
@@ -104,114 +98,125 @@ export default function PlayerManager() {
               cursor: "pointer"
             }}
           >
-            {d}
+            {d || "No Division"}
           </button>
         ))}
       </div>
 
-      {/* ================= HEADER ================= */}
-      <div style={headerRow}>
-        <div style={{ width: 180 }}>Name</div>
-        <div style={{ width: 120 }}>Division</div>
-        <div style={{ width: 120 }}>Shirt</div>
-        <div style={{ width: 140 }}>Payment</div>
-        <div style={{ flex: 1 }}>Team</div>
-      </div>
+      {/* ================= TILE WRAPPER ================= */}
+      <div style={tileWrapper}>
 
-      {/* ================= LIST ================= */}
-      <div style={{ maxHeight: "75vh", overflowY: "auto" }}>
-        {filteredPlayers.map((p) => {
-          const playerTeam = teams.find((t) => t.id === p.team_id);
+        {/* HEADER */}
+        <div style={headerRow}>
+          <div style={{ width: 180 }}>Name</div>
+          <div style={{ width: 140 }}>Division</div>
+          <div style={{ width: 120 }}>Shirt</div>
+          <div style={{ width: 140 }}>Payment</div>
+          <div style={{ flex: 1 }}>Team</div>
+        </div>
 
-          return (
-            <div key={p.id} style={row}>
-              {/* NAME */}
-              <div style={{ width: 180 }}>
-                {p.first_name} {p.last_name}
-              </div>
+        {/* LIST */}
+        <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          {filteredPlayers.map((p) => {
+            const playerTeam = teams.find((t) => t.id === p.team_id);
 
-              {/* DIVISION */}
-              <div style={{ width: 120 }}>
-                <input
-                  value={p.division || ""}
-                  onChange={(e) =>
-                    updatePlayer(p.id, "division", e.target.value)
-                  }
-                  style={input}
-                />
-              </div>
+            return (
+              <div key={p.id} style={row}>
+                {/* NAME */}
+                <div style={{ width: 180 }}>
+                  {p.first_name} {p.last_name}
+                </div>
 
-              {/* SHIRT */}
-              <div style={{ width: 120 }}>
-                <select
-                  value={p.shirt_size || ""}
-                  onChange={(e) =>
-                    updatePlayer(p.id, "shirt_size", e.target.value)
-                  }
-                  style={input}
-                >
-                  <option value="">-</option>
-                  <option value="YS">YS</option>
-                  <option value="YM">YM</option>
-                  <option value="YL">YL</option>
-                  <option value="AS">AS</option>
-                  <option value="AM">AM</option>
-                  <option value="AL">AL</option>
-                </select>
-              </div>
-
-              {/* PAYMENT */}
-              <div style={{ width: 140 }}>
-                <select
-                  value={p.payment_status || ""}
-                  onChange={(e) =>
-                    updatePlayer(p.id, "payment_status", e.target.value)
-                  }
-                  style={{
-                    ...input,
-                    background:
-                      p.payment_status === "paid"
-                        ? "#dcfce7"
-                        : p.payment_status === "partial"
-                        ? "#fef9c3"
-                        : "#fee2e2"
-                  }}
-                >
-                  <option value="unpaid">Unpaid</option>
-                  <option value="partial">Partial</option>
-                  <option value="paid">Paid</option>
-                </select>
-              </div>
-
-              {/* TEAM */}
-              <div style={{ flex: 1 }}>
-                <select
-                  value={p.team_id || ""}
-                  onChange={(e) =>
-                    updatePlayer(p.id, "team_id", e.target.value)
-                  }
-                  style={input}
-                >
-                  <option value="">Unassigned</option>
-                  {teams
-                    .filter(
-                      (t) =>
-                        !p.division || t.division === p.division
-                    )
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
+                {/* DIVISION DROPDOWN */}
+                <div style={{ width: 140 }}>
+                  <select
+                    value={p.division || ""}
+                    onChange={(e) =>
+                      updatePlayer(p.id, "division", e.target.value)
+                    }
+                    style={input}
+                  >
+                    <option value="">Select</option>
+                    {divisionOptions.map((d) => (
+                      <option key={d} value={d}>
+                        {d || "No Division"}
                       </option>
                     ))}
-                </select>
+                  </select>
+                </div>
 
-                <div style={{ fontSize: 11, color: "#64748b" }}>
-                  {playerTeam ? playerTeam.name : "No team"}
+                {/* SHIRT */}
+                <div style={{ width: 120 }}>
+                  <select
+                    value={p.shirt_size || ""}
+                    onChange={(e) =>
+                      updatePlayer(p.id, "shirt_size", e.target.value)
+                    }
+                    style={input}
+                  >
+                    <option value="">-</option>
+                    <option value="YS">YS</option>
+                    <option value="YM">YM</option>
+                    <option value="YL">YL</option>
+                    <option value="AS">AS</option>
+                    <option value="AM">AM</option>
+                    <option value="AL">AL</option>
+                  </select>
+                </div>
+
+                {/* PAYMENT */}
+                <div style={{ width: 140 }}>
+                  <select
+                    value={p.payment_status || ""}
+                    onChange={(e) =>
+                      updatePlayer(p.id, "payment_status", e.target.value)
+                    }
+                    style={{
+                      ...input,
+                      background:
+                        p.payment_status === "paid"
+                          ? "#dcfce7"
+                          : p.payment_status === "partial"
+                          ? "#fef9c3"
+                          : "#fee2e2"
+                    }}
+                  >
+                    <option value="unpaid">Unpaid</option>
+                    <option value="partial">Partial</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </div>
+
+                {/* TEAM */}
+                <div style={{ flex: 1 }}>
+                  <select
+                    value={p.team_id || ""}
+                    onChange={(e) =>
+                      updatePlayer(p.id, "team_id", e.target.value)
+                    }
+                    style={input}
+                  >
+                    <option value="">Unassigned</option>
+                    {teams
+                      .filter(
+                        (t) =>
+                          !p.division || t.division === p.division
+                      )
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
+
+                  <div style={teamLabel}>
+                    {playerTeam ? playerTeam.name : "No team"}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -219,12 +224,19 @@ export default function PlayerManager() {
 
 /* ================= STYLES ================= */
 
+const tileWrapper = {
+  background: "#ffffff",
+  borderRadius: 16,
+  padding: 15,
+  marginTop: 20,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+};
+
 const headerRow = {
   display: "flex",
   fontSize: 12,
   color: "#64748b",
-  marginTop: 20,
-  marginBottom: 5
+  marginBottom: 8
 };
 
 const row = {
@@ -240,4 +252,16 @@ const input = {
   padding: "5px",
   borderRadius: 6,
   border: "1px solid #e5e7eb"
+};
+
+const teamLabel = {
+  fontSize: 11,
+  color: "#64748b"
+};
+
+const searchInput = {
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  width: 250
 };
