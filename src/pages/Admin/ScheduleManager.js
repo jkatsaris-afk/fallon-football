@@ -41,7 +41,12 @@ export default function ScheduleManager() {
 
   const loadAll = async () => {
     const { data: s } = await supabase.from(TABLE).select("*");
-    const { data: f } = await supabase.from("fields").select("*").in("type", ["game", "k-1"]);
+    const { data: f } = await supabase
+      .from("fields")
+      .select("*")
+      .in("type", ["game", "k-1"])
+      .order("field_number");
+
     const { data: m } = await supabase.from("matchups").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
@@ -64,17 +69,10 @@ export default function ScheduleManager() {
     if (!fields?.length) return alert("No fields found");
     if (!timeSlots?.length) return alert("No time slots found");
 
-    // CLEAR
-    const { error: deleteError } = await supabase
+    await supabase
       .from(TABLE)
       .delete()
       .neq("id", "00000000-0000-0000-0000-000000000000");
-
-    if (deleteError) {
-      console.error(deleteError);
-      alert("Delete failed (RLS?)");
-      return;
-    }
 
     let insert = [];
 
@@ -130,7 +128,7 @@ export default function ScheduleManager() {
 
     alert("Schedule Generated ✅");
 
-    await loadAll(); // 🔥 force refresh
+    await loadAll(); // 🔥 KEY FIX
   };
 
   /* ================= HELPERS ================= */
@@ -152,6 +150,20 @@ export default function ScheduleManager() {
     };
   };
 
+  const sortTimes = (times) => {
+    const toMinutes = (t) => {
+      const [time, modifier] = t.split(" ");
+      let [hours, minutes] = time.split(":").map(Number);
+
+      if (modifier === "PM" && hours !== 12) hours += 12;
+      if (modifier === "AM" && hours === 12) hours = 0;
+
+      return hours * 60 + minutes;
+    };
+
+    return times.sort((a, b) => toMinutes(a) - toMinutes(b));
+  };
+
   const weeks = [...new Set(schedule.map(s => s.week))];
 
   return (
@@ -159,35 +171,79 @@ export default function ScheduleManager() {
 
       <h1>Schedule Manager</h1>
 
-      {/* DEBUG */}
-      <div style={{ fontSize: 12 }}>
-        Schedule Rows: {schedule.length}
-      </div>
-
-      {/* ALWAYS SHOW BUTTON */}
       <button style={btn} onClick={generateSchedule}>
         Generate Schedule
       </button>
 
-      {/* ================= DISPLAY ================= */}
-
       {weeks.map(week => {
         const weekGames = schedule.filter(s => s.week === week);
 
+        const times = sortTimes([
+          ...new Set(weekGames.map(g => g.time))
+        ]);
+
         return (
-          <div key={week} style={{ marginTop: 20 }}>
-            <h2>Week {week}</h2>
+          <div key={week} style={weekBlock}>
 
-            {weekGames.map(g => {
-              const game = getGame(g.matchup_id);
-              if (!game) return null;
+            <h2 style={weekHeader}>Week {week}</h2>
 
-              return (
-                <div key={g.id} style={gameRow}>
-                  {game.home?.short_name} vs {game.away?.short_name} — {g.time}
+            <div style={{
+              ...grid,
+              gridTemplateColumns: `120px repeat(${fields.length}, 1fr)`
+            }}>
+              <div></div>
+
+              {fields.map(field => (
+                <div key={field.id} style={fieldHeader(field.type)}>
+                  {field.name}
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            {times.map(time => (
+              <div key={time} style={{
+                ...grid,
+                gridTemplateColumns: `120px repeat(${fields.length}, 1fr)`
+              }}>
+
+                <div style={timeCell}>{time}</div>
+
+                {fields.map(field => {
+                  const game = weekGames.find(
+                    g => g.time === time && g.field_id === field.id
+                  );
+
+                  if (!game) return <div style={cell}></div>;
+
+                  const g = getGame(game.matchup_id);
+                  if (!g) return <div style={cell}></div>;
+
+                  return (
+                    <div style={cell}>
+                      <div style={tile}>
+                        <div style={division}>{g.division}</div>
+
+                        <div style={teamsRow}>
+                          <div style={team}>
+                            <img src={teamLogos[g.home?.short_name]} style={logo}/>
+                            <div>{g.home?.short_name}</div>
+                          </div>
+
+                          <div style={vs}>VS</div>
+
+                          <div style={team}>
+                            <img src={teamLogos[g.away?.short_name]} style={logo}/>
+                            <div>{g.away?.short_name}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              </div>
+            ))}
+
           </div>
         );
       })}
@@ -195,19 +251,3 @@ export default function ScheduleManager() {
     </div>
   );
 }
-
-/* ================= STYLES ================= */
-
-const btn = {
-  marginTop: 10,
-  padding: "12px 18px",
-  background: "#2f6ea6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 10
-};
-
-const gameRow = {
-  padding: 8,
-  borderBottom: "1px solid #e5e7eb"
-};
