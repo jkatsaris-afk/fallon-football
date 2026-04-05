@@ -62,6 +62,26 @@ export default function TeamsPage() {
     loadData();
   };
 
+  const removePlayerFromTeam = async (playerId) => {
+    await supabase
+      .from("players")
+      .update({ team_id: null })
+      .eq("id", playerId);
+
+    loadData();
+  };
+
+  const movePlayerToTeam = async (playerId, newTeamId) => {
+    if (!newTeamId) return;
+
+    await supabase
+      .from("players")
+      .update({ team_id: newTeamId })
+      .eq("id", playerId);
+
+    loadData();
+  };
+
   const removeTeam = async () => {
     await supabase.from("teams")
       .delete()
@@ -130,11 +150,50 @@ export default function TeamsPage() {
 
           {players
             .filter(p => p.team_id === activeTeam.id)
-            .map(p => (
-              <div key={p.id} style={playerRow}>
-                {p.first_name} {p.last_name}
-              </div>
-            ))}
+            .map(p => {
+
+              const divisionTeams = teams.filter(
+                t => t.division === activeTeam.division
+              );
+
+              return (
+                <div key={p.id} style={playerRow}>
+
+                  <div>
+                    {p.first_name} {p.last_name}
+                  </div>
+
+                  <div style={playerActions}>
+
+                    <select
+                      style={dropdown}
+                      onChange={(e) => movePlayerToTeam(p.id, e.target.value)}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Move</option>
+
+                      {divisionTeams.map(t => {
+                        const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {nfl?.full_name}
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    <button
+                      style={removeBtn}
+                      onClick={() => removePlayerFromTeam(p.id)}
+                    >
+                      Remove
+                    </button>
+
+                  </div>
+
+                </div>
+              );
+            })}
 
           {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
             <div style={{ color:"#64748b" }}>
@@ -200,7 +259,6 @@ export default function TeamsPage() {
 
         return (
           <div key={div} style={divisionTile}>
-
             <div style={divisionHeader}>{div}</div>
 
             <div style={grid}>
@@ -223,7 +281,6 @@ export default function TeamsPage() {
                 );
               })}
             </div>
-
           </div>
         );
       })}
@@ -295,7 +352,28 @@ const playersTile = {
 const playerRow = {
   display: "flex",
   justifyContent: "space-between",
+  alignItems: "center",
   padding: "6px 0"
+};
+
+const playerActions = {
+  display: "flex",
+  gap: 8
+};
+
+const dropdown = {
+  padding: "4px 6px",
+  borderRadius: 6,
+  border: "1px solid #e2e8f0"
+};
+
+const removeBtn = {
+  padding: "4px 8px",
+  borderRadius: 6,
+  border: "none",
+  background: "#fee2e2",
+  color: "#991b1b",
+  cursor: "pointer"
 };
 
 const smallBtn = {
@@ -315,8 +393,6 @@ const closeBtn = {
   fontSize: 16,
   cursor: "pointer"
 };
-
-/* 🔥 FIXED MISSING STYLES */
 
 const headerBar = { marginBottom: 15 };
 
