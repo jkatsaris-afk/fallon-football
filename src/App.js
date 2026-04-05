@@ -7,63 +7,55 @@ import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import SignUpPage from "./pages/Public/SignUpPage";
 import CoachSignUpPage from "./pages/Public/CoachSignUpPage";
 import RefSignUpPage from "./pages/Public/RefSignUpPage";
-import SignUpSelectPage from "./pages/Public/SignUpSelectPage"; // ✅ ADDED
 
-import LoginModal from "./components/LoginModal";
 import Dashboard from "./pages/Admin/Dashboard";
+import LoginModal from "./components/LoginModal";
 
 import { supabase } from "./supabase";
 import logo from "./resources/logo.png";
 
 export default function App() {
   const [page, setPage] = useState("home");
-
   const [adminPage, setAdminPage] = useState("dashboard");
-  const [isAdminAuthed, setIsAdminAuthed] = useState(false); // ✅ ADDED
 
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
 
-    if (path.includes("/admin")) setPage("dashboard");
+    if (path.includes("/admin")) {
+      checkAdmin();
+    }
+
     if (path.includes("/sign-up")) setPage("signup");
     if (path.includes("/coach-signup")) setPage("coachSignup");
     if (path.includes("/ref-signup")) setPage("refSignup");
-    if (path.includes("/signup")) setPage("signupSelect"); // ✅ ADDED
-
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-
-      if (data.user) {
-        setIsAdminAuthed(true);
-      } else {
-        setIsAdminAuthed(false);
-      }
-    };
-
-    checkUser();
   }, []);
+
+  const checkAdmin = async () => {
+    const { data } = await supabase.auth.getUser();
+
+    if (!data.user) {
+      setPage("adminLogin");
+    } else {
+      setPage("dashboard");
+    }
+  };
 
   return (
     <>
-      {/* ================= ADMIN ================= */}
-      {page === "dashboard" ? (
-        !isAdminAuthed ? (
-          <LoginModal onClose={() => setPage("home")} /> // ✅ LOGIN ONLY HERE
-        ) : (
-          <div
-            style={{
-              width: "100vw",
-              height: "100vh",
-              background: "#f8fafc",
-            }}
-          >
-            <Dashboard
-              adminPage={adminPage}
-              setAdminPage={setAdminPage}
-            />
-          </div>
-        )
-      ) : (
+      {page === "adminLogin" && (
+        <LoginModal />
+      )}
+
+      {page === "dashboard" && (
+        <div style={{ width: "100vw", height: "100vh", background: "#f8fafc" }}>
+          <Dashboard
+            adminPage={adminPage}
+            setAdminPage={setAdminPage}
+          />
+        </div>
+      )}
+
+      {page !== "dashboard" && page !== "adminLogin" && (
         <div className="app">
 
           {/* HEADER */}
@@ -78,7 +70,6 @@ export default function App() {
           {page === "signup" && <SignUpPage />}
           {page === "coachSignup" && <CoachSignUpPage />}
           {page === "refSignup" && <RefSignUpPage />}
-          {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />} {/* ✅ ADDED */}
 
           {/* NAV */}
           <div className="bottom-nav">
@@ -102,13 +93,6 @@ export default function App() {
               onClick={() => setPage("scoreboard")}
             >
               Scores
-            </button>
-
-            <button
-              className={`nav-btn ${page === "signupSelect" ? "active" : ""}`}
-              onClick={() => setPage("signupSelect")}
-            >
-              Sign Up
             </button>
 
           </div>
