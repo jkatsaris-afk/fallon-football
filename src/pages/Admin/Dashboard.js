@@ -1,22 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// EXISTING IMPORTS
+// IMPORTS
 import GameManager from "./GameManager";
 import ScheduleManager from "./ScheduleManager";
 import TeamsPage from "./TeamsPage";
 import PlayerManager from "./PlayerManager";
-
-// NEW IMPORTS
 import CoachManager from "./CoachManager";
 import MatchupManager from "./MatchupManager";
 import RefereeManager from "./RefereeManager";
 import FieldManager from "./FieldManager";
-
-// 🔥 ADD THIS
 import ReportsPage from "./ReportsPage";
-
-// SETTINGS
 import AdminSettings from "./AdminSettings";
 
 export default function Dashboard({
@@ -25,14 +19,23 @@ export default function Dashboard({
 }) {
   const [stats, setStats] = useState({
     players: 0,
-    games: 0
+    games: 0,
+    coachesApproved: 0,
+    coachesPending: 0,
+    refsApproved: 0,
+    refsPending: 0,
+    scheduledGames: 0,
+    matchups: 0
   });
 
   useEffect(() => {
     loadStats();
   }, []);
 
+  /* ================= LOAD STATS ================= */
+
   const loadStats = async () => {
+
     const { count: playerCount } = await supabase
       .from("players")
       .select("*", { count: "exact", head: true });
@@ -42,9 +45,43 @@ export default function Dashboard({
       .select("*", { count: "exact", head: true })
       .ilike("event_type", "%game%");
 
+    const { count: coachApproved } = await supabase
+      .from("coaches")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "approved");
+
+    const { count: coachPending } = await supabase
+      .from("coaches")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending");
+
+    const { count: refApproved } = await supabase
+      .from("referees")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "approved");
+
+    const { count: refPending } = await supabase
+      .from("referees")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending");
+
+    const { count: scheduledGames } = await supabase
+      .from("schedule_master_auto")
+      .select("*", { count: "exact", head: true });
+
+    const { count: matchupCount } = await supabase
+      .from("matchups")
+      .select("*", { count: "exact", head: true });
+
     setStats({
       players: playerCount || 0,
-      games: gameCount || 0
+      games: gameCount || 0,
+      coachesApproved: coachApproved || 0,
+      coachesPending: coachPending || 0,
+      refsApproved: refApproved || 0,
+      refsPending: refPending || 0,
+      scheduledGames: scheduledGames || 0,
+      matchups: matchupCount || 0
     });
   };
 
@@ -52,74 +89,25 @@ export default function Dashboard({
     <div style={{ display: "flex", height: "100%" }}>
 
       {/* ================= SIDEBAR ================= */}
-      <div
-        style={{
-          width: 220,
-          background: "#ffffff",
-          padding: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 15,
-          borderRight: "1px solid #e5e7eb",
-        }}
-      >
+      <div style={sidebar}>
         <h2 style={{ marginBottom: 20 }}>Admin</h2>
 
-        <button style={navBtn(adminPage === "dashboard")} onClick={() => setAdminPage("dashboard")}>
-          Dashboard
-        </button>
+        <NavBtn active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} label="Dashboard" />
+        <NavBtn active={adminPage === "teams"} onClick={() => setAdminPage("teams")} label="Team Manager" />
+        <NavBtn active={adminPage === "players"} onClick={() => setAdminPage("players")} label="Player Manager" />
+        <NavBtn active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} label="Matchup Manager" />
+        <NavBtn active={adminPage === "fields"} onClick={() => setAdminPage("fields")} label="Field Manager" />
+        <NavBtn active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} label="Schedule Manager" />
+        <NavBtn active={adminPage === "games"} onClick={() => setAdminPage("games")} label="Game Manager" />
+        <NavBtn active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} label="Coach Manager" />
+        <NavBtn active={adminPage === "referees"} onClick={() => setAdminPage("referees")} label="Referee Manager" />
+        <NavBtn active={adminPage === "reports"} onClick={() => setAdminPage("reports")} label="Reports" />
 
-        <button style={navBtn(adminPage === "teams")} onClick={() => setAdminPage("teams")}>
-          Team Manager
-        </button>
-
-        <button style={navBtn(adminPage === "players")} onClick={() => setAdminPage("players")}>
-          Player Manager
-        </button>
-
-        <button style={navBtn(adminPage === "matchups")} onClick={() => setAdminPage("matchups")}>
-          Matchup Manager
-        </button>
-
-        <button style={navBtn(adminPage === "fields")} onClick={() => setAdminPage("fields")}>
-          Field Manager
-        </button>
-
-        <button style={navBtn(adminPage === "schedule")} onClick={() => setAdminPage("schedule")}>
-          Schedule Manager
-        </button>
-
-        <button style={navBtn(adminPage === "games")} onClick={() => setAdminPage("games")}>
-          Game Manager
-        </button>
-
-        <button style={navBtn(adminPage === "coaches")} onClick={() => setAdminPage("coaches")}>
-          Coach Manager
-        </button>
-
-        <button style={navBtn(adminPage === "referees")} onClick={() => setAdminPage("referees")}>
-          Referee Manager
-        </button>
-
-        {/* 🔥 FIXED REPORTS BUTTON */}
-        <button
-          style={navBtn(adminPage === "reports")}
-          onClick={() => setAdminPage("reports")}
-        >
-          Reports
-        </button>
-
-        {/* SETTINGS */}
-        <div style={{ marginTop: 20, fontSize: 12, color: "#94a3b8" }}>
-          SETTINGS
-        </div>
-
-        <button style={navBtn(adminPage === "settings")} onClick={() => setAdminPage("settings")}>
-          Settings
-        </button>
+        <div style={settingsHeader}>SETTINGS</div>
+        <NavBtn active={adminPage === "settings"} onClick={() => setAdminPage("settings")} label="Settings" />
       </div>
 
-      {/* ================= RIGHT PANEL ================= */}
+      {/* ================= CONTENT ================= */}
       <div style={{ flex: 1, padding: 25, overflow: "auto" }}>
 
         {adminPage === "dashboard" && (
@@ -129,16 +117,20 @@ export default function Dashboard({
               League overview and quick actions
             </p>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 20,
-                marginTop: 25
-              }}
-            >
+            <div style={grid}>
+
               <StatTile title="Players" value={stats.players} />
               <StatTile title="Games" value={stats.games} />
+
+              <StatTile title="Approved Coaches" value={stats.coachesApproved} color="#16a34a" />
+              <StatTile title="Pending Coaches" value={stats.coachesPending} color="#f59e0b" />
+
+              <StatTile title="Approved Referees" value={stats.refsApproved} color="#16a34a" />
+              <StatTile title="Pending Referees" value={stats.refsPending} color="#f59e0b" />
+
+              <StatTile title="Scheduled Games" value={stats.scheduledGames} />
+              <StatTile title="Matchups" value={stats.matchups} />
+
             </div>
           </>
         )}
@@ -151,10 +143,7 @@ export default function Dashboard({
         {adminPage === "fields" && <FieldManager />}
         {adminPage === "coaches" && <CoachManager />}
         {adminPage === "referees" && <RefereeManager />}
-        
-        {/* 🔥 ADDED REPORTS PAGE */}
         {adminPage === "reports" && <ReportsPage />}
-
         {adminPage === "settings" && <AdminSettings />}
 
       </div>
@@ -162,40 +151,62 @@ export default function Dashboard({
   );
 }
 
-/* ================= TILE ================= */
+/* ================= COMPONENTS ================= */
 
-function StatTile({ title, value }) {
+function NavBtn({ active, onClick, label }) {
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        borderRadius: 16,
-        padding: 20,
-        boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center"
-      }}
-    >
+    <button onClick={onClick} style={{
+      padding: "12px",
+      borderRadius: 10,
+      border: "none",
+      background: active ? "#2f6ea6" : "transparent",
+      color: active ? "#fff" : "#0f172a",
+      textAlign: "left",
+      cursor: "pointer",
+      fontWeight: active ? "600" : "500"
+    }}>
+      {label}
+    </button>
+  );
+}
+
+function StatTile({ title, value, color = "#2f6ea6" }) {
+  return (
+    <div style={{
+      background: "#ffffff",
+      borderRadius: 16,
+      padding: 20,
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+    }}>
       <div style={{ fontSize: 14, color: "#64748b" }}>{title}</div>
-      <div style={{ fontSize: 28, fontWeight: "700", marginTop: 5 }}>
+      <div style={{ fontSize: 28, fontWeight: "700", marginTop: 5, color }}>
         {value}
       </div>
     </div>
   );
 }
 
-/* ================= NAV BUTTON ================= */
+/* ================= STYLES ================= */
 
-function navBtn(active = false) {
-  return {
-    padding: "12px",
-    borderRadius: 10,
-    border: "none",
-    background: active ? "#2f6ea6" : "transparent",
-    color: active ? "#fff" : "#0f172a",
-    textAlign: "left",
-    cursor: "pointer",
-    fontWeight: active ? "600" : "500",
-  };
-}
+const sidebar = {
+  width: 220,
+  background: "#ffffff",
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 15,
+  borderRight: "1px solid #e5e7eb",
+};
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 20,
+  marginTop: 25
+};
+
+const settingsHeader = {
+  marginTop: 20,
+  fontSize: 12,
+  color: "#94a3b8"
+};
