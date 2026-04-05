@@ -45,7 +45,7 @@ export default function ScheduleManager() {
     const { data: f } = await supabase
       .from("fields")
       .select("*")
-      .in("type", ["game", "k-1"]) // ✅ INCLUDE K-1
+      .in("type", ["game", "k-1"])
       .order("field_number");
 
     const { data: m } = await supabase.from("matchups").select("*");
@@ -133,8 +133,6 @@ export default function ScheduleManager() {
     };
   };
 
-  /* ================= SORT TIMES ================= */
-
   const sortTimes = (times) => {
     const toMinutes = (t) => {
       const [time, modifier] = t.split(" ");
@@ -156,9 +154,12 @@ export default function ScheduleManager() {
 
       <h1>Schedule Manager</h1>
 
-      <button style={btn} onClick={generateSchedule}>
-        Generate Schedule
-      </button>
+      {/* ✅ SHOW ONLY WHEN EMPTY */}
+      {schedule.length === 0 && (
+        <button style={btn} onClick={generateSchedule}>
+          Generate Schedule
+        </button>
+      )}
 
       {/* ================= SCHEDULE ================= */}
 
