@@ -71,7 +71,7 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= OVERLAY ================= */
+  /* ================= TEAM MANAGER ================= */
 
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
@@ -124,7 +124,7 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* PLAYERS TILE */}
+        {/* PLAYERS */}
         <div style={playersTile}>
           <h3>Players</h3>
 
@@ -174,7 +174,7 @@ export default function TeamsPage() {
     );
   }
 
-  /* ================= MAIN VIEW ================= */
+  /* ================= MAIN ================= */
 
   return (
     <div>
@@ -290,4 +290,79 @@ const playersTile = {
   borderRadius: 12,
   padding: 15,
   boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const playerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: "6px 0"
+};
+
+const smallBtn = {
+  padding: "6px 10px",
+  borderRadius: 6,
+  border: "1px solid #e2e8f0"
+};
+
+const section = { marginTop: 20 };
+
+const closeBtn = {
+  position: "absolute",
+  top: 0,
+  right: 0,
+  border: "none",
+  background: "transparent",
+  fontSize: 16,
+  cursor: "pointer"
+};
+
+/* 🔥 FIXED MISSING STYLES */
+
+const headerBar = { marginBottom: 15 };
+
+const backBtn = {
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  cursor: "pointer"
+};
+
+const teamHero = {
+  display: "flex",
+  alignItems: "center",
+  gap: 20,
+  marginBottom: 25
+};
+
+const divisionBadge = {
+  marginTop: 5,
+  padding: "4px 10px",
+  borderRadius: 8,
+  background: "#e2e8f0",
+  fontSize: 13
+};
+
+const coachGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 15,
+  marginBottom: 25
+};
+
+const coachCard = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const coachLabel = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+const coachName = {
+  fontSize: 18,
+  fontWeight: "600",
+  marginTop: 5
 };
