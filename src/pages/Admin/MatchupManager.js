@@ -82,36 +82,50 @@ export default function MatchupManager() {
     setMatchups(data || []);
   };
 
+  /* ================= GENERATE MATCHUPS ================= */
+
   const generateMatchups = async () => {
     if (teams.length < 2) return alert("Not enough teams");
 
-    await supabase
-      .from("matchups")
-      .delete()
-      .eq("division", selectedDivision);
+    await supabase.from("matchups").delete().eq("division", selectedDivision);
 
     let list = [...teams];
 
-    if (list.length % 2 !== 0) {
-      list.push({ id: "bye" });
+    const isOdd = list.length % 2 !== 0;
+
+    if (isOdd) {
+      list.push({ id: "ghost" }); // placeholder
     }
 
-    const totalTeams = list.length;
-    const rounds = totalTeams - 1;
+    const total = list.length;
+    const rounds = total - 1;
 
     let schedule = [];
 
     for (let round = 0; round < rounds; round++) {
       let weekGames = [];
+      let used = new Set();
 
-      for (let i = 0; i < totalTeams / 2; i++) {
+      for (let i = 0; i < total / 2; i++) {
         const home = list[i];
-        const away = list[totalTeams - 1 - i];
+        const away = list[total - 1 - i];
 
-        if (home.id !== "bye" && away.id !== "bye") {
+        if (home.id !== "ghost" && away.id !== "ghost") {
+          weekGames.push({ home_team_id: home.id, away_team_id: away.id });
+          used.add(home.id);
+          used.add(away.id);
+        }
+      }
+
+      // 🔥 HANDLE ODD TEAM → DOUBLE GAME
+      if (isOdd) {
+        const missing = teams.find(t => !used.has(t.id));
+
+        if (missing) {
+          const opponent = teams.find(t => t.id !== missing.id);
           weekGames.push({
-            home_team_id: home.id,
-            away_team_id: away.id
+            home_team_id: missing.id,
+            away_team_id: opponent.id
           });
         }
       }
@@ -127,13 +141,13 @@ export default function MatchupManager() {
     for (let i = 0; i < 8; i++) {
       const weekGames = schedule[i % schedule.length];
 
-      weekGames.forEach(game => {
+      weekGames.forEach(g => {
         finalSchedule.push({
           season_year: 2026,
           week: i + 1,
           division: selectedDivision,
-          home_team_id: game.home_team_id,
-          away_team_id: game.away_team_id
+          home_team_id: g.home_team_id,
+          away_team_id: g.away_team_id
         });
       });
     }
@@ -148,11 +162,10 @@ export default function MatchupManager() {
     }
   };
 
-  const getTeamDisplay = (teamId) => {
-    const team = teams.find(t => t.id === teamId);
-    if (!team) return null;
-
-    const nfl = nflTeams.find(n => n.id === team.nfl_team_id);
+  const getTeamDisplay = (id) => {
+    const t = teams.find(x => x.id === id);
+    if (!t) return null;
+    const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
     return {
       name: nfl?.full_name,
@@ -170,13 +183,15 @@ export default function MatchupManager() {
         {divisions.map(d => (
           <div
             key={d}
-            style={tile(selectedDivision === d)}
+            style={divisionTile(selectedDivision === d)}
             onClick={() => setSelectedDivision(d)}
           >
             {d}
           </div>
         ))}
       </div>
+
+      <div style={divisionLabel}>Select Division</div>
 
       {selectedDivision && (
         <>
@@ -185,7 +200,6 @@ export default function MatchupManager() {
           <div style={grid}>
             {teams.map(t => {
               const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
-
               return (
                 <div key={t.id} style={card}>
                   <img src={teamLogos[nfl?.short_name]} width={50}/>
@@ -201,14 +215,10 @@ export default function MatchupManager() {
             </button>
           ) : (
             <div style={{ marginTop: 25 }}>
-              
               {[...new Set(matchups.map(m => m.week))].map(week => (
                 <div key={week} style={weekBlock}>
 
-                  {/* 🔥 BIG CENTERED WEEK TITLE */}
-                  <div style={weekHeader}>
-                    WEEK {week}
-                  </div>
+                  <div style={weekHeader}>WEEK {week}</div>
 
                   <div style={matchGrid}>
                     {matchups
@@ -219,7 +229,6 @@ export default function MatchupManager() {
 
                         return (
                           <div key={m.id} style={matchCard}>
-
                             <div style={teamColumn}>
                               <div style={label}>HOME</div>
                               <img src={home?.logo} style={logo}/>
@@ -233,7 +242,6 @@ export default function MatchupManager() {
                               <img src={away?.logo} style={logo}/>
                               <div>{away?.name}</div>
                             </div>
-
                           </div>
                         );
                       })}
@@ -241,7 +249,6 @@ export default function MatchupManager() {
 
                 </div>
               ))}
-
             </div>
           )}
         </>
@@ -255,9 +262,28 @@ export default function MatchupManager() {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-  gap: 15,
+  gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+  gap: 18,
   marginTop: 15
+};
+
+const divisionTile = (active) => ({
+  background: active ? "#2f6ea6" : "#fff",
+  color: active ? "#fff" : "#0f172a",
+  borderRadius: 18,
+  padding: "20px",
+  textAlign: "center",
+  fontSize: 17,
+  fontWeight: "600",
+  cursor: "pointer",
+  boxShadow: "0 8px 20px rgba(0,0,0,0.08)"
+});
+
+const divisionLabel = {
+  textAlign: "center",
+  marginTop: 10,
+  fontSize: 13,
+  color: "#94a3b8"
 };
 
 const matchGrid = {
@@ -267,23 +293,19 @@ const matchGrid = {
   marginTop: 15
 };
 
-/* 🔥 GLASS CARD (ON TOP OF SOLID BASE) */
 const matchCard = {
   background: "rgba(255,255,255,0.2)",
   backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
   borderRadius: 14,
   padding: 12,
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  border: "1px solid rgba(255,255,255,0.25)",
-  boxShadow: "0 8px 20px rgba(0,0,0,0.08)"
+  border: "1px solid rgba(255,255,255,0.25)"
 };
 
-/* 🔥 BASE TILE BACK + GLASS FEEL */
 const weekBlock = {
-  background: "#ffffff",
+  background: "#fff",
   padding: 20,
   borderRadius: 18,
   marginBottom: 25,
@@ -294,43 +316,21 @@ const weekHeader = {
   textAlign: "center",
   fontSize: 22,
   fontWeight: "700",
-  marginBottom: 10,
-  letterSpacing: "1px"
+  marginBottom: 10
 };
 
 const teamColumn = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  width: "40%",
-  textAlign: "center"
+  width: "40%"
 };
 
-const logo = {
-  width: 35,
-  height: 35,
-  objectFit: "contain",
-  margin: "4px 0"
-};
+const logo = { width: 35, height: 35 };
 
-const label = {
-  fontSize: 10,
-  color: "#94a3b8"
-};
+const label = { fontSize: 10, color: "#94a3b8" };
 
-const vs = {
-  fontWeight: "700",
-  fontSize: 14
-};
-
-const tile = (active) => ({
-  background: active ? "#2f6ea6" : "#fff",
-  color: active ? "#fff" : "#000",
-  borderRadius: 12,
-  padding: 12,
-  textAlign: "center",
-  cursor: "pointer"
-});
+const vs = { fontWeight: "700" };
 
 const card = {
   background: "#fff",
@@ -345,6 +345,5 @@ const btn = {
   background: "#2f6ea6",
   color: "#fff",
   border: "none",
-  borderRadius: 10,
-  cursor: "pointer"
+  borderRadius: 10
 };
