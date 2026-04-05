@@ -94,14 +94,15 @@ export default function PlayerManager() {
 
       {/* TILE */}
       <div style={tileWrapper}>
+
         {/* HEADER */}
         <div style={headerRow}>
-          <div style={{ width: 160 }}>Name</div>
+          <div style={{ width: 180 }}>Name</div>
           <div style={{ width: 60 }}>Age</div>
-          <div style={{ width: 140 }}>Division</div>
+          <div style={{ width: 160 }}>Division</div>
           <div style={{ width: 120 }}>Shirt</div>
           <div style={{ width: 140 }}>Payment</div>
-          <div style={{ flex: 1 }}>Team</div>
+          <div style={{ width: 200 }}>Team</div>
         </div>
 
         {/* LIST */}
@@ -122,23 +123,29 @@ export default function PlayerManager() {
             return (
               <div key={p.id} style={row}>
                 {/* NAME */}
-                <div style={{ width: 160 }}>
+                <div style={{ width: 180 }}>
                   {p.first_name} {p.last_name}
                 </div>
 
-                {/* AGE (READ ONLY) */}
+                {/* AGE */}
                 <div style={{ width: 60 }}>{p.age}</div>
 
-                {/* DIVISION */}
-                <div style={{ width: 140 }}>
+                {/* DIVISION (FIXED) */}
+                <div style={{ width: 160 }}>
                   <select
                     value={p.division || ""}
                     onChange={(e) =>
                       updatePlayer(p.id, "division", e.target.value)
                     }
-                    style={inputAligned}
+                    style={input}
                   >
+                    {/* Current value always visible */}
+                    {!divisions.find(d => d.name === p.division) && p.division && (
+                      <option value={p.division}>{p.division}</option>
+                    )}
+
                     <option value="">Select</option>
+
                     {divisions.map((d) => (
                       <option key={d.id} value={d.name}>
                         {d.name}
@@ -154,7 +161,7 @@ export default function PlayerManager() {
                     onChange={(e) =>
                       updatePlayer(p.id, "shirt_size", e.target.value)
                     }
-                    style={inputAligned}
+                    style={input}
                   >
                     <option value="">-</option>
                     <option value="YS">YS</option>
@@ -178,7 +185,7 @@ export default function PlayerManager() {
                       )
                     }
                     style={{
-                      ...inputAligned,
+                      ...input,
                       background:
                         p.payment_status === "paid"
                           ? "#dcfce7"
@@ -194,13 +201,13 @@ export default function PlayerManager() {
                 </div>
 
                 {/* TEAM */}
-                <div style={{ flex: 1, maxWidth: 220 }}>
+                <div style={{ width: 200 }}>
                   <select
                     value={p.team_id || ""}
                     onChange={(e) =>
                       updatePlayer(p.id, "team_id", e.target.value)
                     }
-                    style={inputAligned}
+                    style={input}
                   >
                     <option value="">Unassigned</option>
 
@@ -238,18 +245,19 @@ const headerRow = {
   display: "flex",
   fontSize: 12,
   color: "#64748b",
-  marginBottom: 8
+  marginBottom: 8,
+  alignItems: "center"
 };
 
 const row = {
   display: "flex",
   alignItems: "center",
   gap: 10,
-  padding: "10px 0",
+  padding: "8px 0",
   borderBottom: "1px solid #f1f5f9"
 };
 
-const inputAligned = {
+const input = {
   width: "100%",
   height: 32,
   padding: "4px 8px",
