@@ -12,7 +12,7 @@ import CoachManager from "./CoachManager";
 import MatchupManager from "./MatchupManager";
 import RefereeManager from "./RefereeManager";
 
-// ✅ NEW FIELD MANAGER
+// ✅ FIELD MANAGER
 import FieldManager from "./FieldManager";
 
 // ✅ SETTINGS PAGE
@@ -76,8 +76,14 @@ export default function Dashboard({
           Player Manager
         </button>
 
+        {/* ✅ MATCHUPS */}
         <button style={navBtn(adminPage === "matchups")} onClick={() => setAdminPage("matchups")}>
           Matchup Manager
+        </button>
+
+        {/* ✅ FIELD MANAGER (MOVED HERE) */}
+        <button style={navBtn(adminPage === "fields")} onClick={() => setAdminPage("fields")}>
+          Field Manager
         </button>
 
         <button style={navBtn(adminPage === "schedule")} onClick={() => setAdminPage("schedule")}>
@@ -94,11 +100,6 @@ export default function Dashboard({
 
         <button style={navBtn(adminPage === "referees")} onClick={() => setAdminPage("referees")}>
           Referee Manager
-        </button>
-
-        {/* ✅ NEW FIELD MANAGER */}
-        <button style={navBtn(adminPage === "fields")} onClick={() => setAdminPage("fields")}>
-          Field Manager
         </button>
 
         <button style={navBtn(false)}>Reports</button>
@@ -142,9 +143,9 @@ export default function Dashboard({
         {adminPage === "schedule" && <ScheduleManager />}
         {adminPage === "games" && <GameManager />}
         {adminPage === "matchups" && <MatchupManager />}
+        {adminPage === "fields" && <FieldManager />}
         {adminPage === "coaches" && <CoachManager />}
         {adminPage === "referees" && <RefereeManager />}
-        {adminPage === "fields" && <FieldManager />}
         {adminPage === "settings" && <AdminSettings />}
 
       </div>
