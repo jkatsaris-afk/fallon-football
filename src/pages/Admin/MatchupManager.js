@@ -44,6 +44,8 @@ export default function MatchupManager() {
     }
   }, [selectedDivision]);
 
+  /* ================= LOAD DIVISIONS ================= */
+
   const loadDivisions = async () => {
     const { data } = await supabase.from("teams").select("division");
 
@@ -58,10 +60,14 @@ export default function MatchupManager() {
     setDivisions(unique);
   };
 
+  /* ================= LOAD NFL TEAMS ================= */
+
   const loadNFLTeams = async () => {
     const { data } = await supabase.from("nfl_teams").select("*");
     setNflTeams(data || []);
   };
+
+  /* ================= LOAD TEAMS ================= */
 
   const loadTeams = async () => {
     const { data } = await supabase
@@ -72,6 +78,8 @@ export default function MatchupManager() {
     setTeams(data || []);
   };
 
+  /* ================= LOAD MATCHUPS ================= */
+
   const loadMatchups = async () => {
     const { data } = await supabase
       .from("matchups")
@@ -81,6 +89,8 @@ export default function MatchupManager() {
 
     setMatchups(data || []);
   };
+
+  /* ================= GENERATE MATCHUPS ================= */
 
   const generateMatchups = async () => {
     if (teams.length < 2) return alert("Not enough teams");
@@ -150,6 +160,8 @@ export default function MatchupManager() {
     }
   };
 
+  /* ================= HELPERS ================= */
+
   const getTeamDisplay = (teamId) => {
     const team = teams.find(t => t.id === teamId);
     if (!team) return null;
@@ -161,6 +173,8 @@ export default function MatchupManager() {
       logo: teamLogos[nfl?.short_name]
     };
   };
+
+  /* ================= UI ================= */
 
   return (
     <div style={{ paddingBottom: 50 }}>
@@ -266,13 +280,16 @@ const matchGrid = {
 };
 
 const matchCard = {
-  background: "#fff",
-  borderRadius: 12,
+  background: "rgba(255, 255, 255, 0.2)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  borderRadius: 14,
   padding: 12,
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
+  border: "1px solid rgba(255,255,255,0.25)",
+  boxShadow: "0 8px 20px rgba(0,0,0,0.08)"
 };
 
 const teamColumn = {
@@ -327,8 +344,11 @@ const btn = {
 };
 
 const weekBlock = {
-  background: "#fff",
-  padding: 15,
-  borderRadius: 12,
-  marginBottom: 15
+  background: "rgba(255,255,255,0.25)",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
+  padding: 18,
+  borderRadius: 16,
+  marginBottom: 20,
+  border: "1px solid rgba(255,255,255,0.2)"
 };
