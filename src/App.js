@@ -42,12 +42,20 @@ export default function App() {
 
   return (
     <>
+      {/* 🔐 ADMIN LOGIN */}
       {page === "adminLogin" && (
         <LoginModal />
       )}
 
+      {/* 🛠 ADMIN DASHBOARD */}
       {page === "dashboard" && (
-        <div style={{ width: "100vw", height: "100vh", background: "#f8fafc" }}>
+        <div
+          style={{
+            width: "100vw",
+            height: "100vh",
+            background: "#f8fafc",
+          }}
+        >
           <Dashboard
             adminPage={adminPage}
             setAdminPage={setAdminPage}
@@ -55,6 +63,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 🌐 PUBLIC APP */}
       {page !== "dashboard" && page !== "adminLogin" && (
         <div className="app">
 
@@ -93,6 +102,29 @@ export default function App() {
               onClick={() => setPage("scoreboard")}
             >
               Scores
+            </button>
+
+            {/* 🔥 SIGNUPS BACK */}
+
+            <button
+              className={`nav-btn ${page === "signup" ? "active" : ""}`}
+              onClick={() => setPage("signup")}
+            >
+              Sign Up
+            </button>
+
+            <button
+              className={`nav-btn ${page === "coachSignup" ? "active" : ""}`}
+              onClick={() => setPage("coachSignup")}
+            >
+              Coach
+            </button>
+
+            <button
+              className={`nav-btn ${page === "refSignup" ? "active" : ""}`}
+              onClick={() => setPage("refSignup")}
+            >
+              Ref
             </button>
 
           </div>
