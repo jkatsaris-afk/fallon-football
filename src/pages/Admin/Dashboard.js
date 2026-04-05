@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
-import ScoreboardManager from "./ScoreboardManager";
-import GameSelector from "./GameSelector";
+
+// ✅ UPDATED IMPORTS
+import GameManager from "./GameManager";
+import ScheduleManager from "./ScheduleManager";
 import TeamsPage from "./TeamsPage";
+import PlayerManager from "./PlayerManager";
 
 // ✅ SETTINGS PAGE
 import AdminSettings from "./AdminSettings";
@@ -61,28 +64,36 @@ export default function Dashboard({
         </button>
 
         <button
-          style={navBtn(adminPage === "scoreManager")}
-          onClick={() => setAdminPage("scoreManager")}
-        >
-          Scoreboard Manager
-        </button>
-
-        <button
-          style={navBtn(adminPage === "gameSelector")}
-          onClick={() => setAdminPage("gameSelector")}
-        >
-          Game Selector
-        </button>
-
-        {/* ✅ ONLY CHANGE HERE */}
-        <button
           style={navBtn(adminPage === "teams")}
           onClick={() => setAdminPage("teams")}
         >
-          Teams Manager
+          Team Manager
         </button>
 
-        <button style={navBtn(false)}>Schedule</button>
+        {/* ✅ NEW */}
+        <button
+          style={navBtn(adminPage === "players")}
+          onClick={() => setAdminPage("players")}
+        >
+          Player Manager
+        </button>
+
+        {/* ✅ RENAMED */}
+        <button
+          style={navBtn(adminPage === "schedule")}
+          onClick={() => setAdminPage("schedule")}
+        >
+          Schedule Manager
+        </button>
+
+        {/* ✅ RENAMED */}
+        <button
+          style={navBtn(adminPage === "games")}
+          onClick={() => setAdminPage("games")}
+        >
+          Game Manager
+        </button>
+
         <button style={navBtn(false)}>Reports</button>
 
         {/* ================= SETTINGS SECTION ================= */}
@@ -122,9 +133,10 @@ export default function Dashboard({
           </>
         )}
 
-        {adminPage === "scoreManager" && <ScoreboardManager />}
-        {adminPage === "gameSelector" && <GameSelector />}
         {adminPage === "teams" && <TeamsPage />}
+        {adminPage === "players" && <PlayerManager />}
+        {adminPage === "schedule" && <ScheduleManager />}
+        {adminPage === "games" && <GameManager />}
         {adminPage === "settings" && <AdminSettings />}
 
       </div>
