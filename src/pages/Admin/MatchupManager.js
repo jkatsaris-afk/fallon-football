@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-/* ================= LOGOS (MATCH TEAMS PAGE) ================= */
+/* ================= LOGOS ================= */
 
 import bills from "../../resources/Buffalo Bills.png";
 import bengals from "../../resources/Cincinnati Bengals.png";
@@ -27,6 +27,7 @@ const teamLogos = {
 export default function MatchupManager() {
   const [divisions, setDivisions] = useState([]);
   const [selectedDivision, setSelectedDivision] = useState(null);
+
   const [teams, setTeams] = useState([]);
   const [nflTeams, setNflTeams] = useState([]);
   const [matchups, setMatchups] = useState([]);
@@ -48,9 +49,7 @@ export default function MatchupManager() {
   const loadDivisions = async () => {
     const { data } = await supabase.from("teams").select("division");
 
-    let unique = [
-      ...new Set(data.map(t => t.division).filter(Boolean))
-    ];
+    let unique = [...new Set(data.map(t => t.division).filter(Boolean))];
 
     // ✅ FORCE K-1 FIRST
     unique = unique.sort((a, b) => {
@@ -97,7 +96,7 @@ export default function MatchupManager() {
   const generateMatchups = async () => {
     if (teams.length < 2) return alert("Not enough teams");
 
-    // 🔥 DELETE OLD FIRST
+    // delete old
     await supabase
       .from("matchups")
       .delete()
@@ -117,8 +116,8 @@ export default function MatchupManager() {
           season_year: 2026,
           week,
           division: selectedDivision,
-          home_team: list[i].name,
-          away_team: list[list.length - 1 - i].name
+          home_team_id: list[i].id,
+          away_team_id: list[list.length - 1 - i].id
         });
       }
 
@@ -127,9 +126,28 @@ export default function MatchupManager() {
       list.splice(1, 0, last);
     }
 
-    await supabase.from("matchups").insert(newMatchups);
+    const { error } = await supabase.from("matchups").insert(newMatchups);
 
-    loadMatchups();
+    if (error) {
+      console.error("INSERT ERROR:", error);
+      alert(error.message);
+    } else {
+      loadMatchups();
+    }
+  };
+
+  /* ================= HELPERS ================= */
+
+  const getTeamDisplay = (teamId) => {
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return null;
+
+    const nfl = nflTeams.find(n => n.id === team.nfl_team_id);
+
+    return {
+      name: nfl?.full_name,
+      logo: teamLogos[nfl?.short_name]
+    };
   };
 
   /* ================= UI ================= */
@@ -163,10 +181,7 @@ export default function MatchupManager() {
 
               return (
                 <div key={t.id} style={card}>
-                  <img
-                    src={teamLogos[nfl?.short_name]}
-                    width={50}
-                  />
+                  <img src={teamLogos[nfl?.short_name]} width={50}/>
                   <div>{nfl?.full_name}</div>
                 </div>
               );
@@ -183,9 +198,29 @@ export default function MatchupManager() {
             <div style={{ marginTop: 20 }}>
               <h3>Matchups</h3>
 
-              {matchups.map(m => (
-                <div key={m.id} style={matchRow}>
-                  Week {m.week}: {m.home_team} vs {m.away_team}
+              {/* GROUP BY WEEK */}
+              {[...new Set(matchups.map(m => m.week))].map(week => (
+                <div key={week} style={weekBlock}>
+                  <h4>Week {week}</h4>
+
+                  {matchups
+                    .filter(m => m.week === week)
+                    .map(m => {
+                      const home = getTeamDisplay(m.home_team_id);
+                      const away = getTeamDisplay(m.away_team_id);
+
+                      return (
+                        <div key={m.id} style={matchRow}>
+                          <img src={home?.logo} width={30}/>
+                          {home?.name}
+
+                          <span style={{ margin: "0 10px" }}>vs</span>
+
+                          {away?.name}
+                          <img src={away?.logo} width={30}/>
+                        </div>
+                      );
+                    })}
                 </div>
               ))}
             </div>
@@ -232,9 +267,17 @@ const btn = {
   cursor: "pointer"
 };
 
-const matchRow = {
+const weekBlock = {
   background: "#fff",
-  padding: 10,
-  borderRadius: 8,
-  marginBottom: 6
+  padding: 15,
+  borderRadius: 12,
+  marginBottom: 15
+};
+
+const matchRow = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 10,
+  padding: 8
 };
