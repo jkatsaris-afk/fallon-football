@@ -41,6 +41,7 @@ export default function ScheduleManager() {
 
   const loadAll = async () => {
     const { data: s } = await supabase.from(TABLE).select("*");
+
     const { data: f } = await supabase
       .from("fields")
       .select("*")
@@ -127,8 +128,7 @@ export default function ScheduleManager() {
     }
 
     alert("Schedule Generated ✅");
-
-    await loadAll(); // 🔥 KEY FIX
+    await loadAll();
   };
 
   /* ================= HELPERS ================= */
@@ -251,3 +251,85 @@ export default function ScheduleManager() {
     </div>
   );
 }
+
+/* ================= STYLES ================= */
+
+const btn = {
+  marginTop: 10,
+  padding: "12px 18px",
+  background: "#2f6ea6",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10,
+  cursor: "pointer",
+  fontWeight: "600"
+};
+
+const weekBlock = {
+  marginTop: 25,
+  background: "#fff",
+  padding: 20,
+  borderRadius: 12
+};
+
+const weekHeader = {
+  textAlign: "center",
+  marginBottom: 15
+};
+
+const grid = {
+  display: "grid",
+  gap: 6,
+  marginBottom: 6
+};
+
+const fieldHeader = (type) => ({
+  textAlign: "center",
+  fontWeight: "600",
+  color: type === "k-1" ? "#16a34a" : "#000"
+});
+
+const timeCell = {
+  fontWeight: "600"
+};
+
+const cell = {
+  border: "1px solid #ddd",
+  borderRadius: 6,
+  padding: 5,
+  minHeight: 80
+};
+
+const tile = {
+  background: "#f8fafc",
+  borderRadius: 8,
+  padding: 6,
+  textAlign: "center"
+};
+
+const division = {
+  fontSize: 10,
+  color: "#64748b"
+};
+
+const teamsRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center"
+};
+
+const team = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  width: "40%"
+};
+
+const logo = {
+  width: 26,
+  height: 26
+};
+
+const vs = {
+  fontWeight: "700"
+};
