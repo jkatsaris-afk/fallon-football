@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ✅ FIXED PATH
-import fallonLogo from "../../resources/fallon-flag.png";
+// ✅ CORRECT FILE + PATH
+import fallonLogo from "../../resources/logo.png";
 
 // IMPORTS
 import GameManager from "./GameManager";
@@ -118,7 +118,6 @@ export default function Dashboard({
 
       {/* ================= CONTENT ================= */}
       <div style={{ flex: 1, padding: 25, overflow: "auto" }}>
-
         {adminPage === "dashboard" && (
           <>
             <h1>Dashboard</h1>
@@ -129,13 +128,10 @@ export default function Dashboard({
             <div style={grid}>
               <StatTile title="Players" value={stats.players} />
               <StatTile title="Games" value={stats.games} />
-
               <StatTile title="Approved Coaches" value={stats.coachesApproved} color="#16a34a" />
               <StatTile title="Pending Coaches" value={stats.coachesPending} color="#f59e0b" />
-
               <StatTile title="Approved Referees" value={stats.refsApproved} color="#16a34a" />
               <StatTile title="Pending Referees" value={stats.refsPending} color="#f59e0b" />
-
               <StatTile title="Scheduled Games" value={stats.scheduledGames} />
               <StatTile title="Matchups" value={stats.matchups} />
             </div>
@@ -152,7 +148,6 @@ export default function Dashboard({
         {adminPage === "referees" && <RefereeManager />}
         {adminPage === "reports" && <ReportsPage />}
         {adminPage === "settings" && <AdminSettings />}
-
       </div>
     </div>
   );
