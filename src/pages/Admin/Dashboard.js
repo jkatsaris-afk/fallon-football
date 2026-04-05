@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ✅ EXISTING IMPORTS
+// EXISTING IMPORTS
 import GameManager from "./GameManager";
 import ScheduleManager from "./ScheduleManager";
 import TeamsPage from "./TeamsPage";
 import PlayerManager from "./PlayerManager";
 
-// ✅ EXISTING NEW IMPORTS
+// NEW IMPORTS
 import CoachManager from "./CoachManager";
 import MatchupManager from "./MatchupManager";
 import RefereeManager from "./RefereeManager";
-
-// ✅ FIELD MANAGER
 import FieldManager from "./FieldManager";
 
-// ✅ SETTINGS PAGE
+// 🔥 ADD THIS
+import ReportsPage from "./ReportsPage";
+
+// SETTINGS
 import AdminSettings from "./AdminSettings";
 
 export default function Dashboard({
@@ -76,12 +77,10 @@ export default function Dashboard({
           Player Manager
         </button>
 
-        {/* MATCHUPS */}
         <button style={navBtn(adminPage === "matchups")} onClick={() => setAdminPage("matchups")}>
           Matchup Manager
         </button>
 
-        {/* FIELD MANAGER */}
         <button style={navBtn(adminPage === "fields")} onClick={() => setAdminPage("fields")}>
           Field Manager
         </button>
@@ -102,7 +101,13 @@ export default function Dashboard({
           Referee Manager
         </button>
 
-        <button style={navBtn(false)}>Reports</button>
+        {/* 🔥 FIXED REPORTS BUTTON */}
+        <button
+          style={navBtn(adminPage === "reports")}
+          onClick={() => setAdminPage("reports")}
+        >
+          Reports
+        </button>
 
         {/* SETTINGS */}
         <div style={{ marginTop: 20, fontSize: 12, color: "#94a3b8" }}>
@@ -146,6 +151,10 @@ export default function Dashboard({
         {adminPage === "fields" && <FieldManager />}
         {adminPage === "coaches" && <CoachManager />}
         {adminPage === "referees" && <RefereeManager />}
+        
+        {/* 🔥 ADDED REPORTS PAGE */}
+        {adminPage === "reports" && <ReportsPage />}
+
         {adminPage === "settings" && <AdminSettings />}
 
       </div>
