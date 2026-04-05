@@ -7,6 +7,7 @@ import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import SignUpPage from "./pages/Public/SignUpPage";
 import CoachSignUpPage from "./pages/Public/CoachSignUpPage";
 import RefSignUpPage from "./pages/Public/RefSignUpPage";
+import SignUpSelectPage from "./pages/Public/SignUpSelectPage"; // ✅ NEW
 
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
@@ -25,7 +26,7 @@ export default function App() {
       checkAdmin();
     }
 
-    if (path.includes("/sign-up")) setPage("signup");
+    if (path.includes("/signup")) setPage("signupSelect"); // ✅ UPDATED
     if (path.includes("/coach-signup")) setPage("coachSignup");
     if (path.includes("/ref-signup")) setPage("refSignup");
   }, []);
@@ -76,6 +77,9 @@ export default function App() {
           {page === "home" && <HomePage setPage={setPage} />}
           {page === "schedule" && <SchedulePage />}
           {page === "scoreboard" && <ScoreboardPage />}
+
+          {/* ✅ NEW FLOW */}
+          {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />}
           {page === "signup" && <SignUpPage />}
           {page === "coachSignup" && <CoachSignUpPage />}
           {page === "refSignup" && <RefSignUpPage />}
@@ -104,27 +108,12 @@ export default function App() {
               Scores
             </button>
 
-            {/* 🔥 SIGNUPS BACK */}
-
+            {/* 🔥 SINGLE SIGNUP BUTTON */}
             <button
-              className={`nav-btn ${page === "signup" ? "active" : ""}`}
-              onClick={() => setPage("signup")}
+              className={`nav-btn ${page === "signupSelect" ? "active" : ""}`}
+              onClick={() => setPage("signupSelect")}
             >
               Sign Up
-            </button>
-
-            <button
-              className={`nav-btn ${page === "coachSignup" ? "active" : ""}`}
-              onClick={() => setPage("coachSignup")}
-            >
-              Coach
-            </button>
-
-            <button
-              className={`nav-btn ${page === "refSignup" ? "active" : ""}`}
-              onClick={() => setPage("refSignup")}
-            >
-              Ref
             </button>
 
           </div>
