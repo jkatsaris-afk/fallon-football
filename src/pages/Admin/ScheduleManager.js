@@ -41,10 +41,11 @@ export default function ScheduleManager() {
 
   const loadAll = async () => {
     const { data: s } = await supabase.from(TABLE).select("*");
+
     const { data: f } = await supabase
       .from("fields")
       .select("*")
-      .eq("type", "game") // ONLY game fields in grid
+      .in("type", ["game", "k-1"]) // ✅ INCLUDE K-1
       .order("field_number");
 
     const { data: m } = await supabase.from("matchups").select("*");
@@ -65,12 +66,6 @@ export default function ScheduleManager() {
     const { data: fields } = await supabase.from("fields").select("*");
     const { data: timeSlots } = await supabase.from("field_time_slots").select("*");
 
-    if (!matchups || !fields || !timeSlots) {
-      alert("Missing data");
-      return;
-    }
-
-    // SAFE DELETE
     await supabase
       .from(TABLE)
       .delete()
@@ -115,15 +110,8 @@ export default function ScheduleManager() {
       });
     });
 
-    const { error } = await supabase.from(TABLE).insert(insert);
-
-    if (error) {
-      console.error(error);
-      alert("Error generating schedule");
-    } else {
-      loadAll();
-      alert("Schedule Generated");
-    }
+    await supabase.from(TABLE).insert(insert);
+    loadAll();
   };
 
   /* ================= HELPERS ================= */
@@ -145,6 +133,22 @@ export default function ScheduleManager() {
     };
   };
 
+  /* ================= SORT TIMES ================= */
+
+  const sortTimes = (times) => {
+    const toMinutes = (t) => {
+      const [time, modifier] = t.split(" ");
+      let [hours, minutes] = time.split(":").map(Number);
+
+      if (modifier === "PM" && hours !== 12) hours += 12;
+      if (modifier === "AM" && hours === 12) hours = 0;
+
+      return hours * 60 + minutes;
+    };
+
+    return times.sort((a, b) => toMinutes(a) - toMinutes(b));
+  };
+
   const weeks = [...new Set(schedule.map(s => s.week))];
 
   return (
@@ -152,7 +156,6 @@ export default function ScheduleManager() {
 
       <h1>Schedule Manager</h1>
 
-      {/* GENERATE BUTTON */}
       <button style={btn} onClick={generateSchedule}>
         Generate Schedule
       </button>
@@ -161,7 +164,10 @@ export default function ScheduleManager() {
 
       {weeks.map(week => {
         const weekGames = schedule.filter(s => s.week === week);
-        const times = [...new Set(weekGames.map(g => g.time))];
+
+        const times = sortTimes([
+          ...new Set(weekGames.map(g => g.time))
+        ]);
 
         return (
           <div key={week} style={weekBlock}>
@@ -169,11 +175,14 @@ export default function ScheduleManager() {
             <h2 style={weekHeader}>Week {week}</h2>
 
             {/* HEADER */}
-            <div style={headerRow}>
-              <div style={timeHeader}></div>
+            <div style={{
+              ...grid,
+              gridTemplateColumns: `120px repeat(${fields.length}, 1fr)`
+            }}>
+              <div></div>
 
               {fields.map(field => (
-                <div key={field.id} style={fieldHeader}>
+                <div key={field.id} style={fieldHeader(field.type)}>
                   {field.name}
                 </div>
               ))}
@@ -181,7 +190,10 @@ export default function ScheduleManager() {
 
             {/* ROWS */}
             {times.map(time => (
-              <div key={time} style={row}>
+              <div key={time} style={{
+                ...grid,
+                gridTemplateColumns: `120px repeat(${fields.length}, 1fr)`
+              }}>
 
                 <div style={timeCell}>{time}</div>
 
@@ -214,6 +226,7 @@ export default function ScheduleManager() {
                             <div>{g.away?.short_name}</div>
                           </div>
                         </div>
+
                       </div>
 
                     </div>
@@ -239,13 +252,12 @@ const btn = {
   background: "#2f6ea6",
   color: "#fff",
   border: "none",
-  borderRadius: 10,
-  cursor: "pointer"
+  borderRadius: 10
 };
 
 const weekBlock = {
   marginTop: 25,
-  background: "#ffffff",
+  background: "#fff",
   padding: 20,
   borderRadius: 12
 };
@@ -255,24 +267,17 @@ const weekHeader = {
   marginBottom: 15
 };
 
-const headerRow = {
+const grid = {
   display: "grid",
-  gridTemplateColumns: "120px repeat(3, 1fr)",
-  marginBottom: 10
+  gap: 6,
+  marginBottom: 6
 };
 
-const row = {
-  display: "grid",
-  gridTemplateColumns: "120px repeat(3, 1fr)",
-  marginBottom: 8
-};
-
-const timeHeader = {};
-
-const fieldHeader = {
+const fieldHeader = (type) => ({
   textAlign: "center",
-  fontWeight: "600"
-};
+  fontWeight: "600",
+  color: type === "k-1" ? "#16a34a" : "#000"
+});
 
 const timeCell = {
   fontWeight: "600"
