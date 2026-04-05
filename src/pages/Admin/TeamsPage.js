@@ -194,26 +194,39 @@ export default function TeamsPage() {
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
-      <div style={grid}>
-        {teams.map(t => {
-          const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
+        const divTeams = teams.filter(t => t.division === div);
+        if (divTeams.length === 0) return null;
 
-          return (
-            <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
-              <img src={teamLogos[nfl?.short_name]} width={50}/>
-              <div>{nfl?.full_name}</div>
+        return (
+          <div key={div} style={divisionTile}>
 
-              <div style={{ fontSize: 11 }}>
-                {getCoachName(t.coach_id)}
-              </div>
+            <div style={divisionHeader}>{div}</div>
 
-              <div style={{ fontSize: 11, color:"#64748b" }}>
-                {getCoachName(t.assistant_coach_id)}
-              </div>
+            <div style={grid}>
+              {divTeams.map(t => {
+                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
+                return (
+                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+                    <img src={teamLogos[nfl?.short_name]} width={50}/>
+                    <div>{nfl?.full_name}</div>
+
+                    <div style={{ fontSize: 11 }}>
+                      {getCoachName(t.coach_id)}
+                    </div>
+
+                    <div style={{ fontSize: 11, color:"#64748b" }}>
+                      {getCoachName(t.assistant_coach_id)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+
+          </div>
+        );
+      })}
 
     </div>
   );
@@ -233,6 +246,20 @@ const tile = {
   padding: 10,
   textAlign: "center",
   cursor: "pointer"
+};
+
+const divisionTile = {
+  background: "#fff",
+  borderRadius: 14,
+  padding: 15,
+  marginBottom: 20,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const divisionHeader = {
+  fontWeight: "600",
+  marginBottom: 10,
+  fontSize: 16
 };
 
 const actionGrid = {
@@ -263,74 +290,4 @@ const playersTile = {
   borderRadius: 12,
   padding: 15,
   boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
-};
-
-const playerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "6px 0"
-};
-
-const smallBtn = {
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "1px solid #e2e8f0"
-};
-
-const section = { marginTop: 20 };
-
-const closeBtn = {
-  position: "absolute",
-  top: 0,
-  right: 0,
-  border: "none",
-  background: "transparent",
-  fontSize: 16,
-  cursor: "pointer"
-};
-
-const headerBar = { marginBottom: 15 };
-
-const backBtn = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  cursor: "pointer"
-};
-
-const teamHero = {
-  display: "flex",
-  alignItems: "center",
-  gap: 20,
-  marginBottom: 25
-};
-
-const divisionBadge = {
-  marginTop: 5,
-  padding: "4px 10px",
-  borderRadius: 8,
-  background: "#e2e8f0",
-  fontSize: 13
-};
-
-const coachGrid = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 15,
-  marginBottom: 25
-};
-
-const coachCard = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: 15,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
-};
-
-const coachLabel = { fontSize: 12, color: "#64748b" };
-
-const coachName = {
-  fontSize: 18,
-  fontWeight: "600",
-  marginTop: 5
 };
