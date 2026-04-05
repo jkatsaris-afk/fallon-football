@@ -30,13 +30,7 @@ export default function TeamsPage() {
   const [coaches, setCoaches] = useState([]);
   const [players, setPlayers] = useState([]);
 
-  const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTeam, setActiveTeam] = useState(null);
-
-  const [division, setDivision] = useState("");
-  const [coach, setCoach] = useState("");
-  const [assistantCoach, setAssistantCoach] = useState("");
-
   const [confirmAuto, setConfirmAuto] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -68,34 +62,6 @@ export default function TeamsPage() {
     loadData();
   };
 
-  const autoAssign = async () => {
-    const divisionTeams = teams.filter(
-      t => t.division === activeTeam.division
-    );
-
-    const available = players.filter(
-      p => p.division === activeTeam.division && !p.team_id
-    );
-
-    const perTeam = Math.ceil(available.length / divisionTeams.length);
-
-    let index = 0;
-
-    for (let team of divisionTeams) {
-      const chunk = available.slice(index, index + perTeam);
-
-      for (let p of chunk) {
-        await supabase.from("players")
-          .update({ team_id: team.id })
-          .eq("id", p.id);
-      }
-
-      index += perTeam;
-    }
-
-    loadData();
-  };
-
   const removeTeam = async () => {
     await supabase.from("teams")
       .delete()
@@ -105,7 +71,7 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= OVERLAY VIEW ================= */
+  /* ================= OVERLAY ================= */
 
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
@@ -121,7 +87,6 @@ export default function TeamsPage() {
 
         <div style={teamHero}>
           <img src={teamLogos[nfl?.short_name]} width={90} />
-
           <div>
             <h1 style={{ margin: 0 }}>{nfl?.full_name}</h1>
             <div style={divisionBadge}>{activeTeam.division}</div>
@@ -129,7 +94,6 @@ export default function TeamsPage() {
         </div>
 
         <div style={coachGrid}>
-
           <div style={coachCard}>
             <div style={coachLabel}>Head Coach</div>
             <div style={coachName}>
@@ -143,33 +107,46 @@ export default function TeamsPage() {
               {getCoachName(activeTeam.assistant_coach_id)}
             </div>
           </div>
-
         </div>
 
-        <div style={actionBar}>
-          <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
+        {/* ACTION TILES */}
+        <div style={actionGrid}>
+          <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
-          </button>
+          </div>
 
-          <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
+          <div style={actionTile} onClick={()=>setShowAdd(true)}>
             Add Player
-          </button>
+          </div>
 
-          <button style={dangerBtn} onClick={removeTeam}>
+          <div style={dangerTile} onClick={removeTeam}>
             Remove Team
-          </button>
+          </div>
         </div>
 
-        {/* 🔥 ADD PLAYER (UPDATED WITH CLOSE BUTTON) */}
+        {/* PLAYERS TILE */}
+        <div style={playersTile}>
+          <h3>Players</h3>
+
+          {players
+            .filter(p => p.team_id === activeTeam.id)
+            .map(p => (
+              <div key={p.id} style={playerRow}>
+                {p.first_name} {p.last_name}
+              </div>
+            ))}
+
+          {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
+            <div style={{ color:"#64748b" }}>
+              No players assigned
+            </div>
+          )}
+        </div>
+
+        {/* ADD PLAYER */}
         {showAdd && (
           <div style={{ ...section, position: "relative" }}>
-
-            <button
-              style={closeBtn}
-              onClick={() => setShowAdd(false)}
-            >
-              ✕
-            </button>
+            <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
 
             <h3>Add Player</h3>
 
@@ -193,24 +170,6 @@ export default function TeamsPage() {
           </div>
         )}
 
-        {confirmAuto && (
-          <div style={section}>
-            <p>
-              Make sure all teams are created in this division before running auto roster.
-            </p>
-
-            <button
-              style={primaryBtn}
-              onClick={()=>{
-                setConfirmAuto(false);
-                autoAssign();
-              }}
-            >
-              Confirm
-            </button>
-          </div>
-        )}
-
       </div>
     );
   }
@@ -226,7 +185,7 @@ export default function TeamsPage() {
 
       <div style={grid}>
         {nflTeams.map(team => (
-          <div key={team.id} style={tile} onClick={()=>setSelectedTeam(team)}>
+          <div key={team.id} style={tile}>
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
@@ -235,43 +194,100 @@ export default function TeamsPage() {
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
-      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
-        const divTeams = teams.filter(t => t.division === div);
-        if (divTeams.length === 0) return null;
+      <div style={grid}>
+        {teams.map(t => {
+          const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
-        return (
-          <div key={div}>
-            <div style={{ fontWeight: 600 }}>{div}</div>
+          return (
+            <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+              <img src={teamLogos[nfl?.short_name]} width={50}/>
+              <div>{nfl?.full_name}</div>
 
-            <div style={grid}>
-              {divTeams.map(t => {
-                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+              <div style={{ fontSize: 11 }}>
+                {getCoachName(t.coach_id)}
+              </div>
 
-                return (
-                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
-                    <img src={teamLogos[nfl?.short_name]} width={50}/>
-                    <div>{nfl?.full_name}</div>
-
-                    <div style={{ fontSize: 11 }}>
-                      {getCoachName(t.coach_id)}
-                    </div>
-
-                    <div style={{ fontSize: 11, color:"#64748b" }}>
-                      {getCoachName(t.assistant_coach_id)}
-                    </div>
-                  </div>
-                );
-              })}
+              <div style={{ fontSize: 11, color:"#64748b" }}>
+                {getCoachName(t.assistant_coach_id)}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
     </div>
   );
 }
 
 /* ================= STYLES ================= */
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+  gap: 15
+};
+
+const tile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 10,
+  textAlign: "center",
+  cursor: "pointer"
+};
+
+const actionGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 12,
+  marginBottom: 25
+};
+
+const actionTile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  textAlign: "center",
+  cursor: "pointer",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
+  fontWeight: "600"
+};
+
+const dangerTile = {
+  ...actionTile,
+  background: "#fee2e2",
+  color: "#991b1b"
+};
+
+const playersTile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const playerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: "6px 0"
+};
+
+const smallBtn = {
+  padding: "6px 10px",
+  borderRadius: 6,
+  border: "1px solid #e2e8f0"
+};
+
+const section = { marginTop: 20 };
+
+const closeBtn = {
+  position: "absolute",
+  top: 0,
+  right: 0,
+  border: "none",
+  background: "transparent",
+  fontSize: 16,
+  cursor: "pointer"
+};
 
 const headerBar = { marginBottom: 15 };
 
@@ -294,7 +310,6 @@ const divisionBadge = {
   padding: "4px 10px",
   borderRadius: 8,
   background: "#e2e8f0",
-  display: "inline-block",
   fontSize: 13
 };
 
@@ -312,82 +327,10 @@ const coachCard = {
   boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
 };
 
-const coachLabel = {
-  fontSize: 12,
-  color: "#64748b"
-};
+const coachLabel = { fontSize: 12, color: "#64748b" };
 
 const coachName = {
   fontSize: 18,
   fontWeight: "600",
   marginTop: 5
-};
-
-const actionBar = {
-  display: "flex",
-  gap: 10,
-  marginBottom: 25
-};
-
-const section = {
-  marginTop: 20
-};
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-  gap: 15
-};
-
-const tile = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: 10,
-  textAlign: "center",
-  cursor: "pointer"
-};
-
-const playerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
-};
-
-const smallBtn = {
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "1px solid #e2e8f0"
-};
-
-const primaryBtn = {
-  padding: 10,
-  background: "#2f6ea6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 10
-};
-
-const secondaryBtn = {
-  padding: 10,
-  border: "1px solid #e2e8f0",
-  borderRadius: 10
-};
-
-const dangerBtn = {
-  padding: 10,
-  background: "#dc2626",
-  color: "#fff",
-  border: "none",
-  borderRadius: 10
-};
-
-/* ✅ NEW STYLE ONLY */
-const closeBtn = {
-  position: "absolute",
-  top: 0,
-  right: 0,
-  border: "none",
-  background: "transparent",
-  fontSize: 16,
-  cursor: "pointer"
 };
