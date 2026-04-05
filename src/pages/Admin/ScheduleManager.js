@@ -30,6 +30,8 @@ export default function ScheduleManager() {
   const [matchups, setMatchups] = useState([]);
   const [teams, setTeams] = useState([]);
   const [nflTeams, setNflTeams] = useState([]);
+  const [timeSlots, setTimeSlots] = useState([]);
+
   const [mode, setMode] = useState("test");
 
   const TABLE = mode === "test" ? "schedule_test" : "schedule_master";
@@ -42,30 +44,27 @@ export default function ScheduleManager() {
 
   const loadAll = async () => {
     const { data: s } = await supabase.from(TABLE).select("*");
-    const { data: f } = await supabase.from("fields").select("*").eq("type", "game").order("field_number");
+    const { data: f } = await supabase.from("fields").select("*").order("field_number");
     const { data: m } = await supabase.from("matchups").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
+    const { data: ts } = await supabase.from("field_time_slots").select("*");
 
     setSchedule(s || []);
     setFields(f || []);
     setMatchups(m || []);
     setTeams(t || []);
     setNflTeams(nfl || []);
+    setTimeSlots(ts || []);
   };
 
   /* ================= GENERATE ================= */
 
   const generateSchedule = async () => {
-    const { data: matchups } = await supabase.from("matchups").select("*").order("week");
-    const { data: fields } = await supabase.from("fields").select("*").eq("type", "game");
-    const { data: timeSlots } = await supabase
-      .from("field_time_slots")
-      .select("*")
-      .eq("field_type", "game")
-      .order("sort_order");
+    const { data: matchups } = await supabase.from("matchups").select("*");
+    const { data: fields } = await supabase.from("fields").select("*");
+    const { data: timeSlots } = await supabase.from("field_time_slots").select("*");
 
-    // 🔥 FIXED DELETE
     await supabase
       .from(TABLE)
       .delete()
@@ -78,23 +77,35 @@ export default function ScheduleManager() {
     weeks.forEach(week => {
       const weekGames = matchups.filter(m => m.week === week);
 
-      let i = 0;
+      let gameIndex = 0;
 
-      timeSlots.forEach(time => {
-        fields.forEach(field => {
-          const game = weekGames[i];
-          if (!game) return;
+      weekGames.forEach(game => {
+        const isK1 = game.division === "K-1";
 
-          insert.push({
-            matchup_id: game.id,
-            week,
-            field_id: field.id,
-            time: time.time,
-            event_type: "game"
-          });
+        const validFields = fields.filter(f =>
+          isK1 ? f.type === "k-1" : f.type === "game"
+        );
 
-          i++;
+        const validTimes = timeSlots
+          .filter(t =>
+            isK1 ? t.field_type === "k-1" : t.field_type === "game"
+          )
+          .sort((a, b) => a.sort_order - b.sort_order);
+
+        const field = validFields[gameIndex % validFields.length];
+        const time = validTimes[Math.floor(gameIndex / validFields.length)];
+
+        if (!field || !time) return;
+
+        insert.push({
+          matchup_id: game.id,
+          week,
+          field_id: field.id,
+          time: time.time,
+          event_type: "game"
         });
+
+        gameIndex++;
       });
     });
 
@@ -157,65 +168,69 @@ export default function ScheduleManager() {
 
               <div style={weekHeader}>WEEK {week}</div>
 
-              {/* HEADER */}
-              <div style={rowHeader}>
-                <div style={timeCell}></div>
-                {fields.map(field => (
-                  <div key={field.id} style={fieldHeader}>
-                    {field.name}
-                  </div>
-                ))}
-              </div>
+              <div style={board}>
 
-              {/* ROWS */}
-              {times.map(time => (
-                <div key={time} style={row}>
+                {/* HEADER */}
+                <div style={rowHeader}>
+                  <div style={timeHeader}></div>
+                  {fields.map(field => (
+                    <div key={field.id} style={fieldHeader}>
+                      {field.name}
+                    </div>
+                  ))}
+                </div>
 
-                  <div style={timeCell}>{time}</div>
+                {/* ROWS */}
+                {times.map(time => (
+                  <div key={time} style={row}>
 
-                  {fields.map(field => {
-                    const game = weekGames.find(
-                      g => g.time === time && g.field_id === field.id
-                    );
+                    <div style={timeTile}>{time}</div>
 
-                    if (!game) return <div key={field.id} style={cell}></div>;
+                    {fields.map(field => {
+                      const game = weekGames.find(
+                        g => g.time === time && g.field_id === field.id
+                      );
 
-                    const g = getGameDisplay(game.matchup_id);
-                    if (!g) return <div style={cell}></div>;
+                      if (!game) return <div key={field.id} style={cell}></div>;
 
-                    return (
-                      <div key={field.id} style={cell}>
+                      const g = getGameDisplay(game.matchup_id);
+                      if (!g) return <div style={cell}></div>;
 
-                        <div style={gameTile}>
+                      return (
+                        <div key={field.id} style={cell}>
 
-                          <div style={division}>
-                            {g.division}
-                          </div>
+                          <div style={gameTile}>
 
-                          <div style={teamsRow}>
-
-                            <div style={team}>
-                              <img src={teamLogos[g.home?.short_name]} style={logo}/>
-                              <div>{g.home?.short_name}</div>
+                            <div style={division}>
+                              {g.division}
                             </div>
 
-                            <div style={vs}>VS</div>
+                            <div style={teamsRow}>
 
-                            <div style={team}>
-                              <img src={teamLogos[g.away?.short_name]} style={logo}/>
-                              <div>{g.away?.short_name}</div>
+                              <div style={team}>
+                                <img src={teamLogos[g.home?.short_name]} style={logo}/>
+                                <div>{g.home?.short_name}</div>
+                              </div>
+
+                              <div style={vs}>VS</div>
+
+                              <div style={team}>
+                                <img src={teamLogos[g.away?.short_name]} style={logo}/>
+                                <div>{g.away?.short_name}</div>
+                              </div>
+
                             </div>
 
                           </div>
 
                         </div>
+                      );
+                    })}
 
-                      </div>
-                    );
-                  })}
+                  </div>
+                ))}
 
-                </div>
-              ))}
+              </div>
 
             </div>
           );
@@ -252,60 +267,78 @@ const toggleBtn = (active) => ({
 });
 
 const weekBlock = {
-  marginTop: 25,
-  background: "#fff",
-  padding: 20,
-  borderRadius: 16
+  marginTop: 25
 };
 
 const weekHeader = {
   textAlign: "center",
   fontSize: 22,
   fontWeight: "700",
-  marginBottom: 15
-};
-
-const rowHeader = {
-  display: "flex",
-  fontWeight: "600",
   marginBottom: 10
 };
 
-const row = {
-  display: "flex",
+/* BOARD */
+
+const board = {
+  background: "rgba(255,255,255,0.2)",
+  backdropFilter: "blur(14px)",
+  padding: 15,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.3)"
+};
+
+const rowHeader = {
+  display: "grid",
+  gridTemplateColumns: "100px repeat(auto-fit, 1fr)",
   marginBottom: 8
 };
 
-const timeCell = {
-  width: 100,
-  fontWeight: "600"
+const row = {
+  display: "grid",
+  gridTemplateColumns: "100px repeat(auto-fit, 1fr)",
+  marginBottom: 6
+};
+
+const timeHeader = {
+  width: 100
 };
 
 const fieldHeader = {
-  flex: 1,
-  textAlign: "center"
+  textAlign: "center",
+  fontWeight: "600"
+};
+
+const timeTile = {
+  background: "#2f6ea6",
+  color: "#fff",
+  borderRadius: 8,
+  padding: 10,
+  textAlign: "center",
+  fontWeight: "600"
 };
 
 const cell = {
-  flex: 1,
-  margin: 2
+  border: "1px solid #e5e7eb",
+  borderRadius: 6,
+  margin: 2,
+  padding: 4,
+  minHeight: 80
 };
 
-/* 🔥 GAME TILE */
+/* GAME TILE */
 
 const gameTile = {
-  background: "rgba(255,255,255,0.25)",
-  backdropFilter: "blur(12px)",
-  borderRadius: 12,
-  padding: 8,
-  border: "1px solid rgba(255,255,255,0.3)"
+  background: "rgba(255,255,255,0.35)",
+  backdropFilter: "blur(10px)",
+  borderRadius: 10,
+  padding: 6,
+  height: "100%"
 };
 
 const division = {
   fontSize: 10,
-  color: "#64748b",
   textAlign: "center",
-  marginBottom: 4
+  color: "#64748b"
 };
 
 const teamsRow = {
@@ -322,9 +355,8 @@ const team = {
 };
 
 const logo = {
-  width: 28,
-  height: 28,
-  objectFit: "contain"
+  width: 26,
+  height: 26
 };
 
 const vs = {
