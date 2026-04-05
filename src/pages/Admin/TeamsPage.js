@@ -71,15 +71,13 @@ export default function TeamsPage() {
     loadData();
   };
 
-  // ✅ FIXED TEAM MOVE
+  // ✅ FIXED MOVE FUNCTION
   const movePlayerToTeam = async (playerId, newTeamId) => {
     if (!newTeamId) return;
 
-    const parsedTeamId = newTeamId.toString();
-
     const { error } = await supabase
       .from("players")
-      .update({ team_id: parsedTeamId })
+      .update({ team_id: newTeamId })
       .eq("id", playerId);
 
     if (error) {
@@ -99,7 +97,7 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= TEAM MANAGER ================= */
+  /* ================= TEAM VIEW ================= */
 
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
@@ -137,7 +135,6 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* ACTION TILES */}
         <div style={actionGrid}>
           <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
@@ -152,7 +149,6 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* PLAYERS */}
         <div style={playersTile}>
           <h3>Players</h3>
 
@@ -174,7 +170,6 @@ export default function TeamsPage() {
                   <div style={playerActions}>
 
                     <select
-                      key={p.team_id || "none"}
                       style={dropdown}
                       onChange={(e) => movePlayerToTeam(p.id, e.target.value)}
                       defaultValue=""
@@ -204,14 +199,8 @@ export default function TeamsPage() {
               );
             })}
 
-          {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
-            <div style={{ color:"#64748b" }}>
-              No players assigned
-            </div>
-          )}
         </div>
 
-        {/* ADD PLAYER */}
         {showAdd && (
           <div style={{ ...section, position: "relative" }}>
             <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
@@ -242,5 +231,58 @@ export default function TeamsPage() {
     );
   }
 
-  return <div />;
+  /* ================= MAIN VIEW ================= */
+
+  return (
+    <div>
+
+      <h1>Teams Manager</h1>
+
+      <h3>Select NFL Team</h3>
+
+      <div style={grid}>
+        {nflTeams.map(team => (
+          <div key={team.id} style={tile}>
+            <img src={teamLogos[team.short_name]} width={60}/>
+            <div>{team.full_name}</div>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
+
+      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
+        const divTeams = teams.filter(t => t.division === div);
+        if (divTeams.length === 0) return null;
+
+        return (
+          <div key={div} style={divisionTile}>
+            <div style={divisionHeader}>{div}</div>
+
+            <div style={grid}>
+              {divTeams.map(t => {
+                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
+                return (
+                  <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
+                    <img src={teamLogos[nfl?.short_name]} width={50}/>
+                    <div>{nfl?.full_name}</div>
+
+                    <div style={{ fontSize: 11 }}>
+                      {getCoachName(t.coach_id)}
+                    </div>
+
+                    <div style={{ fontSize: 11, color:"#64748b" }}>
+                      {getCoachName(t.assistant_coach_id)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+    </div>
+  );
 }
