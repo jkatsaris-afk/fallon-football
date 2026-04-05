@@ -121,6 +121,7 @@ export default function TeamsPage() {
 
         <div style={teamHero}>
           <img src={teamLogos[nfl?.short_name]} width={90} />
+
           <div>
             <h1 style={{ margin: 0 }}>{nfl?.full_name}</h1>
             <div style={divisionBadge}>{activeTeam.division}</div>
@@ -128,6 +129,7 @@ export default function TeamsPage() {
         </div>
 
         <div style={coachGrid}>
+
           <div style={coachCard}>
             <div style={coachLabel}>Head Coach</div>
             <div style={coachName}>
@@ -141,50 +143,33 @@ export default function TeamsPage() {
               {getCoachName(activeTeam.assistant_coach_id)}
             </div>
           </div>
+
         </div>
 
-        {/* 🔥 ACTION TILES */}
-        <div style={actionGrid}>
-
-          <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
+        <div style={actionBar}>
+          <button style={primaryBtn} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
-          </div>
+          </button>
 
-          <div style={actionTile} onClick={()=>setShowAdd(true)}>
+          <button style={secondaryBtn} onClick={()=>setShowAdd(true)}>
             Add Player
-          </div>
+          </button>
 
-          <div style={dangerTile} onClick={removeTeam}>
+          <button style={dangerBtn} onClick={removeTeam}>
             Remove Team
-          </div>
-
+          </button>
         </div>
 
-        {/* 🔥 PLAYERS TILE */}
-        <div style={playersTile}>
-
-          <h3 style={{ marginBottom: 10 }}>Players</h3>
-
-          {players
-            .filter(p => p.team_id === activeTeam.id)
-            .map(p => (
-              <div key={p.id} style={playerRow}>
-                {p.first_name} {p.last_name}
-              </div>
-            ))}
-
-          {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
-            <div style={{ color:"#64748b" }}>
-              No players assigned
-            </div>
-          )}
-
-        </div>
-
-        {/* ADD PLAYER PANEL */}
+        {/* 🔥 ADD PLAYER (UPDATED WITH CLOSE BUTTON) */}
         {showAdd && (
           <div style={{ ...section, position: "relative" }}>
-            <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
+
+            <button
+              style={closeBtn}
+              onClick={() => setShowAdd(false)}
+            >
+              ✕
+            </button>
 
             <h3>Add Player</h3>
 
@@ -208,7 +193,6 @@ export default function TeamsPage() {
           </div>
         )}
 
-        {/* AUTO CONFIRM */}
         {confirmAuto && (
           <div style={section}>
             <p>
@@ -310,6 +294,7 @@ const divisionBadge = {
   padding: "4px 10px",
   borderRadius: 8,
   background: "#e2e8f0",
+  display: "inline-block",
   fontSize: 13
 };
 
@@ -327,7 +312,10 @@ const coachCard = {
   boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
 };
 
-const coachLabel = { fontSize: 12, color: "#64748b" };
+const coachLabel = {
+  fontSize: 12,
+  color: "#64748b"
+};
 
 const coachName = {
   fontSize: 18,
@@ -335,34 +323,71 @@ const coachName = {
   marginTop: 5
 };
 
-/* NEW */
-
-const actionGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
-  gap: 12,
+const actionBar = {
+  display: "flex",
+  gap: 10,
   marginBottom: 25
 };
 
-const actionTile = {
+const section = {
+  marginTop: 20
+};
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+  gap: 15
+};
+
+const tile = {
   background: "#fff",
   borderRadius: 12,
-  padding: 15,
+  padding: 10,
   textAlign: "center",
-  cursor: "pointer",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
-  fontWeight: "600"
+  cursor: "pointer"
 };
 
-const dangerTile = {
-  ...actionTile,
-  background: "#fee2e2",
-  color: "#991b1b"
+const playerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center"
 };
 
-const playersTile = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: 15,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+const smallBtn = {
+  padding: "6px 10px",
+  borderRadius: 6,
+  border: "1px solid #e2e8f0"
+};
+
+const primaryBtn = {
+  padding: 10,
+  background: "#2f6ea6",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10
+};
+
+const secondaryBtn = {
+  padding: 10,
+  border: "1px solid #e2e8f0",
+  borderRadius: 10
+};
+
+const dangerBtn = {
+  padding: 10,
+  background: "#dc2626",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10
+};
+
+/* ✅ NEW STYLE ONLY */
+const closeBtn = {
+  position: "absolute",
+  top: 0,
+  right: 0,
+  border: "none",
+  background: "transparent",
+  fontSize: 16,
+  cursor: "pointer"
 };
