@@ -111,13 +111,6 @@ export default function App() {
               Sign Up
             </button>
 
-            <button
-              className={`nav-btn ${page === "dashboard" ? "active" : ""}`}
-              onClick={() => setPage("dashboard")}
-            >
-              Admin
-            </button>
-
           </div>
 
         </div>
