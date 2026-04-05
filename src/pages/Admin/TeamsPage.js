@@ -71,7 +71,7 @@ export default function TeamsPage() {
     loadData();
   };
 
-  // ✅ FIXED FUNCTION
+  // ✅ FIXED TEAM MOVE
   const movePlayerToTeam = async (playerId, newTeamId) => {
     if (!newTeamId) return;
 
@@ -174,7 +174,7 @@ export default function TeamsPage() {
                   <div style={playerActions}>
 
                     <select
-                      key={p.team_id || "none"}   {/* ✅ FIX */}
+                      key={p.team_id || "none"}
                       style={dropdown}
                       onChange={(e) => movePlayerToTeam(p.id, e.target.value)}
                       defaultValue=""
