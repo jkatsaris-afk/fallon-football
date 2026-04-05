@@ -103,9 +103,8 @@ export default function PlayerManager() {
         ))}
       </div>
 
-      {/* ================= TILE WRAPPER ================= */}
+      {/* ================= TILE ================= */}
       <div style={tileWrapper}>
-
         {/* HEADER */}
         <div style={headerRow}>
           <div style={{ width: 180 }}>Name</div>
@@ -120,11 +119,15 @@ export default function PlayerManager() {
           {filteredPlayers.map((p) => {
             const playerTeam = teams.find((t) => t.id === p.team_id);
 
+            // ✅ SAFE TEAM FILTER + SORT
             const divisionTeams = teams
               .filter(
-                (t) => !p.division || t.division === p.division
+                (t) =>
+                  t.name && (!p.division || t.division === p.division)
               )
-              .sort((a, b) => a.name.localeCompare(b.name));
+              .sort((a, b) =>
+                (a.name || "").localeCompare(b.name || "")
+              );
 
             return (
               <div key={p.id} style={row}>
@@ -193,7 +196,7 @@ export default function PlayerManager() {
                   </select>
                 </div>
 
-                {/* TEAM (CLEAN VERSION) */}
+                {/* TEAM */}
                 <div style={{ flex: 1, maxWidth: 220 }}>
                   <select
                     value={p.team_id || ""}
@@ -217,7 +220,7 @@ export default function PlayerManager() {
 
                   <div style={teamLabel}>
                     {playerTeam
-                      ? `Current: ${playerTeam.name}`
+                      ? `Current: ${playerTeam.name || "Unnamed"}`
                       : "No team"}
                   </div>
                 </div>
