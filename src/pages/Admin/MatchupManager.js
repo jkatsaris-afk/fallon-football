@@ -44,8 +44,6 @@ export default function MatchupManager() {
     }
   }, [selectedDivision]);
 
-  /* ================= LOAD DIVISIONS ================= */
-
   const loadDivisions = async () => {
     const { data } = await supabase.from("teams").select("division");
 
@@ -60,14 +58,10 @@ export default function MatchupManager() {
     setDivisions(unique);
   };
 
-  /* ================= LOAD NFL TEAMS ================= */
-
   const loadNFLTeams = async () => {
     const { data } = await supabase.from("nfl_teams").select("*");
     setNflTeams(data || []);
   };
-
-  /* ================= LOAD TEAMS ================= */
 
   const loadTeams = async () => {
     const { data } = await supabase
@@ -78,8 +72,6 @@ export default function MatchupManager() {
     setTeams(data || []);
   };
 
-  /* ================= LOAD MATCHUPS ================= */
-
   const loadMatchups = async () => {
     const { data } = await supabase
       .from("matchups")
@@ -89,8 +81,6 @@ export default function MatchupManager() {
 
     setMatchups(data || []);
   };
-
-  /* ================= GENERATE MATCHUPS ================= */
 
   const generateMatchups = async () => {
     if (teams.length < 2) return alert("Not enough teams");
@@ -148,9 +138,7 @@ export default function MatchupManager() {
       });
     }
 
-    const { error } = await supabase
-      .from("matchups")
-      .insert(finalSchedule);
+    const { error } = await supabase.from("matchups").insert(finalSchedule);
 
     if (error) {
       console.error(error);
@@ -159,8 +147,6 @@ export default function MatchupManager() {
       loadMatchups();
     }
   };
-
-  /* ================= HELPERS ================= */
 
   const getTeamDisplay = (teamId) => {
     const team = teams.find(t => t.id === teamId);
@@ -173,8 +159,6 @@ export default function MatchupManager() {
       logo: teamLogos[nfl?.short_name]
     };
   };
-
-  /* ================= UI ================= */
 
   return (
     <div style={{ paddingBottom: 50 }}>
@@ -216,12 +200,15 @@ export default function MatchupManager() {
               Generate 8 Week Matchups
             </button>
           ) : (
-            <div style={{ marginTop: 20 }}>
-              <h3>Matchups</h3>
-
+            <div style={{ marginTop: 25 }}>
+              
               {[...new Set(matchups.map(m => m.week))].map(week => (
                 <div key={week} style={weekBlock}>
-                  <h4>Week {week}</h4>
+
+                  {/* 🔥 BIG CENTERED WEEK TITLE */}
+                  <div style={weekHeader}>
+                    WEEK {week}
+                  </div>
 
                   <div style={matchGrid}>
                     {matchups
@@ -254,6 +241,7 @@ export default function MatchupManager() {
 
                 </div>
               ))}
+
             </div>
           )}
         </>
@@ -276,11 +264,12 @@ const matchGrid = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: 15,
-  marginTop: 10
+  marginTop: 15
 };
 
+/* 🔥 GLASS CARD (ON TOP OF SOLID BASE) */
 const matchCard = {
-  background: "rgba(255, 255, 255, 0.2)",
+  background: "rgba(255,255,255,0.2)",
   backdropFilter: "blur(12px)",
   WebkitBackdropFilter: "blur(12px)",
   borderRadius: 14,
@@ -290,6 +279,23 @@ const matchCard = {
   alignItems: "center",
   border: "1px solid rgba(255,255,255,0.25)",
   boxShadow: "0 8px 20px rgba(0,0,0,0.08)"
+};
+
+/* 🔥 BASE TILE BACK + GLASS FEEL */
+const weekBlock = {
+  background: "#ffffff",
+  padding: 20,
+  borderRadius: 18,
+  marginBottom: 25,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.08)"
+};
+
+const weekHeader = {
+  textAlign: "center",
+  fontSize: 22,
+  fontWeight: "700",
+  marginBottom: 10,
+  letterSpacing: "1px"
 };
 
 const teamColumn = {
@@ -341,14 +347,4 @@ const btn = {
   border: "none",
   borderRadius: 10,
   cursor: "pointer"
-};
-
-const weekBlock = {
-  background: "rgba(255,255,255,0.25)",
-  backdropFilter: "blur(10px)",
-  WebkitBackdropFilter: "blur(10px)",
-  padding: 18,
-  borderRadius: 16,
-  marginBottom: 20,
-  border: "1px solid rgba(255,255,255,0.2)"
 };
