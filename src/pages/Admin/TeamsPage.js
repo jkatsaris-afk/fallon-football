@@ -62,6 +62,28 @@ export default function TeamsPage() {
     loadData();
   };
 
+  const removePlayerFromTeam = async (playerId) => {
+    await supabase
+      .from("players")
+      .update({ team_id: null })
+      .eq("id", playerId);
+
+    loadData();
+  };
+
+  const movePlayerToTeam = async (playerId, newTeamId) => {
+    if (!newTeamId) return;
+
+    const { error } = await supabase
+      .from("players")
+      .update({ team_id: newTeamId })
+      .eq("id", playerId);
+
+    if (error) console.error(error);
+
+    loadData();
+  };
+
   const removeTeam = async () => {
     await supabase.from("teams")
       .delete()
@@ -71,7 +93,30 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= TEAM MANAGER ================= */
+  // ✅ NEW: CREATE TEAM (SAFE)
+  const createTeam = async (nflTeamId) => {
+    const division = prompt("Enter Division (K-1, 2nd-3rd, 4th-5th, 6th-8th)");
+    if (!division) return;
+
+    const { error } = await supabase.from("teams").insert([
+      {
+        nfl_team_id: nflTeamId,
+        division,
+        coach_id: null,
+        assistant_coach_id: null
+      }
+    ]);
+
+    if (error) {
+      console.error(error);
+      alert("Failed to create team");
+      return;
+    }
+
+    loadData();
+  };
+
+  /* ================= TEAM VIEW ================= */
 
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
@@ -109,7 +154,6 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* ACTION TILES */}
         <div style={actionGrid}>
           <div style={actionTile} onClick={()=>setConfirmAuto(true)}>
             Auto Roster
@@ -124,68 +168,78 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* PLAYERS */}
         <div style={playersTile}>
           <h3>Players</h3>
 
           {players
             .filter(p => p.team_id === activeTeam.id)
-            .map(p => (
-              <div key={p.id} style={playerRow}>
-                {p.first_name} {p.last_name}
-              </div>
-            ))}
+            .map(p => {
 
-          {players.filter(p => p.team_id === activeTeam.id).length === 0 && (
-            <div style={{ color:"#64748b" }}>
-              No players assigned
-            </div>
-          )}
-        </div>
+              const divisionTeams = teams.filter(
+                t => t.division === activeTeam.division
+              );
 
-        {/* ADD PLAYER */}
-        {showAdd && (
-          <div style={{ ...section, position: "relative" }}>
-            <button style={closeBtn} onClick={() => setShowAdd(false)}>✕</button>
-
-            <h3>Add Player</h3>
-
-            {players
-              .filter(p =>
-                p.division === activeTeam.division &&
-                !p.team_id
-              )
-              .map(p => (
+              return (
                 <div key={p.id} style={playerRow}>
-                  {p.first_name} {p.last_name}
 
-                  <button
-                    style={smallBtn}
-                    onClick={() => addPlayerToTeam(p.id)}
-                  >
-                    Add
-                  </button>
+                  <div>
+                    {p.first_name} {p.last_name}
+                  </div>
+
+                  <div style={playerActions}>
+
+                    <select
+                      style={dropdown}
+                      onChange={(e) => movePlayerToTeam(p.id, e.target.value)}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Move</option>
+
+                      {divisionTeams.map(t => {
+                        const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {nfl?.full_name}
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    <button
+                      style={removeBtn}
+                      onClick={() => removePlayerFromTeam(p.id)}
+                    >
+                      Remove
+                    </button>
+
+                  </div>
+
                 </div>
-              ))}
-          </div>
-        )}
+              );
+            })}
+
+        </div>
 
       </div>
     );
   }
 
-  /* ================= MAIN ================= */
+  /* ================= MAIN VIEW ================= */
 
   return (
     <div>
 
       <h1>Teams Manager</h1>
 
-      <h3>Select NFL Team</h3>
+      <h3>Select NFL Team (Click to Add)</h3>
 
       <div style={grid}>
         {nflTeams.map(team => (
-          <div key={team.id} style={tile}>
+          <div
+            key={team.id}
+            style={tile}
+            onClick={() => createTeam(team.id)}
+          >
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
@@ -194,13 +248,12 @@ export default function TeamsPage() {
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
-      {["K-1","2nd-3rd","4th-5th","6th+"].map(div => {
+      {["K-1","2nd-3rd","4th-5th","6th-8th"].map(div => {
         const divTeams = teams.filter(t => t.division === div);
         if (divTeams.length === 0) return null;
 
         return (
           <div key={div} style={divisionTile}>
-
             <div style={divisionHeader}>{div}</div>
 
             <div style={grid}>
@@ -223,7 +276,6 @@ export default function TeamsPage() {
                 );
               })}
             </div>
-
           </div>
         );
       })}
@@ -295,28 +347,29 @@ const playersTile = {
 const playerRow = {
   display: "flex",
   justifyContent: "space-between",
+  alignItems: "center",
   padding: "6px 0"
 };
 
-const smallBtn = {
-  padding: "6px 10px",
+const playerActions = {
+  display: "flex",
+  gap: 8
+};
+
+const dropdown = {
+  padding: "4px 6px",
   borderRadius: 6,
   border: "1px solid #e2e8f0"
 };
 
-const section = { marginTop: 20 };
-
-const closeBtn = {
-  position: "absolute",
-  top: 0,
-  right: 0,
+const removeBtn = {
+  padding: "4px 8px",
+  borderRadius: 6,
   border: "none",
-  background: "transparent",
-  fontSize: 16,
+  background: "#fee2e2",
+  color: "#991b1b",
   cursor: "pointer"
 };
-
-/* 🔥 FIXED MISSING STYLES */
 
 const headerBar = { marginBottom: 15 };
 
