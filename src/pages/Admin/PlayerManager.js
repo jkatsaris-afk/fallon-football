@@ -4,6 +4,8 @@ import { supabase } from "../../supabase";
 export default function PlayerManager() {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [divisions, setDivisions] = useState([]);
+
   const [selectedDivision, setSelectedDivision] = useState("ALL");
   const [search, setSearch] = useState("");
 
@@ -21,8 +23,14 @@ export default function PlayerManager() {
       .from("teams")
       .select("*");
 
+    const { data: divisionData } = await supabase
+      .from("divisions")
+      .select("*")
+      .order("name");
+
     setPlayers(playerData || []);
     setTeams(teamData || []);
+    setDivisions(divisionData || []);
   };
 
   const updatePlayer = async (id, field, value) => {
@@ -33,14 +41,6 @@ export default function PlayerManager() {
 
     loadData();
   };
-
-  /* ================= DIVISIONS ================= */
-
-  const divisions = [
-    ...new Set(players.map((p) => p.division).filter(Boolean))
-  ];
-
-  const divisionOptions = ["", ...divisions];
 
   /* ================= FILTER ================= */
 
@@ -65,26 +65,16 @@ export default function PlayerManager() {
     <div style={{ padding: 20 }}>
       <h2>Player Manager</h2>
 
-      {/* ================= TOP BAR ================= */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginTop: 15,
-          alignItems: "center",
-          flexWrap: "wrap"
-        }}
-      >
-        {/* SEARCH */}
+      {/* TOP BAR */}
+      <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
         <input
-          placeholder="Search players or teams..."
+          placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={searchInput}
         />
 
-        {/* DIVISION FILTER */}
-        {["ALL", ...divisions].map((d) => (
+        {["ALL", ...divisions.map((d) => d.name)].map((d) => (
           <button
             key={d}
             onClick={() => setSelectedDivision(d)}
@@ -94,24 +84,24 @@ export default function PlayerManager() {
               border: "none",
               background:
                 selectedDivision === d ? "#2f6ea6" : "#e2e8f0",
-              color: selectedDivision === d ? "#fff" : "#0f172a",
-              cursor: "pointer"
+              color: selectedDivision === d ? "#fff" : "#000"
             }}
           >
-            {d || "No Division"}
+            {d}
           </button>
         ))}
       </div>
 
-      {/* ================= TILE ================= */}
+      {/* TILE */}
       <div style={tileWrapper}>
         {/* HEADER */}
         <div style={headerRow}>
-          <div style={{ width: 180 }}>Name</div>
+          <div style={{ width: 160 }}>Name</div>
+          <div style={{ width: 60 }}>Age</div>
           <div style={{ width: 140 }}>Division</div>
           <div style={{ width: 120 }}>Shirt</div>
           <div style={{ width: 140 }}>Payment</div>
-          <div style={{ flex: 1, maxWidth: 220 }}>Team</div>
+          <div style={{ flex: 1 }}>Team</div>
         </div>
 
         {/* LIST */}
@@ -119,11 +109,11 @@ export default function PlayerManager() {
           {filteredPlayers.map((p) => {
             const playerTeam = teams.find((t) => t.id === p.team_id);
 
-            // ✅ SAFE TEAM FILTER + SORT
             const divisionTeams = teams
               .filter(
                 (t) =>
-                  t.name && (!p.division || t.division === p.division)
+                  t.name &&
+                  (!p.division || t.division === p.division)
               )
               .sort((a, b) =>
                 (a.name || "").localeCompare(b.name || "")
@@ -132,9 +122,12 @@ export default function PlayerManager() {
             return (
               <div key={p.id} style={row}>
                 {/* NAME */}
-                <div style={{ width: 180 }}>
+                <div style={{ width: 160 }}>
                   {p.first_name} {p.last_name}
                 </div>
+
+                {/* AGE (READ ONLY) */}
+                <div style={{ width: 60 }}>{p.age}</div>
 
                 {/* DIVISION */}
                 <div style={{ width: 140 }}>
@@ -143,12 +136,12 @@ export default function PlayerManager() {
                     onChange={(e) =>
                       updatePlayer(p.id, "division", e.target.value)
                     }
-                    style={input}
+                    style={inputAligned}
                   >
                     <option value="">Select</option>
-                    {divisionOptions.map((d) => (
-                      <option key={d} value={d}>
-                        {d || "No Division"}
+                    {divisions.map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name}
                       </option>
                     ))}
                   </select>
@@ -161,7 +154,7 @@ export default function PlayerManager() {
                     onChange={(e) =>
                       updatePlayer(p.id, "shirt_size", e.target.value)
                     }
-                    style={input}
+                    style={inputAligned}
                   >
                     <option value="">-</option>
                     <option value="YS">YS</option>
@@ -178,10 +171,14 @@ export default function PlayerManager() {
                   <select
                     value={p.payment_status || ""}
                     onChange={(e) =>
-                      updatePlayer(p.id, "payment_status", e.target.value)
+                      updatePlayer(
+                        p.id,
+                        "payment_status",
+                        e.target.value
+                      )
                     }
                     style={{
-                      ...input,
+                      ...inputAligned,
                       background:
                         p.payment_status === "paid"
                           ? "#dcfce7"
@@ -203,7 +200,7 @@ export default function PlayerManager() {
                     onChange={(e) =>
                       updatePlayer(p.id, "team_id", e.target.value)
                     }
-                    style={selectClean}
+                    style={inputAligned}
                   >
                     <option value="">Unassigned</option>
 
@@ -212,16 +209,10 @@ export default function PlayerManager() {
                         {t.name}
                       </option>
                     ))}
-
-                    {divisionTeams.length === 0 && (
-                      <option disabled>No teams in division</option>
-                    )}
                   </select>
 
                   <div style={teamLabel}>
-                    {playerTeam
-                      ? `Current: ${playerTeam.name || "Unnamed"}`
-                      : "No team"}
+                    {playerTeam?.name || "No team"}
                   </div>
                 </div>
               </div>
@@ -236,7 +227,7 @@ export default function PlayerManager() {
 /* ================= STYLES ================= */
 
 const tileWrapper = {
-  background: "#ffffff",
+  background: "#fff",
   borderRadius: 16,
   padding: 15,
   marginTop: 20,
@@ -258,21 +249,12 @@ const row = {
   borderBottom: "1px solid #f1f5f9"
 };
 
-const input = {
+const inputAligned = {
   width: "100%",
-  padding: "5px",
+  height: 32,
+  padding: "4px 8px",
   borderRadius: 6,
   border: "1px solid #e5e7eb"
-};
-
-const selectClean = {
-  width: "100%",
-  padding: "6px 8px",
-  borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  background: "#f8fafc",
-  fontSize: 13,
-  cursor: "pointer"
 };
 
 const teamLabel = {
@@ -284,6 +266,5 @@ const teamLabel = {
 const searchInput = {
   padding: "8px 12px",
   borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  width: 250
+  border: "1px solid #e5e7eb"
 };
