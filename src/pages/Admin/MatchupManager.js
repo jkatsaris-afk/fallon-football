@@ -27,7 +27,6 @@ const teamLogos = {
 export default function MatchupManager() {
   const [divisions, setDivisions] = useState([]);
   const [selectedDivision, setSelectedDivision] = useState(null);
-
   const [teams, setTeams] = useState([]);
   const [nflTeams, setNflTeams] = useState([]);
   const [matchups, setMatchups] = useState([]);
@@ -90,20 +89,17 @@ export default function MatchupManager() {
     await supabase.from("matchups").delete().eq("division", selectedDivision);
 
     let list = [...teams];
-
     const isOdd = list.length % 2 !== 0;
 
-    if (isOdd) {
-      list.push({ id: "ghost" }); // placeholder
-    }
+    if (isOdd) list.push({ id: "ghost" });
 
     const total = list.length;
     const rounds = total - 1;
 
     let schedule = [];
 
-    for (let round = 0; round < rounds; round++) {
-      let weekGames = [];
+    for (let r = 0; r < rounds; r++) {
+      let games = [];
       let used = new Set();
 
       for (let i = 0; i < total / 2; i++) {
@@ -111,38 +107,37 @@ export default function MatchupManager() {
         const away = list[total - 1 - i];
 
         if (home.id !== "ghost" && away.id !== "ghost") {
-          weekGames.push({ home_team_id: home.id, away_team_id: away.id });
+          games.push({ home_team_id: home.id, away_team_id: away.id });
           used.add(home.id);
           used.add(away.id);
         }
       }
 
-      // 🔥 HANDLE ODD TEAM → DOUBLE GAME
+      // 🔥 odd team plays twice
       if (isOdd) {
         const missing = teams.find(t => !used.has(t.id));
-
         if (missing) {
           const opponent = teams.find(t => t.id !== missing.id);
-          weekGames.push({
+          games.push({
             home_team_id: missing.id,
             away_team_id: opponent.id
           });
         }
       }
 
-      schedule.push(weekGames);
+      schedule.push(games);
 
       const last = list.pop();
       list.splice(1, 0, last);
     }
 
-    const finalSchedule = [];
+    const final = [];
 
     for (let i = 0; i < 8; i++) {
       const weekGames = schedule[i % schedule.length];
 
       weekGames.forEach(g => {
-        finalSchedule.push({
+        final.push({
           season_year: 2026,
           week: i + 1,
           division: selectedDivision,
@@ -152,7 +147,7 @@ export default function MatchupManager() {
       });
     }
 
-    const { error } = await supabase.from("matchups").insert(finalSchedule);
+    const { error } = await supabase.from("matchups").insert(final);
 
     if (error) {
       console.error(error);
@@ -165,6 +160,7 @@ export default function MatchupManager() {
   const getTeamDisplay = (id) => {
     const t = teams.find(x => x.id === id);
     if (!t) return null;
+
     const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
     return {
@@ -177,6 +173,9 @@ export default function MatchupManager() {
     <div style={{ paddingBottom: 50 }}>
 
       <h1>Matchup Manager</h1>
+
+      {/* ✅ label moved here */}
+      <div style={divisionLabel}>Select Division</div>
 
       {/* DIVISIONS */}
       <div style={grid}>
@@ -191,8 +190,6 @@ export default function MatchupManager() {
         ))}
       </div>
 
-      <div style={divisionLabel}>Select Division</div>
-
       {selectedDivision && (
         <>
           <h3 style={{ marginTop: 25 }}>{selectedDivision} Teams</h3>
@@ -200,6 +197,7 @@ export default function MatchupManager() {
           <div style={grid}>
             {teams.map(t => {
               const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+
               return (
                 <div key={t.id} style={card}>
                   <img src={teamLogos[nfl?.short_name]} width={50}/>
@@ -229,6 +227,7 @@ export default function MatchupManager() {
 
                         return (
                           <div key={m.id} style={matchCard}>
+
                             <div style={teamColumn}>
                               <div style={label}>HOME</div>
                               <img src={home?.logo} style={logo}/>
@@ -242,6 +241,7 @@ export default function MatchupManager() {
                               <img src={away?.logo} style={logo}/>
                               <div>{away?.name}</div>
                             </div>
+
                           </div>
                         );
                       })}
@@ -268,10 +268,10 @@ const grid = {
 };
 
 const divisionTile = (active) => ({
-  background: active ? "#2f6ea6" : "#fff",
-  color: active ? "#fff" : "#0f172a",
+  background: active ? "#2f6ea6" : "#ffffff",
+  color: active ? "#ffffff" : "#0f172a",
   borderRadius: 18,
-  padding: "20px",
+  padding: 20,
   textAlign: "center",
   fontSize: 17,
   fontWeight: "600",
@@ -281,9 +281,23 @@ const divisionTile = (active) => ({
 
 const divisionLabel = {
   textAlign: "center",
-  marginTop: 10,
+  marginTop: 5,
   fontSize: 13,
   color: "#94a3b8"
+};
+
+/* 🔥 GLASS (WITH FALLBACK SO IT ALWAYS SHOWS) */
+const matchCard = {
+  background: "rgba(255,255,255,0.3)", // fallback
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  borderRadius: 14,
+  padding: 12,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  border: "1px solid rgba(255,255,255,0.3)",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.1)"
 };
 
 const matchGrid = {
@@ -293,19 +307,8 @@ const matchGrid = {
   marginTop: 15
 };
 
-const matchCard = {
-  background: "rgba(255,255,255,0.2)",
-  backdropFilter: "blur(12px)",
-  borderRadius: 14,
-  padding: 12,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  border: "1px solid rgba(255,255,255,0.25)"
-};
-
 const weekBlock = {
-  background: "#fff",
+  background: "#ffffff",
   padding: 20,
   borderRadius: 18,
   marginBottom: 25,
@@ -326,14 +329,14 @@ const teamColumn = {
   width: "40%"
 };
 
-const logo = { width: 35, height: 35 };
+const logo = { width: 35 };
 
 const label = { fontSize: 10, color: "#94a3b8" };
 
 const vs = { fontWeight: "700" };
 
 const card = {
-  background: "#fff",
+  background: "#ffffff",
   borderRadius: 12,
   padding: 10,
   textAlign: "center"
@@ -345,5 +348,6 @@ const btn = {
   background: "#2f6ea6",
   color: "#fff",
   border: "none",
-  borderRadius: 10
+  borderRadius: 10,
+  cursor: "pointer"
 };
