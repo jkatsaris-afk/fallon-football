@@ -31,10 +31,10 @@ export default function PlayerManager() {
     setPlayers(playerData || []);
     setTeams(teamData || []);
 
-    // ✅ FALLBACK if divisions table empty
+    // fallback if divisions table empty
     if (!divisionData || divisionData.length === 0) {
       const fallback = [
-        ...new Set(players.map(p => p.division).filter(Boolean))
+        ...new Set(playerData?.map(p => p.division).filter(Boolean))
       ];
       setDivisions(fallback.map(name => ({ name })));
     } else {
@@ -51,9 +51,13 @@ export default function PlayerManager() {
     loadData();
   };
 
+  /* ================= FILTER ================= */
+
   const filteredPlayers = players
     .filter(p =>
-      selectedDivision === "ALL" ? true : p.division === selectedDivision
+      selectedDivision === "ALL"
+        ? true
+        : p.division === selectedDivision
     )
     .filter(p => {
       const team = teams.find(t => t.id === p.team_id);
@@ -89,7 +93,8 @@ export default function PlayerManager() {
               border: "none",
               background:
                 selectedDivision === d ? "#2f6ea6" : "#e2e8f0",
-              color: selectedDivision === d ? "#fff" : "#000"
+              color: selectedDivision === d ? "#fff" : "#000",
+              cursor: "pointer"
             }}
           >
             {d}
@@ -102,12 +107,12 @@ export default function PlayerManager() {
 
         {/* HEADER */}
         <div style={gridHeader}>
-          <div>Name</div>
-          <div>Age</div>
-          <div>Division</div>
-          <div>Shirt</div>
-          <div>Payment</div>
-          <div>Team</div>
+          <div style={cell}>Name</div>
+          <div style={cell}>Age</div>
+          <div style={cell}>Division</div>
+          <div style={cell}>Shirt</div>
+          <div style={cell}>Payment</div>
+          <div style={cellLast}>Team</div>
         </div>
 
         {/* LIST */}
@@ -127,15 +132,19 @@ export default function PlayerManager() {
 
             return (
               <div key={p.id} style={gridRow}>
-                <div>{p.first_name} {p.last_name}</div>
+                {/* NAME */}
+                <div style={cell}>
+                  {p.first_name} {p.last_name}
+                </div>
 
-                <div>{p.age}</div>
+                {/* AGE */}
+                <div style={cell}>{p.age}</div>
 
                 {/* DIVISION */}
-                <div>
+                <div style={cell}>
                   <select
                     value={p.division || ""}
-                    onChange={e =>
+                    onChange={(e) =>
                       updatePlayer(p.id, "division", e.target.value)
                     }
                     style={input}
@@ -150,10 +159,10 @@ export default function PlayerManager() {
                 </div>
 
                 {/* SHIRT */}
-                <div>
+                <div style={cell}>
                   <select
                     value={p.shirt_size || ""}
-                    onChange={e =>
+                    onChange={(e) =>
                       updatePlayer(p.id, "shirt_size", e.target.value)
                     }
                     style={input}
@@ -169,10 +178,10 @@ export default function PlayerManager() {
                 </div>
 
                 {/* PAYMENT */}
-                <div>
+                <div style={cell}>
                   <select
                     value={p.payment_status || ""}
-                    onChange={e =>
+                    onChange={(e) =>
                       updatePlayer(
                         p.id,
                         "payment_status",
@@ -196,24 +205,27 @@ export default function PlayerManager() {
                 </div>
 
                 {/* TEAM */}
-                <div>
-                  <select
-                    value={p.team_id || ""}
-                    onChange={e =>
-                      updatePlayer(p.id, "team_id", e.target.value)
-                    }
-                    style={input}
-                  >
-                    <option value="">Unassigned</option>
-                    {divisionTeams.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                <div style={cellLast}>
+                  <div style={{ width: "100%" }}>
+                    <select
+                      value={p.team_id || ""}
+                      onChange={(e) =>
+                        updatePlayer(p.id, "team_id", e.target.value)
+                      }
+                      style={input}
+                    >
+                      <option value="">Unassigned</option>
 
-                  <div style={teamLabel}>
-                    {playerTeam?.name || "No team"}
+                      {divisionTeams.map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div style={teamLabel}>
+                      {playerTeam?.name || "No team"}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -238,9 +250,6 @@ const tileWrapper = {
 const gridHeader = {
   display: "grid",
   gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
-  fontSize: 12,
-  color: "#64748b",
-  paddingBottom: 6,
   borderBottom: "1px solid #e5e7eb"
 };
 
@@ -248,9 +257,20 @@ const gridRow = {
   display: "grid",
   gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
   alignItems: "center",
-  gap: 10,
-  padding: "8px 0",
   borderBottom: "1px solid #f1f5f9"
+};
+
+const cell = {
+  padding: "8px 10px",
+  borderRight: "1px solid #e5e7eb",
+  display: "flex",
+  alignItems: "center"
+};
+
+const cellLast = {
+  padding: "8px 10px",
+  display: "flex",
+  alignItems: "center"
 };
 
 const input = {
