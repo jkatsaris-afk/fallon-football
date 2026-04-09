@@ -29,6 +29,7 @@ export default function TeamsPage() {
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [players, setPlayers] = useState([]);
+  const [divisions, setDivisions] = useState([]);
 
   const [activeTeam, setActiveTeam] = useState(null);
   const [creatingTeam, setCreatingTeam] = useState(null);
@@ -42,6 +43,8 @@ export default function TeamsPage() {
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: c } = await supabase.from("coaches").select("*");
+    const { data: d } = await supabase.from("divisions").select("*");
+
     const { data: p } = await supabase
       .from("players")
       .select("*, divisions(name)");
@@ -50,6 +53,7 @@ export default function TeamsPage() {
     setTeams(t || []);
     setCoaches(c || []);
     setPlayers(p || []);
+    setDivisions(d || []);
   };
 
   const getCoachName = (id) => {
@@ -59,18 +63,16 @@ export default function TeamsPage() {
 
   /* ================= AUTO ROSTER ================= */
 
-  const autoRosterByDivision = async (division) => {
-    const divisionTeams = teams.filter(t => t.division === division);
+  const autoRosterByDivision = async (divisionName) => {
+    const division = divisions.find(d => d.name === divisionName);
+    if (!division) return alert("Division not found");
 
-    if (!divisionTeams.length) {
-      alert("No teams in this division");
-      return;
-    }
+    const divisionTeams = teams.filter(t => t.division === divisionName);
 
     const divisionPlayers = players
       .filter(p =>
         !p.team_id &&
-        p.divisions?.name?.trim() === division
+        p.division_id === division.id
       )
       .map(p => ({
         ...p,
@@ -110,99 +112,86 @@ export default function TeamsPage() {
     loadData();
   };
 
-  const removeFromTeam = async (id) => {
-    await supabase.from("players").update({ team_id: null }).eq("id", id);
-    loadData();
-  };
+  /* ================= CREATE TEAM ================= */
 
-  const addPlayerToTeam = async (id) => {
-    await supabase.from("players").update({ team_id: activeTeam.id }).eq("id", id);
-    loadData();
-  };
-
-  /* ================= TEAM DASHBOARD ================= */
-
-  if (activeTeam) {
-    const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
-    const teamPlayers = players.filter(p => p.team_id === activeTeam.id);
-
+  if (creatingTeam) {
     return (
       <div style={{ padding: 20 }}>
+        <button style={backBtn} onClick={() => setCreatingTeam(null)}>← Teams</button>
 
-        <button style={backBtnModern} onClick={() => setActiveTeam(null)}>
-          ← Teams
-        </button>
+        <h2>Create Team</h2>
 
-        <h2>Team Dashboard</h2>
+        <div style={formBox}>
 
-        <div style={dashboardCard}>
-          <div style={leftSide}>
-            <img src={teamLogos[nfl?.short_name]} style={teamLogoWide} />
-            <div>
-              <h1>{nfl?.full_name}</h1>
-              <div style={divisionBadge}>
-                {activeTeam.division} • {teamPlayers.length} Players
-              </div>
-            </div>
-          </div>
+          <select
+            style={formInput}
+            onChange={(e) =>
+              setCreatingTeam({
+                ...creatingTeam,
+                division: e.target.value
+              })
+            }
+          >
+            <option value="">Select Division</option>
+            {divisions.map(d => (
+              <option key={d.id} value={d.name}>{d.name}</option>
+            ))}
+          </select>
 
-          <div style={coachPanel}>
-            <div style={coachTitle}>Coaching Staff</div>
-            <div style={coachRow}>
-              <span style={coachLabel}>Head</span>
-              <span>{getCoachName(activeTeam.coach_id)}</span>
-            </div>
-            <div style={coachRow}>
-              <span style={coachLabel}>Asst</span>
-              <span>{getCoachName(activeTeam.assistant_coach_id)}</span>
-            </div>
-          </div>
+          <select
+            style={formInput}
+            onChange={(e) =>
+              setCreatingTeam({
+                ...creatingTeam,
+                coach_id: e.target.value
+              })
+            }
+          >
+            <option value="">Head Coach</option>
+            {coaches.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.first_name} {c.last_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            style={formInput}
+            onChange={(e) =>
+              setCreatingTeam({
+                ...creatingTeam,
+                assistant_coach_id: e.target.value
+              })
+            }
+          >
+            <option value="">Assistant Coach</option>
+            {coaches.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.first_name} {c.last_name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            style={primaryBtn}
+            onClick={async () => {
+              if (!creatingTeam.division) return alert("Select division");
+
+              await supabase.from("teams").insert({
+                nfl_team_id: creatingTeam.id,
+                division: creatingTeam.division,
+                coach_id: creatingTeam.coach_id || null,
+                assistant_coach_id: creatingTeam.assistant_coach_id || null
+              });
+
+              setCreatingTeam(null);
+              loadData();
+            }}
+          >
+            Create Team
+          </button>
+
         </div>
-
-        <div style={actionBar}>
-          <button style={primaryBtn} onClick={() => setShowAdd(true)}>+ Add Player</button>
-        </div>
-
-        {showAdd && (
-          <div style={panel}>
-            <h3>Add Player</h3>
-
-            <input
-              placeholder="Search players..."
-              value={playerSearch}
-              onChange={(e) => setPlayerSearch(e.target.value)}
-              style={formInput}
-            />
-
-            {players
-              .filter(p =>
-                !p.team_id &&
-                p.divisions?.name === activeTeam.division &&
-                `${p.first_name} ${p.last_name}`.toLowerCase()
-                  .includes(playerSearch.toLowerCase())
-              )
-              .map(p => (
-                <div key={p.id} style={row}>
-                  <div>{p.first_name} {p.last_name}</div>
-                  <button style={primaryBtn} onClick={() => addPlayerToTeam(p.id)}>Add</button>
-                </div>
-              ))}
-
-            <button style={secondaryBtn} onClick={() => setShowAdd(false)}>
-              Close
-            </button>
-          </div>
-        )}
-
-        <div style={table}>
-          {teamPlayers.map(p => (
-            <div key={p.id} style={tableRow}>
-              <div>{p.first_name} {p.last_name}</div>
-              <button style={removeBtn} onClick={() => removeFromTeam(p.id)}>Remove</button>
-            </div>
-          ))}
-        </div>
-
       </div>
     );
   }
@@ -225,36 +214,47 @@ export default function TeamsPage() {
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
-      {["K-1","2nd-3rd","4th-5th","6th-8th"].map(div => {
-        const divTeams = teams.filter(t => t.division === div);
+      {divisions.map(div => {
+        const divTeams = teams.filter(t => t.division === div.name);
         if (!divTeams.length) return null;
 
         return (
-          <div key={div} style={divisionTile}>
-            <div style={divisionHeader}>{div}</div>
+          <div key={div.id} style={divisionTile}>
 
-            <div style={grid}>
+            <div style={divisionHeaderRow}>
+              <strong>{div.name}</strong>
 
-              {/* AUTO TILE */}
-              <div style={autoTile} onClick={() => autoRosterByDivision(div)}>
+              <div
+                style={autoTile}
+                onClick={() => autoRosterByDivision(div.name)}
+              >
                 ⚡ Auto Roster
               </div>
+            </div>
 
+            <div style={grid}>
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
                 const count = players.filter(p => p.team_id === t.id).length;
 
                 return (
-                  <div key={t.id} style={tile} onClick={() => setActiveTeam(t)}>
+                  <div key={t.id} style={tile}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
-                    <div style={{ fontSize: 11 }}>Coach: {getCoachName(t.coach_id)}</div>
-                    <div style={{ fontSize: 11 }}>Asst: {getCoachName(t.assistant_coach_id)}</div>
-                    <div style={{ fontSize: 12 }}>{count} Players</div>
+                    <div style={{ fontSize: 11 }}>
+                      Coach: {getCoachName(t.coach_id)}
+                    </div>
+                    <div style={{ fontSize: 11 }}>
+                      Asst: {getCoachName(t.assistant_coach_id)}
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      {count} Players
+                    </div>
                   </div>
                 );
               })}
             </div>
+
           </div>
         );
       })}
@@ -265,52 +265,57 @@ export default function TeamsPage() {
 
 /* ================= STYLES ================= */
 
-const autoTile = {
-  background:"#2f6ea6",
-  color:"#fff",
+const grid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))",
+  gap:15
+};
+
+const tile = {
+  background:"#fff",
   borderRadius:12,
   padding:10,
   textAlign:"center",
-  cursor:"pointer",
-  fontWeight:"600"
+  cursor:"pointer"
 };
 
-const backBtnModern = {
+const divisionTile = {
+  background:"#fff",
+  borderRadius:14,
+  padding:15,
+  marginBottom:20
+};
+
+const divisionHeaderRow = {
+  display:"flex",
+  justifyContent:"space-between",
+  alignItems:"center",
+  marginBottom:10
+};
+
+const autoTile = {
+  background:"#2f6ea6",
+  color:"#fff",
+  padding:"6px 12px",
+  borderRadius:8,
+  cursor:"pointer"
+};
+
+const formBox = { background:"#fff", padding:20, borderRadius:12 };
+const formInput = { width:"100%", padding:8, marginBottom:10 };
+
+const primaryBtn = {
+  background:"#2f6ea6",
+  color:"#fff",
+  border:"none",
+  padding:"8px 14px",
+  borderRadius:8
+};
+
+const backBtn = {
   background:"#fff",
   border:"1px solid #e5e7eb",
   padding:"6px 12px",
   borderRadius:10,
-  cursor:"pointer",
-  marginBottom:15
+  cursor:"pointer"
 };
-
-const primaryBtn = { background:"#2f6ea6", color:"#fff", border:"none", padding:"8px 14px", borderRadius:8 };
-const secondaryBtn = { background:"#e5e7eb", border:"none", padding:"8px 14px", borderRadius:8 };
-const removeBtn = { background:"#ef4444", color:"#fff", border:"none", padding:"6px 10px", borderRadius:6 };
-
-const dashboardCard = { display:"flex", justifyContent:"space-between", background:"#fff", padding:20, borderRadius:16 };
-const leftSide = { display:"flex", gap:20, alignItems:"center" };
-const teamLogoWide = { width:120 };
-
-const coachPanel = { background:"#f8fafc", padding:15, borderRadius:12, minWidth:220 };
-const coachTitle = { fontWeight:"600", marginBottom:8 };
-const coachRow = { display:"flex", justifyContent:"space-between" };
-const coachLabel = { color:"#64748b" };
-
-const divisionBadge = { background:"#e2e8f0", padding:"4px 10px", borderRadius:8 };
-
-const actionBar = { display:"flex", gap:10, marginTop:20 };
-const panel = { background:"#fff", padding:20, borderRadius:12, marginTop:20 };
-
-const table = { background:"#fff", borderRadius:12, marginTop:20 };
-const tableRow = { display:"flex", justifyContent:"space-between", padding:12 };
-
-const row = { display:"flex", justifyContent:"space-between", padding:10 };
-
-const formInput = { width:"100%", padding:8, marginBottom:10 };
-
-const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
-const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
-
-const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
-const divisionHeader = { fontWeight:"600", marginBottom:10 };
