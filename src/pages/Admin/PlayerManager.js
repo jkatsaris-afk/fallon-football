@@ -13,7 +13,7 @@ export default function PlayerManager() {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [divisions, setDivisions] = useState([]);
-  const [divisionMap, setDivisionMap] = useState({}); // 🔥 NEW
+  const [divisionMap, setDivisionMap] = useState({});
 
   const [selectedDivision, setSelectedDivision] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -25,7 +25,7 @@ export default function PlayerManager() {
   const loadData = async () => {
     const { data: playerData } = await supabase
       .from("players")
-      .select("*") // 🔥 removed join
+      .select("*")
       .order("last_name");
 
     const { data: teamData } = await supabase
@@ -39,7 +39,6 @@ export default function PlayerManager() {
     setPlayers(playerData || []);
     setTeams(teamData || []);
 
-    // 🔥 Build map id → name
     const map = {};
     (divisionData || []).forEach(d => {
       map[d.id] = d.name;
@@ -135,7 +134,6 @@ export default function PlayerManager() {
       {/* ================= TILE ================= */}
       <div style={tileWrapper}>
 
-        {/* HEADER */}
         <div style={gridHeader}>
           <div style={cell}>Name</div>
           <div style={cell}>Age</div>
@@ -145,19 +143,13 @@ export default function PlayerManager() {
           <div style={cellLast}>Team</div>
         </div>
 
-        {/* LIST */}
         <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
           {filteredPlayers.map(p => {
             const playerTeam = teams.find(t => t.id === p.team_id);
-
             const currentDivision = divisionMap[p.division_id] || "";
 
             const divisionTeams = teams
-              .filter(
-                t =>
-                  t.name &&
-                  t.division === currentDivision
-              )
+              .filter(t => t.name && t.division === currentDivision)
               .sort((a, b) =>
                 (a.name || "").localeCompare(b.name || "")
               );
@@ -170,7 +162,6 @@ export default function PlayerManager() {
 
                 <div style={cell}>{p.age}</div>
 
-                {/* 🔥 FIXED DIVISION */}
                 <div style={cell}>
                   <select
                     value={currentDivision}
@@ -210,11 +201,7 @@ export default function PlayerManager() {
                   <select
                     value={p.payment_status || ""}
                     onChange={(e) =>
-                      updatePlayer(
-                        p.id,
-                        "payment_status",
-                        e.target.value
-                      )
+                      updatePlayer(p.id, "payment_status", e.target.value)
                     }
                     style={input}
                   >
@@ -253,3 +240,66 @@ export default function PlayerManager() {
     </div>
   );
 }
+
+/* ================= STYLES ================= */
+
+const searchInput = {
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #e5e7eb"
+};
+
+const tileWrapper = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 15,
+  marginTop: 20,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+};
+
+const gridHeader = {
+  display: "grid",
+  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
+  borderBottom: "1px solid #e5e7eb"
+};
+
+const gridRow = {
+  display: "grid",
+  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
+  alignItems: "center",
+  borderBottom: "1px solid #f1f5f9"
+};
+
+const cell = {
+  padding: "8px 10px",
+  borderRight: "1px solid #e5e7eb",
+  display: "flex",
+  alignItems: "center"
+};
+
+const cellLast = {
+  padding: "8px 10px",
+  display: "flex",
+  flexDirection: "column"
+};
+
+const input = {
+  width: "100%",
+  height: 32,
+  borderRadius: 6,
+  border: "1px solid #e5e7eb"
+};
+
+const teamSelect = {
+  width: "100%",
+  maxWidth: 180,
+  height: 32,
+  borderRadius: 6,
+  border: "1px solid #e5e7eb",
+  background: "#f8fafc"
+};
+
+const teamLabel = {
+  fontSize: 11,
+  color: "#64748b"
+};
