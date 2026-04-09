@@ -31,11 +31,7 @@ export default function TeamsPage() {
   const [players, setPlayers] = useState([]);
   const [divisions, setDivisions] = useState([]);
 
-  const [activeTeam, setActiveTeam] = useState(null);
   const [creatingTeam, setCreatingTeam] = useState(null);
-
-  const [showAdd, setShowAdd] = useState(false);
-  const [playerSearch, setPlayerSearch] = useState("");
 
   useEffect(() => { loadData(); }, []);
 
@@ -44,10 +40,7 @@ export default function TeamsPage() {
     const { data: t } = await supabase.from("teams").select("*");
     const { data: c } = await supabase.from("coaches").select("*");
     const { data: d } = await supabase.from("divisions").select("*");
-
-    const { data: p } = await supabase
-      .from("players")
-      .select("*, divisions(name)");
+    const { data: p } = await supabase.from("players").select("*");
 
     setNflTeams(nfl || []);
     setTeams(t || []);
@@ -63,11 +56,9 @@ export default function TeamsPage() {
 
   /* ================= AUTO ROSTER ================= */
 
-  const autoRosterByDivision = async (divisionName) => {
-    const division = divisions.find(d => d.name === divisionName);
-    if (!division) return alert("Division not found");
+  const autoRosterByDivision = async (division) => {
 
-    const divisionTeams = teams.filter(t => t.division === divisionName);
+    const divisionTeams = teams.filter(t => t.division_id === division.id);
 
     const divisionPlayers = players
       .filter(p =>
@@ -79,6 +70,8 @@ export default function TeamsPage() {
         rating: Number(p.rating || 3)
       }))
       .sort((a, b) => b.rating - a.rating);
+
+    console.log("FOUND PLAYERS:", divisionPlayers.length);
 
     if (!divisionPlayers.length) {
       alert("No players available");
@@ -117,24 +110,36 @@ export default function TeamsPage() {
   if (creatingTeam) {
     return (
       <div style={{ padding: 20 }}>
-        <button style={backBtn} onClick={() => setCreatingTeam(null)}>← Teams</button>
+
+        <button style={backBtn} onClick={() => setCreatingTeam(null)}>
+          ← Teams
+        </button>
 
         <h2>Create Team</h2>
+
+        {/* ✅ LOGO + NAME RESTORED */}
+        <div style={teamHero}>
+          <img src={teamLogos[creatingTeam.short_name]} width={90}/>
+          <h1>{creatingTeam.full_name}</h1>
+        </div>
 
         <div style={formBox}>
 
           <select
             style={formInput}
-            onChange={(e) =>
+            onChange={(e) => {
+              const division = divisions.find(d => d.id === e.target.value);
+
               setCreatingTeam({
                 ...creatingTeam,
-                division: e.target.value
-              })
-            }
+                division_id: division.id,
+                division_name: division.name
+              });
+            }}
           >
             <option value="">Select Division</option>
             {divisions.map(d => (
-              <option key={d.id} value={d.name}>{d.name}</option>
+              <option key={d.id} value={d.id}>{d.name}</option>
             ))}
           </select>
 
@@ -175,11 +180,16 @@ export default function TeamsPage() {
           <button
             style={primaryBtn}
             onClick={async () => {
-              if (!creatingTeam.division) return alert("Select division");
+
+              if (!creatingTeam.division_id) {
+                alert("Select division");
+                return;
+              }
 
               await supabase.from("teams").insert({
                 nfl_team_id: creatingTeam.id,
-                division: creatingTeam.division,
+                division_id: creatingTeam.division_id,
+                division: creatingTeam.division_name,
                 coach_id: creatingTeam.coach_id || null,
                 assistant_coach_id: creatingTeam.assistant_coach_id || null
               });
@@ -215,7 +225,8 @@ export default function TeamsPage() {
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
       {divisions.map(div => {
-        const divTeams = teams.filter(t => t.division === div.name);
+        const divTeams = teams.filter(t => t.division_id === div.id);
+
         if (!divTeams.length) return null;
 
         return (
@@ -226,7 +237,7 @@ export default function TeamsPage() {
 
               <div
                 style={autoTile}
-                onClick={() => autoRosterByDivision(div.name)}
+                onClick={() => autoRosterByDivision(div)}
               >
                 ⚡ Auto Roster
               </div>
@@ -247,9 +258,7 @@ export default function TeamsPage() {
                     <div style={{ fontSize: 11 }}>
                       Asst: {getCoachName(t.assistant_coach_id)}
                     </div>
-                    <div style={{ fontSize: 12 }}>
-                      {count} Players
-                    </div>
+                    <div>{count} Players</div>
                   </div>
                 );
               })}
@@ -265,57 +274,19 @@ export default function TeamsPage() {
 
 /* ================= STYLES ================= */
 
-const grid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))",
-  gap:15
-};
+const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
+const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
 
-const tile = {
-  background:"#fff",
-  borderRadius:12,
-  padding:10,
-  textAlign:"center",
-  cursor:"pointer"
-};
+const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
+const divisionHeaderRow = { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 };
 
-const divisionTile = {
-  background:"#fff",
-  borderRadius:14,
-  padding:15,
-  marginBottom:20
-};
-
-const divisionHeaderRow = {
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center",
-  marginBottom:10
-};
-
-const autoTile = {
-  background:"#2f6ea6",
-  color:"#fff",
-  padding:"6px 12px",
-  borderRadius:8,
-  cursor:"pointer"
-};
+const autoTile = { background:"#2f6ea6", color:"#fff", padding:"6px 12px", borderRadius:8, cursor:"pointer" };
 
 const formBox = { background:"#fff", padding:20, borderRadius:12 };
 const formInput = { width:"100%", padding:8, marginBottom:10 };
 
-const primaryBtn = {
-  background:"#2f6ea6",
-  color:"#fff",
-  border:"none",
-  padding:"8px 14px",
-  borderRadius:8
-};
+const primaryBtn = { background:"#2f6ea6", color:"#fff", border:"none", padding:"8px 14px", borderRadius:8 };
 
-const backBtn = {
-  background:"#fff",
-  border:"1px solid #e5e7eb",
-  padding:"6px 12px",
-  borderRadius:10,
-  cursor:"pointer"
-};
+const backBtn = { marginBottom:15 };
+
+const teamHero = { display:"flex", gap:20, alignItems:"center" };
