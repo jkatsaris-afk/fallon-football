@@ -33,7 +33,6 @@ export default function TeamsPage() {
   const [activeTeam, setActiveTeam] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
-  const [newTeam, setNewTeam] = useState(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -56,8 +55,6 @@ export default function TeamsPage() {
     return c ? `${c.first_name} ${c.last_name}` : "—";
   };
 
-  /* ================= REMOVE PLAYER ================= */
-
   const removeFromTeam = async (playerId) => {
     await supabase
       .from("players")
@@ -67,8 +64,6 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= ADD PLAYER ================= */
-
   const addPlayerToTeam = async (playerId) => {
     await supabase
       .from("players")
@@ -77,8 +72,6 @@ export default function TeamsPage() {
 
     loadData();
   };
-
-  /* ================= AUTO ROSTER ================= */
 
   const autoRoster = async () => {
     const divisionPlayers = players.filter(
@@ -130,13 +123,21 @@ export default function TeamsPage() {
           <img src={teamLogos[nfl?.short_name]} width={90} />
           <div>
             <h1>{nfl?.full_name}</h1>
-            <div style={divisionBadge}>{activeTeam.division}</div>
-          </div>
-        </div>
 
-        {/* 👥 PLAYER COUNT */}
-        <div style={{ marginBottom: 10, fontWeight: "600" }}>
-          👥 {teamPlayers.length} Players
+            {/* 🔥 FIXED BADGE */}
+            <div style={divisionBadge}>
+              {activeTeam.division} • 👥 {teamPlayers.length} Players
+            </div>
+
+            {/* 🔥 COACHES */}
+            <div style={{ fontSize: 13, marginTop: 6 }}>
+              <strong>Coach:</strong> {getCoachName(activeTeam.coach_id)}
+            </div>
+
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              <strong>Asst:</strong> {getCoachName(activeTeam.assistant_coach_id)}
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
@@ -219,11 +220,7 @@ export default function TeamsPage() {
 
       <div style={grid}>
         {nflTeams.map(team => (
-          <div
-            key={team.id}
-            style={tile}
-            onClick={() => setActiveTeam(team)}
-          >
+          <div key={team.id} style={tile} onClick={() => setActiveTeam(team)}>
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
@@ -243,7 +240,6 @@ export default function TeamsPage() {
             <div style={grid}>
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
-
                 const playerCount = players.filter(p => p.team_id === t.id).length;
 
                 return (
