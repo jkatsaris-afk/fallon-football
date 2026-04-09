@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 /* ================= LOGOS ================= */
+
 import bills from "../../resources/Buffalo Bills.png";
 import bengals from "../../resources/Cincinnati Bengals.png";
 import broncos from "../../resources/Denver Broncos.png";
@@ -58,10 +59,17 @@ export default function TeamsPage() {
 
   const autoRosterByDivision = async (division) => {
 
-    const divisionTeams = teams.filter(t => t.division_id === division.id);
+    const divisionTeams = teams.filter(
+      t =>
+        t.division_id === division.id ||
+        (t.division && t.division.trim() === division.name.trim())
+    );
 
     const divisionPlayers = players
-      .filter(p => !p.team_id && p.division_id === division.id)
+      .filter(p =>
+        !p.team_id &&
+        p.division_id === division.id
+      )
       .map(p => ({
         ...p,
         rating: Number(p.rating || 3)
@@ -110,12 +118,15 @@ export default function TeamsPage() {
         <button onClick={() => setActiveTeam(null)}>← Back</button>
 
         <h2>{nfl?.full_name}</h2>
+
         <img src={teamLogos[nfl?.short_name]} width={120} />
 
-        <h3>Players ({teamPlayers.length})</h3>
+        <h3>{teamPlayers.length} Players</h3>
 
         {teamPlayers.map(p => (
-          <div key={p.id}>{p.first_name} {p.last_name}</div>
+          <div key={p.id}>
+            {p.first_name} {p.last_name}
+          </div>
         ))}
       </div>
     );
@@ -128,6 +139,7 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
+      {/* SELECT TEAM */}
       <div style={grid}>
         {nflTeams.map(team => (
           <div key={team.id} style={tile} onClick={() => setCreatingTeam(team)}>
@@ -140,31 +152,51 @@ export default function TeamsPage() {
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
       {divisions.map(div => {
-        const divTeams = teams.filter(t => t.division_id === div.id);
+
+        const divTeams = teams.filter(
+          t =>
+            t.division_id === div.id ||
+            (t.division && t.division.trim() === div.name.trim())
+        );
 
         return (
           <div key={div.id} style={divisionTile}>
 
-            <div style={divisionHeader}>{div.name}</div>
+            <div style={divisionHeader}>
+              {div.name}
+            </div>
 
             <div style={grid}>
 
-              <div style={autoTile} onClick={() => autoRosterByDivision(div)}>
+              {/* AUTO ROSTER TILE */}
+              <div
+                style={autoTile}
+                onClick={() => autoRosterByDivision(div)}
+              >
                 ⚡ Auto Roster
               </div>
 
+              {/* TEAMS */}
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
                 return (
-                  <div key={t.id} style={tile} onClick={() => setActiveTeam(t)}>
+                  <div
+                    key={t.id}
+                    style={tile}
+                    onClick={() => setActiveTeam(t)} // 🔥 RESTORES DASHBOARD
+                  >
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
-                    <div>{getCoachName(t.coach_id)}</div>
+                    <div style={{ fontSize: 11 }}>
+                      Coach: {getCoachName(t.coach_id)}
+                    </div>
                   </div>
                 );
               })}
+
             </div>
+
           </div>
         );
       })}
@@ -206,6 +238,6 @@ const autoTile = {
   color:"#fff",
   padding:"10px",
   borderRadius:12,
-  cursor:"pointer",
-  textAlign:"center"
+  textAlign:"center",
+  cursor:"pointer"
 };
