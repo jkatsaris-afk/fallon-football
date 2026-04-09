@@ -178,13 +178,14 @@ export default function PlayerManager() {
       {/* ================= TABLE ================= */}
       <div style={tileWrapper}>
         <div style={gridHeader}>
-          <div style={cell}>Name</div>
-          <div style={cell}>Age</div>
-          <div style={cell}>Division</div>
-          <div style={cell}>Shirt</div>
-          <div style={cell}>Payment</div>
-          <div style={cellLast}>Team</div>
-        </div>
+  <div style={cell}>Name</div>
+  <div style={cell}>Age</div>
+  <div style={cell}>Division</div>
+  <div style={cell}>Rating</div> {/* 🔥 NEW */}
+  <div style={cell}>Shirt</div>
+  <div style={cell}>Payment</div>
+  <div style={cellLast}>Team</div>
+</div>
 
         <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
           {filteredPlayers.map(p => {
