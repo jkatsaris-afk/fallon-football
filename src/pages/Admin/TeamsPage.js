@@ -75,9 +75,7 @@ export default function TeamsPage() {
 
   const autoRoster = async () => {
     const divisionPlayers = players.filter(
-      p =>
-        !p.team_id &&
-        p.divisions?.name === activeTeam.division
+      p => !p.team_id && p.divisions?.name === activeTeam.division
     );
 
     const divisionTeams = teams.filter(
@@ -100,93 +98,6 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= CREATE TEAM ================= */
-
-  if (creatingTeam) {
-    return (
-      <div style={{ padding: 20 }}>
-
-        <button style={backBtn} onClick={() => setCreatingTeam(null)}>
-          ← Back
-        </button>
-
-        <h2>Create Team</h2>
-
-        <div style={teamHero}>
-          <img src={teamLogos[creatingTeam.short_name]} width={90} />
-          <h1>{creatingTeam.full_name}</h1>
-        </div>
-
-        <div style={formBox}>
-
-          <select
-            style={formInput}
-            value={creatingTeam.division || ""}
-            onChange={(e) =>
-              setCreatingTeam({ ...creatingTeam, division: e.target.value })
-            }
-          >
-            <option value="">Select Division</option>
-            <option value="K-1">K-1</option>
-            <option value="2nd-3rd">2nd-3rd</option>
-            <option value="4th-5th">4th-5th</option>
-            <option value="6th-8th">6th-8th</option>
-          </select>
-
-          <select
-            style={formInput}
-            value={creatingTeam.coach_id || ""}
-            onChange={(e) =>
-              setCreatingTeam({ ...creatingTeam, coach_id: e.target.value })
-            }
-          >
-            <option value="">Head Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            style={formInput}
-            value={creatingTeam.assistant_coach_id || ""}
-            onChange={(e) =>
-              setCreatingTeam({ ...creatingTeam, assistant_coach_id: e.target.value })
-            }
-          >
-            <option value="">Assistant Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <button
-            style={primaryBtn}
-            onClick={async () => {
-              if (!creatingTeam.division) return alert("Select division");
-
-              await supabase.from("teams").insert({
-                nfl_team_id: creatingTeam.id,
-                division: creatingTeam.division,
-                coach_id: creatingTeam.coach_id || null,
-                assistant_coach_id: creatingTeam.assistant_coach_id || null
-              });
-
-              setCreatingTeam(null);
-              loadData();
-            }}
-          >
-            Create Team
-          </button>
-
-        </div>
-      </div>
-    );
-  }
-
   /* ================= TEAM DASHBOARD ================= */
 
   if (activeTeam) {
@@ -196,14 +107,23 @@ export default function TeamsPage() {
     return (
       <div style={{ padding: 20 }}>
 
-        <button style={backBtn} onClick={() => setActiveTeam(null)}>
-          ← Back
-        </button>
+        {/* CLEAN HEADER */}
+        <div style={headerBar}>
+          <button style={backBtnModern} onClick={() => setActiveTeam(null)}>
+            ← Teams
+          </button>
+          <h2 style={{ margin: 0 }}>Team Dashboard</h2>
+        </div>
 
-        <h2>Team Dashboard</h2>
-
+        {/* HERO */}
         <div style={dashboardCard}>
-          <img src={teamLogos[nfl?.short_name]} width={90} />
+
+          {/* 🔥 WIDER LOGO */}
+          <img
+            src={teamLogos[nfl?.short_name]}
+            style={teamLogoWide}
+            alt="team"
+          />
 
           <div>
             <h1>{nfl?.full_name}</h1>
@@ -278,10 +198,7 @@ export default function TeamsPage() {
 
   return (
     <div style={{ padding: 20 }}>
-
       <h1>Teams Manager</h1>
-
-      <h3>Select NFL Team (Create Team)</h3>
 
       <div style={grid}>
         {nflTeams.map(team => (
@@ -291,55 +208,42 @@ export default function TeamsPage() {
           </div>
         ))}
       </div>
-
-      <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
-
-      {["K-1","2nd-3rd","4th-5th","6th-8th"].map(div => {
-        const divTeams = teams.filter(t => t.division === div);
-        if (!divTeams.length) return null;
-
-        return (
-          <div key={div} style={divisionTile}>
-            <div style={divisionHeader}>{div}</div>
-
-            <div style={grid}>
-              {divTeams.map(t => {
-                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
-                const playerCount = players.filter(p => p.team_id === t.id).length;
-
-                return (
-                  <div key={t.id} style={tile} onClick={() => setActiveTeam(t)}>
-                    <img src={teamLogos[nfl?.short_name]} width={50}/>
-                    <div>{nfl?.full_name}</div>
-                    <div style={{ fontSize: 11 }}>
-                      Coach: {getCoachName(t.coach_id)}
-                    </div>
-                    <div style={{ fontSize: 11 }}>
-                      Asst: {getCoachName(t.assistant_coach_id)}
-                    </div>
-                    <div style={{ fontSize: 12 }}>
-                      {playerCount} Players
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-
     </div>
   );
 }
 
 /* ================= STYLES ================= */
 
-const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
-const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
-const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
-const divisionHeader = { fontWeight:"600", marginBottom:10 };
+const headerBar = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  marginBottom: 15
+};
 
-const dashboardCard = { display:"flex", gap:20, background:"#fff", padding:20, borderRadius:16, marginBottom:20 };
+const backBtnModern = {
+  background: "#f1f5f9",
+  border: "1px solid #e5e7eb",
+  padding: "6px 12px",
+  borderRadius: 8,
+  cursor: "pointer"
+};
+
+const teamLogoWide = {
+  width: 120,
+  objectFit: "contain"
+};
+
+const dashboardCard = {
+  display: "flex",
+  gap: 20,
+  alignItems: "center",
+  background: "#fff",
+  padding: 20,
+  borderRadius: 16,
+  marginBottom: 20
+};
+
 const actionBar = { display:"flex", gap:10, marginBottom:20 };
 const panel = { background:"#fff", padding:20, borderRadius:12, marginBottom:20 };
 
@@ -348,12 +252,12 @@ const tableRow = { display:"flex", justifyContent:"space-between", padding:12, b
 
 const row = { display:"flex", justifyContent:"space-between", padding:10, borderBottom:"1px solid #e5e7eb" };
 
-const formBox = { background:"#fff", padding:20, borderRadius:12 };
 const formInput = { width:"100%", padding:8, marginBottom:10 };
 
 const primaryBtn = { background:"#2f6ea6", color:"#fff", border:"none", padding:"8px 14px", borderRadius:8 };
 const removeBtn = { background:"#ef4444", color:"#fff", border:"none", padding:"6px 10px", borderRadius:6 };
 
-const backBtn = { marginBottom:15 };
-const teamHero = { display:"flex", alignItems:"center", gap:20 };
+const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
+const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
+
 const divisionBadge = { background:"#e2e8f0", padding:"4px 10px", borderRadius:8 };
