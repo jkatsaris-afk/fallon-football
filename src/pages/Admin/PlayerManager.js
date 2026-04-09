@@ -55,25 +55,36 @@ export default function PlayerManager() {
     loadData();
   };
 
-  // ✅ FIXED FUNCTION ONLY
+  // 🔥 DEBUG VERSION
   const updateDivision = async (playerId, divisionName) => {
-    const { data, error } = await supabase
-      .from("divisions")
-      .select("id")
-      .ilike("name", divisionName)
-      .limit(1);
+    console.log("Trying to update:", playerId, divisionName);
 
-    if (error || !data || !data.length) {
-      console.error("Division not found:", divisionName);
+    const { data: divisionData, error: divError } = await supabase
+      .from("divisions")
+      .select("*")
+      .eq("name", divisionName);
+
+    console.log("Division lookup:", divisionData, divError);
+
+    if (!divisionData || !divisionData.length) {
+      alert("Division NOT FOUND");
       return;
     }
 
-    const divisionId = data[0].id;
+    const divisionId = divisionData[0].id;
 
-    await supabase
+    const { data, error } = await supabase
       .from("players")
       .update({ division_id: divisionId })
-      .eq("id", playerId);
+      .eq("id", playerId)
+      .select();
+
+    console.log("UPDATE RESULT:", data, error);
+
+    if (error) {
+      alert("Update failed — check console");
+      return;
+    }
 
     loadData();
   };
@@ -159,15 +170,12 @@ export default function PlayerManager() {
 
             return (
               <div key={p.id} style={gridRow}>
-                {/* NAME */}
                 <div style={cell}>
                   {p.first_name} {p.last_name}
                 </div>
 
-                {/* AGE */}
                 <div style={cell}>{p.age}</div>
 
-                {/* DIVISION */}
                 <div style={cell}>
                   <select
                     value={p.divisions?.name || ""}
@@ -185,7 +193,6 @@ export default function PlayerManager() {
                   </select>
                 </div>
 
-                {/* SHIRT */}
                 <div style={cell}>
                   <select
                     value={p.shirt_size || ""}
@@ -204,7 +211,6 @@ export default function PlayerManager() {
                   </select>
                 </div>
 
-                {/* PAYMENT */}
                 <div style={cell}>
                   <select
                     value={p.payment_status || ""}
@@ -231,7 +237,6 @@ export default function PlayerManager() {
                   </select>
                 </div>
 
-                {/* TEAM */}
                 <div style={cellLast}>
                   <select
                     value={p.team_id || ""}
