@@ -170,7 +170,6 @@ export default function TeamsPage() {
         <h2>Team Dashboard</h2>
 
         <div style={dashboardCard}>
-
           <div style={leftSide}>
             <img src={teamLogos[nfl?.short_name]} style={teamLogoWide} />
             <div>
@@ -192,7 +191,6 @@ export default function TeamsPage() {
               <span>{getCoachName(activeTeam.assistant_coach_id)}</span>
             </div>
           </div>
-
         </div>
 
         <div style={actionBar}>
@@ -226,7 +224,6 @@ export default function TeamsPage() {
                 </div>
               ))}
 
-            {/* ✅ FIXED CLOSE BUTTON */}
             <button style={secondaryBtn} onClick={() => setShowAdd(false)}>
               Close
             </button>
@@ -250,8 +247,10 @@ export default function TeamsPage() {
 
   return (
     <div style={{ padding: 20 }}>
+
       <h1>Teams Manager</h1>
 
+      {/* NFL TEAMS */}
       <div style={grid}>
         {nflTeams.map(team => (
           <div key={team.id} style={tile} onClick={() => setCreatingTeam(team)}>
@@ -260,6 +259,38 @@ export default function TeamsPage() {
           </div>
         ))}
       </div>
+
+      {/* 🔥 ASSIGNED TEAMS RESTORED */}
+      <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
+
+      {["K-1","2nd-3rd","4th-5th","6th-8th"].map(div => {
+        const divTeams = teams.filter(t => t.division === div);
+        if (!divTeams.length) return null;
+
+        return (
+          <div key={div} style={divisionTile}>
+            <div style={divisionHeader}>{div}</div>
+
+            <div style={grid}>
+              {divTeams.map(t => {
+                const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
+                const count = players.filter(p => p.team_id === t.id).length;
+
+                return (
+                  <div key={t.id} style={tile} onClick={() => setActiveTeam(t)}>
+                    <img src={teamLogos[nfl?.short_name]} width={50}/>
+                    <div>{nfl?.full_name}</div>
+                    <div style={{ fontSize: 11 }}>Coach: {getCoachName(t.coach_id)}</div>
+                    <div style={{ fontSize: 11 }}>Asst: {getCoachName(t.assistant_coach_id)}</div>
+                    <div style={{ fontSize: 12 }}>{count} Players</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
     </div>
   );
 }
@@ -323,5 +354,8 @@ const formInput = { width:"100%", padding:8, marginBottom:10 };
 
 const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
 const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
+
+const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
+const divisionHeader = { fontWeight:"600", marginBottom:10 };
 
 const teamHero = { display:"flex", gap:20, alignItems:"center" };
