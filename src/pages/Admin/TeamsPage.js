@@ -32,7 +32,7 @@ export default function TeamsPage() {
 
   const [activeTeam, setActiveTeam] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-
+  const [playerSearch, setPlayerSearch] = useState("");
   const [newTeam, setNewTeam] = useState(null);
 
   useEffect(() => { loadData(); }, []);
