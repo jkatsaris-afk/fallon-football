@@ -186,12 +186,17 @@ export default function TeamsPage() {
           <div style={formBox}>
 
             <h3>Add Player</h3>
-
+        <input
+          placeholder="Search players..."
+          value={playerSearch}
+          onChange={(e) => setPlayerSearch(e.target.value)}
+        />
             {players
-              .filter(p =>
-                !p.team_id &&
-                p.divisions?.name === activeTeam.division
-              )
+             .filter(p =>
+  !p.team_id &&
+  p.divisions?.name === activeTeam.division &&
+  `${p.first_name} ${p.last_name}`.toLowerCase().includes(playerSearch.toLowerCase())
+)
               .map(p => (
                 <div key={p.id} style={playerRow}>
                   <div>{p.first_name} {p.last_name}</div>
