@@ -186,11 +186,39 @@ export default function TeamsPage() {
           <div style={formBox}>
 
             <h3>Add Player</h3>
-        <input
-          placeholder="Search players..."
-          value={playerSearch}
-          onChange={(e) => setPlayerSearch(e.target.value)}
-        />
+<div style={{ position: "relative", marginBottom: 12 }}>
+  <input
+    placeholder="🔍 Search players..."
+    value={playerSearch}
+    onChange={(e) => setPlayerSearch(e.target.value)}
+    style={{
+      width: "100%",
+      padding: "10px 12px",
+      paddingRight: playerSearch ? "30px" : "12px",
+      borderRadius: 10,
+      border: "1px solid #e2e8f0",
+      outline: "none",
+      fontSize: 14
+    }}
+  />
+
+  {playerSearch && (
+    <span
+      onClick={() => setPlayerSearch("")}
+      style={{
+        position: "absolute",
+        right: 10,
+        top: "50%",
+        transform: "translateY(-50%)",
+        cursor: "pointer",
+        fontWeight: "bold",
+        color: "#64748b"
+      }}
+    >
+      ×
+    </span>
+  )}
+</div>
             {players
              .filter(p =>
   !p.team_id &&
