@@ -24,7 +24,7 @@ export default function PlayerManager() {
   const loadData = async () => {
     const { data: playerData } = await supabase
       .from("players")
-      .select("*")
+      .select("*, divisions(name)")
       .order("last_name");
 
     const { data: teamData } = await supabase
@@ -38,12 +38,13 @@ export default function PlayerManager() {
     setPlayers(playerData || []);
     setTeams(teamData || []);
 
-    // ✅ Merge MASTER + DB divisions
     const dbDivisions = (divisionData || []).map(d => d.name);
     const merged = [...new Set([...MASTER_DIVISIONS, ...dbDivisions])];
 
     setDivisions(merged);
   };
+
+  /* ================= UPDATE ================= */
 
   const updatePlayer = async (id, field, value) => {
     await supabase
@@ -54,13 +55,30 @@ export default function PlayerManager() {
     loadData();
   };
 
+  const updateDivision = async (playerId, divisionName) => {
+    const { data: division } = await supabase
+      .from("divisions")
+      .select("id")
+      .eq("name", divisionName)
+      .single();
+
+    if (!division) return;
+
+    await supabase
+      .from("players")
+      .update({ division_id: division.id })
+      .eq("id", playerId);
+
+    loadData();
+  };
+
   /* ================= FILTER ================= */
 
   const filteredPlayers = players
     .filter(p =>
       selectedDivision === "ALL"
         ? true
-        : p.division === selectedDivision
+        : p.divisions?.name === selectedDivision
     )
     .filter(p => {
       const team = teams.find(t => t.id === p.team_id);
@@ -127,7 +145,7 @@ export default function PlayerManager() {
               .filter(
                 t =>
                   t.name &&
-                  (!p.division || t.division === p.division)
+                  t.division === p.divisions?.name
               )
               .sort((a, b) =>
                 (a.name || "").localeCompare(b.name || "")
@@ -146,9 +164,9 @@ export default function PlayerManager() {
                 {/* DIVISION */}
                 <div style={cell}>
                   <select
-                    value={p.division || ""}
+                    value={p.divisions?.name || ""}
                     onChange={(e) =>
-                      updatePlayer(p.id, "division", e.target.value)
+                      updateDivision(p.id, e.target.value)
                     }
                     style={input}
                   >
