@@ -55,18 +55,24 @@ export default function PlayerManager() {
     loadData();
   };
 
+  // ✅ FIXED FUNCTION ONLY
   const updateDivision = async (playerId, divisionName) => {
-    const { data: division } = await supabase
+    const { data, error } = await supabase
       .from("divisions")
       .select("id")
-      .eq("name", divisionName)
-      .single();
+      .ilike("name", divisionName)
+      .limit(1);
 
-    if (!division) return;
+    if (error || !data || !data.length) {
+      console.error("Division not found:", divisionName);
+      return;
+    }
+
+    const divisionId = data[0].id;
 
     await supabase
       .from("players")
-      .update({ division_id: division.id })
+      .update({ division_id: divisionId })
       .eq("id", playerId);
 
     loadData();
