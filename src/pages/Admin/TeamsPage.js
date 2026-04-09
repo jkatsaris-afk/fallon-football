@@ -124,12 +124,11 @@ export default function TeamsPage() {
           <div>
             <h1>{nfl?.full_name}</h1>
 
-            {/* 🔥 FIXED BADGE */}
+            {/* 🔥 UPDATED (NO ICON) */}
             <div style={divisionBadge}>
-              {activeTeam.division} • 👥 {teamPlayers.length} Players
+              {activeTeam.division} • {teamPlayers.length} Players
             </div>
 
-            {/* 🔥 COACHES */}
             <div style={{ fontSize: 13, marginTop: 6 }}>
               <strong>Coach:</strong> {getCoachName(activeTeam.coach_id)}
             </div>
@@ -259,7 +258,7 @@ export default function TeamsPage() {
                     </div>
 
                     <div style={{ fontSize: 12, marginTop: 6, fontWeight: "600" }}>
-                      👥 {playerCount} Players
+                      {playerCount} Players
                     </div>
                   </div>
                 );
