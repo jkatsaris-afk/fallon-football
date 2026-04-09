@@ -33,7 +33,6 @@ export default function TeamsPage() {
   const [activeTeam, setActiveTeam] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
 
-  // ✅ NEW FORM STATE
   const [newTeam, setNewTeam] = useState(null);
 
   useEffect(() => { loadData(); }, []);
@@ -53,6 +52,17 @@ export default function TeamsPage() {
   const getCoachName = (id) => {
     const c = coaches.find(x => x.id === id);
     return c ? `${c.first_name} ${c.last_name}` : "—";
+  };
+
+  /* ================= REMOVE PLAYER ================= */
+
+  const removeFromTeam = async (playerId) => {
+    await supabase
+      .from("players")
+      .update({ team_id: null })
+      .eq("id", playerId);
+
+    loadData();
   };
 
   /* ================= CREATE TEAM ================= */
@@ -95,6 +105,7 @@ export default function TeamsPage() {
 
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
+    const teamPlayers = players.filter(p => p.team_id === activeTeam.id);
 
     return (
       <div>
@@ -109,6 +120,29 @@ export default function TeamsPage() {
             <h1>{nfl?.full_name}</h1>
             <div style={divisionBadge}>{activeTeam.division}</div>
           </div>
+        </div>
+
+        {/* ADD PLAYER BUTTON (UI placeholder) */}
+        <button style={saveBtn} onClick={() => setShowAdd(true)}>
+          + Add Player
+        </button>
+
+        {/* PLAYER LIST */}
+        <div style={{ marginTop: 20 }}>
+          {teamPlayers.map(p => (
+            <div key={p.id} style={playerRow}>
+              <div>
+                {p.first_name} {p.last_name}
+              </div>
+
+              <button
+                style={removeBtn}
+                onClick={() => removeFromTeam(p.id)}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
         </div>
 
       </div>
@@ -137,7 +171,6 @@ export default function TeamsPage() {
         ))}
       </div>
 
-      {/* ✅ FORM */}
       {newTeam && (
         <div style={formBox}>
 
@@ -199,8 +232,6 @@ export default function TeamsPage() {
 
         </div>
       )}
-
-      {/* ================= ASSIGNED ================= */}
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
@@ -301,6 +332,15 @@ const cancelBtn = {
   cursor: "pointer"
 };
 
+const removeBtn = {
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6,
+  cursor: "pointer"
+};
+
 const backBtn = {
   marginBottom: 15,
   padding: "8px 12px",
@@ -320,4 +360,11 @@ const divisionBadge = {
   background: "#e2e8f0",
   padding: "4px 10px",
   borderRadius: 8
+};
+
+const playerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: "10px",
+  borderBottom: "1px solid #e5e7eb"
 };
