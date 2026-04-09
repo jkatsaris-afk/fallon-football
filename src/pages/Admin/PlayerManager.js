@@ -63,6 +63,7 @@ export default function PlayerManager() {
     loadData();
   };
 
+  // 🔥 FIXED (instant UI update)
   const updateDivision = async (playerId, divisionName) => {
     const { data } = await supabase
       .from("divisions")
@@ -72,9 +73,20 @@ export default function PlayerManager() {
 
     if (!data || !data.length) return;
 
+    const divisionId = data[0].id;
+
+    // ✅ update UI immediately
+    setPlayers(prev =>
+      prev.map(p =>
+        p.id === playerId
+          ? { ...p, division_id: divisionId }
+          : p
+      )
+    );
+
     await supabase
       .from("players")
-      .update({ division_id: data[0].id })
+      .update({ division_id: divisionId })
       .eq("id", playerId);
 
     loadData();
@@ -146,10 +158,15 @@ export default function PlayerManager() {
         <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
           {filteredPlayers.map(p => {
             const playerTeam = teams.find(t => t.id === p.team_id);
+
             const currentDivision = divisionMap[p.division_id] || "";
 
             const divisionTeams = teams
-              .filter(t => t.name && t.division === currentDivision)
+              .filter(
+                t =>
+                  t.name &&
+                  t.division === currentDivision
+              )
               .sort((a, b) =>
                 (a.name || "").localeCompare(b.name || "")
               );
@@ -162,9 +179,10 @@ export default function PlayerManager() {
 
                 <div style={cell}>{p.age}</div>
 
+                {/* 🔥 FIXED */}
                 <div style={cell}>
                   <select
-                    value={currentDivision}
+                    value={divisionMap[p.division_id] || ""}
                     onChange={(e) =>
                       updateDivision(p.id, e.target.value)
                     }
