@@ -63,17 +63,20 @@ export default function PlayerManager() {
     loadData();
   };
 
-  // 🔥 FIXED (instant UI update)
+  // 🔥 FINAL FIX
   const updateDivision = async (playerId, divisionName) => {
-    const { data } = await supabase
+    const { data: divisionData, error: divError } = await supabase
       .from("divisions")
       .select("id")
       .eq("name", divisionName)
       .limit(1);
 
-    if (!data || !data.length) return;
+    if (divError || !divisionData || !divisionData.length) {
+      console.error("Division lookup failed", divError);
+      return;
+    }
 
-    const divisionId = data[0].id;
+    const divisionId = divisionData[0].id;
 
     // ✅ update UI immediately
     setPlayers(prev =>
@@ -84,10 +87,16 @@ export default function PlayerManager() {
       )
     );
 
-    await supabase
+    const { error } = await supabase
       .from("players")
       .update({ division_id: divisionId })
       .eq("id", playerId);
+
+    if (error) {
+      console.error("DB UPDATE FAILED:", error);
+      alert("Database update failed — check console");
+      return;
+    }
 
     loadData();
   };
@@ -158,15 +167,10 @@ export default function PlayerManager() {
         <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
           {filteredPlayers.map(p => {
             const playerTeam = teams.find(t => t.id === p.team_id);
-
             const currentDivision = divisionMap[p.division_id] || "";
 
             const divisionTeams = teams
-              .filter(
-                t =>
-                  t.name &&
-                  t.division === currentDivision
-              )
+              .filter(t => t.name && t.division === currentDivision)
               .sort((a, b) =>
                 (a.name || "").localeCompare(b.name || "")
               );
@@ -179,10 +183,9 @@ export default function PlayerManager() {
 
                 <div style={cell}>{p.age}</div>
 
-                {/* 🔥 FIXED */}
                 <div style={cell}>
                   <select
-                    value={divisionMap[p.division_id] || ""}
+                    value={currentDivision}
                     onChange={(e) =>
                       updateDivision(p.id, e.target.value)
                     }
