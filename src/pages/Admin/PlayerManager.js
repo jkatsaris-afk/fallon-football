@@ -13,6 +13,7 @@ export default function PlayerManager() {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [divisions, setDivisions] = useState([]);
+  const [divisionMap, setDivisionMap] = useState({}); // 🔥 NEW
 
   const [selectedDivision, setSelectedDivision] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -24,7 +25,7 @@ export default function PlayerManager() {
   const loadData = async () => {
     const { data: playerData } = await supabase
       .from("players")
-      .select("*, divisions(name)")
+      .select("*") // 🔥 removed join
       .order("last_name");
 
     const { data: teamData } = await supabase
@@ -37,6 +38,14 @@ export default function PlayerManager() {
 
     setPlayers(playerData || []);
     setTeams(teamData || []);
+
+    // 🔥 Build map id → name
+    const map = {};
+    (divisionData || []).forEach(d => {
+      map[d.id] = d.name;
+    });
+
+    setDivisionMap(map);
 
     const dbDivisions = (divisionData || []).map(d => d.name);
     const merged = [...new Set([...MASTER_DIVISIONS, ...dbDivisions])];
@@ -55,36 +64,19 @@ export default function PlayerManager() {
     loadData();
   };
 
-  // 🔥 DEBUG VERSION
   const updateDivision = async (playerId, divisionName) => {
-    console.log("Trying to update:", playerId, divisionName);
-
-    const { data: divisionData, error: divError } = await supabase
+    const { data } = await supabase
       .from("divisions")
-      .select("*")
-      .eq("name", divisionName);
+      .select("id")
+      .eq("name", divisionName)
+      .limit(1);
 
-    console.log("Division lookup:", divisionData, divError);
+    if (!data || !data.length) return;
 
-    if (!divisionData || !divisionData.length) {
-      alert("Division NOT FOUND");
-      return;
-    }
-
-    const divisionId = divisionData[0].id;
-
-    const { data, error } = await supabase
+    await supabase
       .from("players")
-      .update({ division_id: divisionId })
-      .eq("id", playerId)
-      .select();
-
-    console.log("UPDATE RESULT:", data, error);
-
-    if (error) {
-      alert("Update failed — check console");
-      return;
-    }
+      .update({ division_id: data[0].id })
+      .eq("id", playerId);
 
     loadData();
   };
@@ -95,7 +87,7 @@ export default function PlayerManager() {
     .filter(p =>
       selectedDivision === "ALL"
         ? true
-        : p.divisions?.name === selectedDivision
+        : divisionMap[p.division_id] === selectedDivision
     )
     .filter(p => {
       const team = teams.find(t => t.id === p.team_id);
@@ -158,11 +150,13 @@ export default function PlayerManager() {
           {filteredPlayers.map(p => {
             const playerTeam = teams.find(t => t.id === p.team_id);
 
+            const currentDivision = divisionMap[p.division_id] || "";
+
             const divisionTeams = teams
               .filter(
                 t =>
                   t.name &&
-                  t.division === p.divisions?.name
+                  t.division === currentDivision
               )
               .sort((a, b) =>
                 (a.name || "").localeCompare(b.name || "")
@@ -176,9 +170,10 @@ export default function PlayerManager() {
 
                 <div style={cell}>{p.age}</div>
 
+                {/* 🔥 FIXED DIVISION */}
                 <div style={cell}>
                   <select
-                    value={p.divisions?.name || ""}
+                    value={currentDivision}
                     onChange={(e) =>
                       updateDivision(p.id, e.target.value)
                     }
@@ -221,15 +216,7 @@ export default function PlayerManager() {
                         e.target.value
                       )
                     }
-                    style={{
-                      ...input,
-                      background:
-                        p.payment_status === "paid"
-                          ? "#dcfce7"
-                          : p.payment_status === "partial"
-                          ? "#fef9c3"
-                          : "#fee2e2"
-                    }}
+                    style={input}
                   >
                     <option value="unpaid">Unpaid</option>
                     <option value="partial">Partial</option>
@@ -266,66 +253,3 @@ export default function PlayerManager() {
     </div>
   );
 }
-
-/* ================= STYLES ================= */
-
-const tileWrapper = {
-  background: "#fff",
-  borderRadius: 16,
-  padding: 15,
-  marginTop: 20,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
-};
-
-const gridHeader = {
-  display: "grid",
-  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
-  borderBottom: "1px solid #e5e7eb"
-};
-
-const gridRow = {
-  display: "grid",
-  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
-  alignItems: "center",
-  borderBottom: "1px solid #f1f5f9"
-};
-
-const cell = {
-  padding: "8px 10px",
-  borderRight: "1px solid #e5e7eb",
-  display: "flex",
-  alignItems: "center"
-};
-
-const cellLast = {
-  padding: "8px 10px",
-  display: "flex",
-  flexDirection: "column"
-};
-
-const input = {
-  width: "100%",
-  height: 32,
-  borderRadius: 6,
-  border: "1px solid #e5e7eb"
-};
-
-const teamSelect = {
-  width: "100%",
-  maxWidth: 180,
-  height: 32,
-  borderRadius: 6,
-  border: "1px solid #e5e7eb",
-  background: "#f8fafc"
-};
-
-const teamLabel = {
-  fontSize: 11,
-  color: "#64748b"
-};
-
-const searchInput = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #e5e7eb"
-};
