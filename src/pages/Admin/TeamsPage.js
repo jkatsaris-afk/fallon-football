@@ -61,17 +61,12 @@ export default function TeamsPage() {
     const divisionTeams = teams.filter(t => t.division_id === division.id);
 
     const divisionPlayers = players
-      .filter(p =>
-        !p.team_id &&
-        p.division_id === division.id
-      )
+      .filter(p => !p.team_id && p.division_id === division.id)
       .map(p => ({
         ...p,
         rating: Number(p.rating || 3)
       }))
       .sort((a, b) => b.rating - a.rating);
-
-    console.log("FOUND PLAYERS:", divisionPlayers.length);
 
     if (!divisionPlayers.length) {
       alert("No players available");
@@ -117,7 +112,6 @@ export default function TeamsPage() {
 
         <h2>Create Team</h2>
 
-        {/* ✅ LOGO + NAME RESTORED */}
         <div style={teamHero}>
           <img src={teamLogos[creatingTeam.short_name]} width={90}/>
           <h1>{creatingTeam.full_name}</h1>
@@ -213,6 +207,7 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
+      {/* SELECT TEAM */}
       <div style={grid}>
         {nflTeams.map(team => (
           <div key={team.id} style={tile} onClick={() => setCreatingTeam(team)}>
@@ -225,6 +220,7 @@ export default function TeamsPage() {
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
       {divisions.map(div => {
+
         const divTeams = teams.filter(t => t.division_id === div.id);
 
         if (!divTeams.length) return null;
@@ -232,18 +228,21 @@ export default function TeamsPage() {
         return (
           <div key={div.id} style={divisionTile}>
 
-            <div style={divisionHeaderRow}>
-              <strong>{div.name}</strong>
+            <div style={divisionHeader}>
+              {div.name}
+            </div>
 
+            <div style={grid}>
+
+              {/* 🔥 AUTO ROSTER TILE */}
               <div
                 style={autoTile}
                 onClick={() => autoRosterByDivision(div)}
               >
                 ⚡ Auto Roster
               </div>
-            </div>
 
-            <div style={grid}>
+              {/* 🔥 TEAMS */}
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
                 const count = players.filter(p => p.team_id === t.id).length;
@@ -262,6 +261,7 @@ export default function TeamsPage() {
                   </div>
                 );
               })}
+
             </div>
 
           </div>
@@ -274,18 +274,52 @@ export default function TeamsPage() {
 
 /* ================= STYLES ================= */
 
-const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
-const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
+const grid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))",
+  gap:15
+};
 
-const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
-const divisionHeaderRow = { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 };
+const tile = {
+  background:"#fff",
+  borderRadius:12,
+  padding:10,
+  textAlign:"center",
+  cursor:"pointer"
+};
 
-const autoTile = { background:"#2f6ea6", color:"#fff", padding:"6px 12px", borderRadius:8, cursor:"pointer" };
+const divisionTile = {
+  background:"#fff",
+  borderRadius:14,
+  padding:15,
+  marginBottom:20
+};
+
+const divisionHeader = {
+  fontWeight:"600",
+  marginBottom:10
+};
+
+const autoTile = {
+  background:"#2f6ea6",
+  color:"#fff",
+  padding:"10px",
+  borderRadius:12,
+  textAlign:"center",
+  cursor:"pointer",
+  fontWeight:"600"
+};
 
 const formBox = { background:"#fff", padding:20, borderRadius:12 };
 const formInput = { width:"100%", padding:8, marginBottom:10 };
 
-const primaryBtn = { background:"#2f6ea6", color:"#fff", border:"none", padding:"8px 14px", borderRadius:8 };
+const primaryBtn = {
+  background:"#2f6ea6",
+  color:"#fff",
+  border:"none",
+  padding:"8px 14px",
+  borderRadius:8
+};
 
 const backBtn = { marginBottom:15 };
 
