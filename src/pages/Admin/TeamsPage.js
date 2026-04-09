@@ -41,7 +41,9 @@ export default function TeamsPage() {
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: t } = await supabase.from("teams").select("*");
     const { data: c } = await supabase.from("coaches").select("*");
-    const { data: p } = await supabase.from("players").select("*");
+    const { data: p } = await supabase
+      .from("players")
+      .select("*, divisions(name)");
 
     setNflTeams(nfl || []);
     setTeams(t || []);
@@ -61,6 +63,52 @@ export default function TeamsPage() {
       .from("players")
       .update({ team_id: null })
       .eq("id", playerId);
+
+    loadData();
+  };
+
+  /* ================= ADD PLAYER ================= */
+
+  const addPlayerToTeam = async (playerId) => {
+    await supabase
+      .from("players")
+      .update({ team_id: activeTeam.id })
+      .eq("id", playerId);
+
+    loadData();
+  };
+
+  /* ================= AUTO ROSTER ================= */
+
+  const autoRoster = async () => {
+    const divisionPlayers = players.filter(
+      p =>
+        !p.team_id &&
+        p.divisions?.name === activeTeam.division
+    );
+
+    const divisionTeams = teams.filter(
+      t => t.division === activeTeam.division
+    );
+
+    if (!divisionTeams.length) {
+      alert("No teams in this division");
+      return;
+    }
+
+    let teamIndex = 0;
+
+    for (let p of divisionPlayers) {
+      const team = divisionTeams[teamIndex];
+
+      await supabase
+        .from("players")
+        .update({ team_id: team.id })
+        .eq("id", p.id);
+
+      teamIndex++;
+      if (teamIndex >= divisionTeams.length) teamIndex = 0;
+    }
 
     loadData();
   };
@@ -122,10 +170,47 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* ADD PLAYER BUTTON (UI placeholder) */}
-        <button style={saveBtn} onClick={() => setShowAdd(true)}>
-          + Add Player
-        </button>
+        {/* ACTION BUTTONS */}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button style={saveBtn} onClick={() => setShowAdd(true)}>
+            + Add Player
+          </button>
+
+          <button style={saveBtn} onClick={autoRoster}>
+            ⚡ Auto Roster
+          </button>
+        </div>
+
+        {/* ADD PLAYER PANEL */}
+        {showAdd && (
+          <div style={formBox}>
+
+            <h3>Add Player</h3>
+
+            {players
+              .filter(p =>
+                !p.team_id &&
+                p.divisions?.name === activeTeam.division
+              )
+              .map(p => (
+                <div key={p.id} style={playerRow}>
+                  <div>{p.first_name} {p.last_name}</div>
+
+                  <button
+                    style={saveBtn}
+                    onClick={() => addPlayerToTeam(p.id)}
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+
+            <button style={cancelBtn} onClick={() => setShowAdd(false)}>
+              Close
+            </button>
+
+          </div>
+        )}
 
         {/* PLAYER LIST */}
         <div style={{ marginTop: 20 }}>
@@ -173,11 +258,9 @@ export default function TeamsPage() {
 
       {newTeam && (
         <div style={formBox}>
-
           <h3>Add Team</h3>
 
-          <select
-            style={formInput}
+          <select style={formInput}
             value={newTeam.division}
             onChange={(e) =>
               setNewTeam({ ...newTeam, division: e.target.value })
@@ -190,8 +273,7 @@ export default function TeamsPage() {
             <option value="6th-8th">6th-8th</option>
           </select>
 
-          <select
-            style={formInput}
+          <select style={formInput}
             value={newTeam.coach_id}
             onChange={(e) =>
               setNewTeam({ ...newTeam, coach_id: e.target.value })
@@ -205,8 +287,7 @@ export default function TeamsPage() {
             ))}
           </select>
 
-          <select
-            style={formInput}
+          <select style={formInput}
             value={newTeam.assistant_coach_id}
             onChange={(e) =>
               setNewTeam({ ...newTeam, assistant_coach_id: e.target.value })
@@ -221,15 +302,9 @@ export default function TeamsPage() {
           </select>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <button style={saveBtn} onClick={saveTeam}>
-              Save
-            </button>
-
-            <button style={cancelBtn} onClick={() => setNewTeam(null)}>
-              Cancel
-            </button>
+            <button style={saveBtn} onClick={saveTeam}>Save</button>
+            <button style={cancelBtn} onClick={() => setNewTeam(null)}>Cancel</button>
           </div>
-
         </div>
       )}
 
@@ -251,11 +326,7 @@ export default function TeamsPage() {
                   <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
-
-                    <div style={{ fontSize: 11 }}>
-                      {getCoachName(t.coach_id)}
-                    </div>
-
+                    <div style={{ fontSize: 11 }}>{getCoachName(t.coach_id)}</div>
                     <div style={{ fontSize: 11, color:"#64748b" }}>
                       {getCoachName(t.assistant_coach_id)}
                     </div>
@@ -273,98 +344,16 @@ export default function TeamsPage() {
 
 /* ================= STYLES ================= */
 
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-  gap: 15
-};
-
-const tile = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: 10,
-  textAlign: "center",
-  cursor: "pointer"
-};
-
-const divisionTile = {
-  background: "#fff",
-  borderRadius: 14,
-  padding: 15,
-  marginBottom: 20
-};
-
-const divisionHeader = {
-  fontWeight: "600",
-  marginBottom: 10
-};
-
-const formBox = {
-  background: "#fff",
-  padding: 20,
-  borderRadius: 12,
-  marginTop: 20,
-  maxWidth: 400
-};
-
-const formInput = {
-  width: "100%",
-  padding: "8px",
-  marginBottom: 10,
-  borderRadius: 8,
-  border: "1px solid #e2e8f0"
-};
-
-const saveBtn = {
-  background: "#2f6ea6",
-  color: "#fff",
-  border: "none",
-  padding: "8px 14px",
-  borderRadius: 8,
-  cursor: "pointer"
-};
-
-const cancelBtn = {
-  background: "#e5e7eb",
-  border: "none",
-  padding: "8px 14px",
-  borderRadius: 8,
-  cursor: "pointer"
-};
-
-const removeBtn = {
-  background: "#ef4444",
-  color: "#fff",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer"
-};
-
-const backBtn = {
-  marginBottom: 15,
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  cursor: "pointer"
-};
-
-const teamHero = {
-  display: "flex",
-  alignItems: "center",
-  gap: 20,
-  marginBottom: 20
-};
-
-const divisionBadge = {
-  background: "#e2e8f0",
-  padding: "4px 10px",
-  borderRadius: 8
-};
-
-const playerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "10px",
-  borderBottom: "1px solid #e5e7eb"
-};
+const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
+const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
+const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
+const divisionHeader = { fontWeight:"600", marginBottom:10 };
+const formBox = { background:"#fff", padding:20, borderRadius:12, marginTop:20, maxWidth:400 };
+const formInput = { width:"100%", padding:"8px", marginBottom:10, borderRadius:8, border:"1px solid #e2e8f0" };
+const saveBtn = { background:"#2f6ea6", color:"#fff", border:"none", padding:"8px 14px", borderRadius:8, cursor:"pointer" };
+const cancelBtn = { background:"#e5e7eb", border:"none", padding:"8px 14px", borderRadius:8, cursor:"pointer" };
+const removeBtn = { background:"#ef4444", color:"#fff", border:"none", padding:"6px 10px", borderRadius:6, cursor:"pointer" };
+const backBtn = { marginBottom:15, padding:"8px 12px", borderRadius:8, border:"1px solid #e2e8f0", cursor:"pointer" };
+const teamHero = { display:"flex", alignItems:"center", gap:20, marginBottom:20 };
+const divisionBadge = { background:"#e2e8f0", padding:"4px 10px", borderRadius:8 };
+const playerRow = { display:"flex", justifyContent:"space-between", padding:"10px", borderBottom:"1px solid #e5e7eb" };
