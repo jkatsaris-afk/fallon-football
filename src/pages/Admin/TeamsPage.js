@@ -113,42 +113,6 @@ export default function TeamsPage() {
     loadData();
   };
 
-  /* ================= CREATE TEAM ================= */
-
-  const createTeam = (nflTeamId) => {
-    setNewTeam({
-      nfl_team_id: nflTeamId,
-      division: "",
-      coach_id: "",
-      assistant_coach_id: ""
-    });
-  };
-
-  const saveTeam = async () => {
-    if (!newTeam.division) {
-      alert("Select a division");
-      return;
-    }
-
-    const { error } = await supabase.from("teams").insert([
-      {
-        nfl_team_id: newTeam.nfl_team_id,
-        division: newTeam.division,
-        coach_id: newTeam.coach_id || null,
-        assistant_coach_id: newTeam.assistant_coach_id || null
-      }
-    ]);
-
-    if (error) {
-      console.error(error);
-      alert("Failed to create team");
-      return;
-    }
-
-    setNewTeam(null);
-    loadData();
-  };
-
   /* ================= TEAM VIEW ================= */
 
   if (activeTeam) {
@@ -170,7 +134,11 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        {/* ACTION BUTTONS */}
+        {/* 👥 PLAYER COUNT */}
+        <div style={{ marginBottom: 10, fontWeight: "600" }}>
+          👥 {teamPlayers.length} Players
+        </div>
+
         <div style={{ display: "flex", gap: 10 }}>
           <button style={saveBtn} onClick={() => setShowAdd(true)}>
             + Add Player
@@ -181,50 +149,25 @@ export default function TeamsPage() {
           </button>
         </div>
 
-        {/* ADD PLAYER PANEL */}
         {showAdd && (
           <div style={formBox}>
-
             <h3>Add Player</h3>
-<div style={{ position: "relative", marginBottom: 12 }}>
-  <input
-    placeholder="🔍 Search players..."
-    value={playerSearch}
-    onChange={(e) => setPlayerSearch(e.target.value)}
-    style={{
-      width: "100%",
-      padding: "10px 12px",
-      paddingRight: playerSearch ? "30px" : "12px",
-      borderRadius: 10,
-      border: "1px solid #e2e8f0",
-      outline: "none",
-      fontSize: 14
-    }}
-  />
 
-  {playerSearch && (
-    <span
-      onClick={() => setPlayerSearch("")}
-      style={{
-        position: "absolute",
-        right: 10,
-        top: "50%",
-        transform: "translateY(-50%)",
-        cursor: "pointer",
-        fontWeight: "bold",
-        color: "#64748b"
-      }}
-    >
-      ×
-    </span>
-  )}
-</div>
+            <input
+              placeholder="Search players..."
+              value={playerSearch}
+              onChange={(e) => setPlayerSearch(e.target.value)}
+              style={formInput}
+            />
+
             {players
-             .filter(p =>
-  !p.team_id &&
-  p.divisions?.name === activeTeam.division &&
-  `${p.first_name} ${p.last_name}`.toLowerCase().includes(playerSearch.toLowerCase())
-)
+              .filter(p =>
+                !p.team_id &&
+                p.divisions?.name === activeTeam.division &&
+                `${p.first_name} ${p.last_name}`
+                  .toLowerCase()
+                  .includes(playerSearch.toLowerCase())
+              )
               .map(p => (
                 <div key={p.id} style={playerRow}>
                   <div>{p.first_name} {p.last_name}</div>
@@ -241,11 +184,9 @@ export default function TeamsPage() {
             <button style={cancelBtn} onClick={() => setShowAdd(false)}>
               Close
             </button>
-
           </div>
         )}
 
-        {/* PLAYER LIST */}
         <div style={{ marginTop: 20 }}>
           {teamPlayers.map(p => (
             <div key={p.id} style={playerRow}>
@@ -281,65 +222,13 @@ export default function TeamsPage() {
           <div
             key={team.id}
             style={tile}
-            onClick={() => createTeam(team.id)}
+            onClick={() => setActiveTeam(team)}
           >
             <img src={teamLogos[team.short_name]} width={60}/>
             <div>{team.full_name}</div>
           </div>
         ))}
       </div>
-
-      {newTeam && (
-        <div style={formBox}>
-          <h3>Add Team</h3>
-
-          <select style={formInput}
-            value={newTeam.division}
-            onChange={(e) =>
-              setNewTeam({ ...newTeam, division: e.target.value })
-            }
-          >
-            <option value="">Select Division</option>
-            <option value="K-1">K-1</option>
-            <option value="2nd-3rd">2nd-3rd</option>
-            <option value="4th-5th">4th-5th</option>
-            <option value="6th-8th">6th-8th</option>
-          </select>
-
-          <select style={formInput}
-            value={newTeam.coach_id}
-            onChange={(e) =>
-              setNewTeam({ ...newTeam, coach_id: e.target.value })
-            }
-          >
-            <option value="">Head Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <select style={formInput}
-            value={newTeam.assistant_coach_id}
-            onChange={(e) =>
-              setNewTeam({ ...newTeam, assistant_coach_id: e.target.value })
-            }
-          >
-            <option value="">Assistant Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.first_name} {c.last_name}
-              </option>
-            ))}
-          </select>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            <button style={saveBtn} onClick={saveTeam}>Save</button>
-            <button style={cancelBtn} onClick={() => setNewTeam(null)}>Cancel</button>
-          </div>
-        </div>
-      )}
 
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
@@ -355,13 +244,26 @@ export default function TeamsPage() {
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
 
+                const playerCount = players.filter(p => p.team_id === t.id).length;
+
                 return (
                   <div key={t.id} style={tile} onClick={()=>setActiveTeam(t)}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
-                    <div>{nfl?.full_name}</div>
-                    <div style={{ fontSize: 11 }}>{getCoachName(t.coach_id)}</div>
+
+                    <div style={{ fontWeight: "600", marginTop: 5 }}>
+                      {nfl?.full_name}
+                    </div>
+
+                    <div style={{ fontSize: 11 }}>
+                      Coach: {getCoachName(t.coach_id)}
+                    </div>
+
                     <div style={{ fontSize: 11, color:"#64748b" }}>
-                      {getCoachName(t.assistant_coach_id)}
+                      Asst: {getCoachName(t.assistant_coach_id)}
+                    </div>
+
+                    <div style={{ fontSize: 12, marginTop: 6, fontWeight: "600" }}>
+                      👥 {playerCount} Players
                     </div>
                   </div>
                 );
