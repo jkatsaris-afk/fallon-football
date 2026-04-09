@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ✅ CORRECT FILE + PATH
 import fallonLogo from "../../resources/logo.png";
 
-// IMPORTS
 import GameManager from "./GameManager";
 import ScheduleManager from "./ScheduleManager";
 import TeamsPage from "./TeamsPage";
@@ -30,6 +28,9 @@ export default function Dashboard({
     scheduledGames: 0,
     matchups: 0
   });
+
+  // ✅ NEW
+  const [divisionCounts, setDivisionCounts] = useState({});
 
   useEffect(() => {
     loadStats();
@@ -73,6 +74,20 @@ export default function Dashboard({
       .from("matchups")
       .select("*", { count: "exact", head: true });
 
+    // 🔥 NEW — DIVISION COUNTS
+    const { data: playersWithDiv } = await supabase
+      .from("players")
+      .select("division_id, divisions(name)");
+
+    const counts = {};
+
+    (playersWithDiv || []).forEach(p => {
+      const name = p.divisions?.name || "Unassigned";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+
+    setDivisionCounts(counts);
+
     setStats({
       players: playerCount || 0,
       games: gameCount || 0,
@@ -88,16 +103,10 @@ export default function Dashboard({
   return (
     <div style={{ display: "flex", height: "100%" }}>
 
-      {/* ================= SIDEBAR ================= */}
+      {/* SIDEBAR */}
       <div style={sidebar}>
-
-        {/* ✅ HEADER WITH LOGO */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <img
-            src={fallonLogo}
-            alt="Fallon Flag"
-            style={{ width: 32, height: 32, objectFit: "contain" }}
-          />
+          <img src={fallonLogo} alt="Fallon Flag" style={{ width: 32 }} />
           <h2 style={{ margin: 0 }}>Admin</h2>
         </div>
 
@@ -116,7 +125,7 @@ export default function Dashboard({
         <NavBtn active={adminPage === "settings"} onClick={() => setAdminPage("settings")} label="Settings" />
       </div>
 
-      {/* ================= CONTENT ================= */}
+      {/* CONTENT */}
       <div style={{ flex: 1, padding: 25, overflow: "auto" }}>
         {adminPage === "dashboard" && (
           <>
@@ -134,6 +143,16 @@ export default function Dashboard({
               <StatTile title="Pending Referees" value={stats.refsPending} color="#f59e0b" />
               <StatTile title="Scheduled Games" value={stats.scheduledGames} />
               <StatTile title="Matchups" value={stats.matchups} />
+
+              {/* 🔥 NEW DIVISION TILES */}
+              {["K-1","2nd-3rd","4th-5th","6th-8th"].map(name => (
+                <StatTile
+                  key={name}
+                  title={`${name} Players`}
+                  value={divisionCounts[name] || 0}
+                  color="#6366f1"
+                />
+              ))}
             </div>
           </>
         )}
@@ -153,7 +172,7 @@ export default function Dashboard({
   );
 }
 
-/* ================= COMPONENTS ================= */
+/* COMPONENTS */
 
 function NavBtn({ active, onClick, label }) {
   return (
@@ -188,7 +207,7 @@ function StatTile({ title, value, color = "#2f6ea6" }) {
   );
 }
 
-/* ================= STYLES ================= */
+/* STYLES */
 
 const sidebar = {
   width: 220,
