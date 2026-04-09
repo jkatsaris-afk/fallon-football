@@ -18,6 +18,9 @@ export default function PlayerManager() {
   const [selectedDivision, setSelectedDivision] = useState("ALL");
   const [search, setSearch] = useState("");
 
+  // 🔥 NEW
+  const [unassignedCounts, setUnassignedCounts] = useState({});
+
   useEffect(() => {
     loadData();
   }, []);
@@ -50,6 +53,18 @@ export default function PlayerManager() {
     const merged = [...new Set([...MASTER_DIVISIONS, ...dbDivisions])];
 
     setDivisions(merged);
+
+    // 🔥 NEW — COUNT UNASSIGNED
+    const counts = {};
+
+    (playerData || []).forEach(p => {
+      if (!p.team_id) {
+        const divisionName = map[p.division_id] || "Unassigned";
+        counts[divisionName] = (counts[divisionName] || 0) + 1;
+      }
+    });
+
+    setUnassignedCounts(counts);
   };
 
   /* ================= UPDATE ================= */
@@ -63,22 +78,17 @@ export default function PlayerManager() {
     loadData();
   };
 
-  // 🔥 FINAL FIX
   const updateDivision = async (playerId, divisionName) => {
-    const { data: divisionData, error: divError } = await supabase
+    const { data: divisionData } = await supabase
       .from("divisions")
       .select("id")
       .eq("name", divisionName)
       .limit(1);
 
-    if (divError || !divisionData || !divisionData.length) {
-      console.error("Division lookup failed", divError);
-      return;
-    }
+    if (!divisionData || !divisionData.length) return;
 
     const divisionId = divisionData[0].id;
 
-    // ✅ update UI immediately
     setPlayers(prev =>
       prev.map(p =>
         p.id === playerId
@@ -124,6 +134,19 @@ export default function PlayerManager() {
     <div style={{ padding: 20 }}>
       <h2>Player Manager</h2>
 
+      {/* 🔥 NEW TILE ROW */}
+      <div style={tileGrid}>
+        {["K-1","2nd-3rd","4th-5th","6th-8th"].map(d => (
+          <div key={d} style={tile}>
+            <div style={tileTitle}>{d}</div>
+            <div style={tileValue}>
+              {unassignedCounts[d] || 0}
+            </div>
+            <div style={tileSub}>Unassigned</div>
+          </div>
+        ))}
+      </div>
+
       {/* ================= TOP BAR ================= */}
       <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
         <input
@@ -152,9 +175,8 @@ export default function PlayerManager() {
         ))}
       </div>
 
-      {/* ================= TILE ================= */}
+      {/* ================= TABLE ================= */}
       <div style={tileWrapper}>
-
         <div style={gridHeader}>
           <div style={cell}>Name</div>
           <div style={cell}>Age</div>
@@ -193,9 +215,7 @@ export default function PlayerManager() {
                   >
                     <option value="">Select</option>
                     {divisions.map(d => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
+                      <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
                 </div>
@@ -241,11 +261,8 @@ export default function PlayerManager() {
                     style={teamSelect}
                   >
                     <option value="">Unassigned</option>
-
                     {divisionTeams.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
+                      <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
 
@@ -269,6 +286,25 @@ const searchInput = {
   borderRadius: 8,
   border: "1px solid #e5e7eb"
 };
+
+const tileGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  gap: 15,
+  marginTop: 15
+};
+
+const tile = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 15,
+  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+  textAlign: "center"
+};
+
+const tileTitle = { fontSize: 13, color: "#64748b" };
+const tileValue = { fontSize: 24, fontWeight: "700", marginTop: 5 };
+const tileSub = { fontSize: 11, color: "#94a3b8", marginTop: 4 };
 
 const tileWrapper = {
   background: "#fff",
