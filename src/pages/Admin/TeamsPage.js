@@ -57,7 +57,7 @@ export default function TeamsPage() {
     return c ? `${c.first_name} ${c.last_name}` : "—";
   };
 
-  /* ================= SMART AUTO ROSTER ================= */
+  /* ================= AUTO ROSTER ================= */
 
   const autoRosterByDivision = async (division) => {
     const divisionTeams = teams.filter(t => t.division === division);
@@ -70,26 +70,34 @@ export default function TeamsPage() {
     const divisionPlayers = players
       .filter(p =>
         !p.team_id &&
-        p.divisions?.name === division
+        p.divisions?.name?.trim() === division
       )
-      .sort((a, b) => (b.rating || 3) - (a.rating || 3));
+      .map(p => ({
+        ...p,
+        rating: Number(p.rating || 3)
+      }))
+      .sort((a, b) => b.rating - a.rating);
 
-    const teamBuckets = divisionTeams.map(t => ({
+    if (!divisionPlayers.length) {
+      alert("No players available");
+      return;
+    }
+
+    const buckets = divisionTeams.map(t => ({
       team: t,
       total: 0,
       players: []
     }));
 
     for (let player of divisionPlayers) {
-      teamBuckets.sort((a, b) => a.total - b.total);
-
-      const target = teamBuckets[0];
+      buckets.sort((a, b) => a.total - b.total);
+      const target = buckets[0];
 
       target.players.push(player);
-      target.total += player.rating || 3;
+      target.total += player.rating;
     }
 
-    for (let bucket of teamBuckets) {
+    for (let bucket of buckets) {
       for (let p of bucket.players) {
         await supabase
           .from("players")
@@ -98,6 +106,7 @@ export default function TeamsPage() {
       }
     }
 
+    alert("Auto roster complete!");
     loadData();
   };
 
@@ -140,11 +149,11 @@ export default function TeamsPage() {
           <div style={coachPanel}>
             <div style={coachTitle}>Coaching Staff</div>
             <div style={coachRow}>
-              <span style={coachLabel}>Head Coach</span>
+              <span style={coachLabel}>Head</span>
               <span>{getCoachName(activeTeam.coach_id)}</span>
             </div>
             <div style={coachRow}>
-              <span style={coachLabel}>Assistant</span>
+              <span style={coachLabel}>Asst</span>
               <span>{getCoachName(activeTeam.assistant_coach_id)}</span>
             </div>
           </div>
@@ -169,8 +178,7 @@ export default function TeamsPage() {
               .filter(p =>
                 !p.team_id &&
                 p.divisions?.name === activeTeam.division &&
-                `${p.first_name} ${p.last_name}`
-                  .toLowerCase()
+                `${p.first_name} ${p.last_name}`.toLowerCase()
                   .includes(playerSearch.toLowerCase())
               )
               .map(p => (
@@ -223,18 +231,15 @@ export default function TeamsPage() {
 
         return (
           <div key={div} style={divisionTile}>
-            <div style={divisionHeaderRow}>
-              <div>{div}</div>
-
-              <button
-                style={secondaryBtn}
-                onClick={() => autoRosterByDivision(div)}
-              >
-                Auto Roster
-              </button>
-            </div>
+            <div style={divisionHeader}>{div}</div>
 
             <div style={grid}>
+
+              {/* AUTO TILE */}
+              <div style={autoTile} onClick={() => autoRosterByDivision(div)}>
+                ⚡ Auto Roster
+              </div>
+
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
                 const count = players.filter(p => p.team_id === t.id).length;
@@ -243,15 +248,9 @@ export default function TeamsPage() {
                   <div key={t.id} style={tile} onClick={() => setActiveTeam(t)}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
-                    <div style={{ fontSize: 11 }}>
-                      Coach: {getCoachName(t.coach_id)}
-                    </div>
-                    <div style={{ fontSize: 11 }}>
-                      Asst: {getCoachName(t.assistant_coach_id)}
-                    </div>
-                    <div style={{ fontSize: 12 }}>
-                      {count} Players
-                    </div>
+                    <div style={{ fontSize: 11 }}>Coach: {getCoachName(t.coach_id)}</div>
+                    <div style={{ fontSize: 11 }}>Asst: {getCoachName(t.assistant_coach_id)}</div>
+                    <div style={{ fontSize: 12 }}>{count} Players</div>
                   </div>
                 );
               })}
@@ -266,6 +265,16 @@ export default function TeamsPage() {
 
 /* ================= STYLES ================= */
 
+const autoTile = {
+  background:"#2f6ea6",
+  color:"#fff",
+  borderRadius:12,
+  padding:10,
+  textAlign:"center",
+  cursor:"pointer",
+  fontWeight:"600"
+};
+
 const backBtnModern = {
   background:"#fff",
   border:"1px solid #e5e7eb",
@@ -275,21 +284,9 @@ const backBtnModern = {
   marginBottom:15
 };
 
-const primaryBtn = {
-  background:"#2f6ea6",
-  color:"#fff",
-  border:"none",
-  padding:"8px 14px",
-  borderRadius:8
-};
-
-const secondaryBtn = {
-  background:"#e5e7eb",
-  border:"none",
-  padding:"6px 12px",
-  borderRadius:8,
-  cursor:"pointer"
-};
+const primaryBtn = { background:"#2f6ea6", color:"#fff", border:"none", padding:"8px 14px", borderRadius:8 };
+const secondaryBtn = { background:"#e5e7eb", border:"none", padding:"8px 14px", borderRadius:8 };
+const removeBtn = { background:"#ef4444", color:"#fff", border:"none", padding:"6px 10px", borderRadius:6 };
 
 const dashboardCard = { display:"flex", justifyContent:"space-between", background:"#fff", padding:20, borderRadius:16 };
 const leftSide = { display:"flex", gap:20, alignItems:"center" };
@@ -316,4 +313,4 @@ const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120
 const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
 
 const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
-const divisionHeaderRow = { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 };
+const divisionHeader = { fontWeight:"600", marginBottom:10 };
