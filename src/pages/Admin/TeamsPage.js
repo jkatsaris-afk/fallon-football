@@ -58,15 +58,24 @@ export default function TeamsPage() {
 
   const autoRosterByDivision = async (division) => {
 
-    const divisionTeams = teams.filter(t => t.division_id === division.id);
+    const divisionTeams = teams.filter(
+      t =>
+        t.division_id === division.id ||
+        (t.division && t.division.trim() === division.name.trim())
+    );
 
     const divisionPlayers = players
-      .filter(p => !p.team_id && p.division_id === division.id)
+      .filter(p =>
+        !p.team_id &&
+        p.division_id === division.id
+      )
       .map(p => ({
         ...p,
         rating: Number(p.rating || 3)
       }))
       .sort((a, b) => b.rating - a.rating);
+
+    console.log("FOUND PLAYERS:", divisionPlayers.length);
 
     if (!divisionPlayers.length) {
       alert("No players available");
@@ -207,7 +216,7 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
-      {/* SELECT TEAM */}
+      {/* SELECT NFL TEAM */}
       <div style={grid}>
         {nflTeams.map(team => (
           <div key={team.id} style={tile} onClick={() => setCreatingTeam(team)}>
@@ -221,9 +230,11 @@ export default function TeamsPage() {
 
       {divisions.map(div => {
 
-        const divTeams = teams.filter(t => t.division_id === div.id);
-
-        if (!divTeams.length) return null;
+        const divTeams = teams.filter(
+          t =>
+            t.division_id === div.id ||
+            (t.division && t.division.trim() === div.name.trim())
+        );
 
         return (
           <div key={div.id} style={divisionTile}>
@@ -234,7 +245,7 @@ export default function TeamsPage() {
 
             <div style={grid}>
 
-              {/* 🔥 AUTO ROSTER TILE */}
+              {/* AUTO ROSTER TILE */}
               <div
                 style={autoTile}
                 onClick={() => autoRosterByDivision(div)}
@@ -242,7 +253,7 @@ export default function TeamsPage() {
                 ⚡ Auto Roster
               </div>
 
-              {/* 🔥 TEAMS */}
+              {/* TEAMS */}
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
                 const count = players.filter(p => p.team_id === t.id).length;
