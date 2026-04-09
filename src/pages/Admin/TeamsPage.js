@@ -57,102 +57,59 @@ export default function TeamsPage() {
     return c ? `${c.first_name} ${c.last_name}` : "—";
   };
 
-  const removeFromTeam = async (playerId) => {
-    await supabase.from("players").update({ team_id: null }).eq("id", playerId);
-    loadData();
-  };
+  /* ================= SMART AUTO ROSTER ================= */
 
-  const addPlayerToTeam = async (playerId) => {
-    await supabase.from("players").update({ team_id: activeTeam.id }).eq("id", playerId);
-    loadData();
-  };
+  const autoRosterByDivision = async (division) => {
+    const divisionTeams = teams.filter(t => t.division === division);
 
-  const autoRoster = async () => {
-    const divisionPlayers = players.filter(
-      p => !p.team_id && p.divisions?.name === activeTeam.division
-    );
+    if (!divisionTeams.length) {
+      alert("No teams in this division");
+      return;
+    }
 
-    const divisionTeams = teams.filter(
-      t => t.division === activeTeam.division
-    );
+    const divisionPlayers = players
+      .filter(p =>
+        !p.team_id &&
+        p.divisions?.name === division
+      )
+      .sort((a, b) => (b.rating || 3) - (a.rating || 3));
 
-    let i = 0;
-    for (let p of divisionPlayers) {
-      const team = divisionTeams[i];
+    const teamBuckets = divisionTeams.map(t => ({
+      team: t,
+      total: 0,
+      players: []
+    }));
 
-      await supabase.from("players").update({ team_id: team.id }).eq("id", p.id);
+    for (let player of divisionPlayers) {
+      teamBuckets.sort((a, b) => a.total - b.total);
 
-      i++;
-      if (i >= divisionTeams.length) i = 0;
+      const target = teamBuckets[0];
+
+      target.players.push(player);
+      target.total += player.rating || 3;
+    }
+
+    for (let bucket of teamBuckets) {
+      for (let p of bucket.players) {
+        await supabase
+          .from("players")
+          .update({ team_id: bucket.team.id })
+          .eq("id", p.id);
+      }
     }
 
     loadData();
   };
 
-  /* ================= CREATE TEAM ================= */
+  const removeFromTeam = async (id) => {
+    await supabase.from("players").update({ team_id: null }).eq("id", id);
+    loadData();
+  };
 
-  if (creatingTeam) {
-    return (
-      <div style={{ padding: 20 }}>
-        <button style={backBtnModern} onClick={() => setCreatingTeam(null)}>
-          ← Teams
-        </button>
-
-        <h2>Create Team</h2>
-
-        <div style={teamHero}>
-          <img src={teamLogos[creatingTeam.short_name]} width={90} />
-          <h1>{creatingTeam.full_name}</h1>
-        </div>
-
-        <div style={formBox}>
-          <select style={formInput}
-            onChange={(e) => setCreatingTeam({ ...creatingTeam, division: e.target.value })}
-          >
-            <option value="">Select Division</option>
-            <option value="K-1">K-1</option>
-            <option value="2nd-3rd">2nd-3rd</option>
-            <option value="4th-5th">4th-5th</option>
-            <option value="6th-8th">6th-8th</option>
-          </select>
-
-          <select style={formInput}
-            onChange={(e) => setCreatingTeam({ ...creatingTeam, coach_id: e.target.value })}
-          >
-            <option value="">Head Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-            ))}
-          </select>
-
-          <select style={formInput}
-            onChange={(e) => setCreatingTeam({ ...creatingTeam, assistant_coach_id: e.target.value })}
-          >
-            <option value="">Assistant Coach</option>
-            {coaches.map(c => (
-              <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-            ))}
-          </select>
-
-          <button style={primaryBtn} onClick={async () => {
-            if (!creatingTeam.division) return alert("Select division");
-
-            await supabase.from("teams").insert({
-              nfl_team_id: creatingTeam.id,
-              division: creatingTeam.division,
-              coach_id: creatingTeam.coach_id || null,
-              assistant_coach_id: creatingTeam.assistant_coach_id || null
-            });
-
-            setCreatingTeam(null);
-            loadData();
-          }}>
-            Create Team
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const addPlayerToTeam = async (id) => {
+    await supabase.from("players").update({ team_id: activeTeam.id }).eq("id", id);
+    loadData();
+  };
 
   /* ================= TEAM DASHBOARD ================= */
 
@@ -195,7 +152,6 @@ export default function TeamsPage() {
 
         <div style={actionBar}>
           <button style={primaryBtn} onClick={() => setShowAdd(true)}>+ Add Player</button>
-          <button style={primaryBtn} onClick={autoRoster}>Auto Roster</button>
         </div>
 
         {showAdd && (
@@ -250,7 +206,6 @@ export default function TeamsPage() {
 
       <h1>Teams Manager</h1>
 
-      {/* NFL TEAMS */}
       <div style={grid}>
         {nflTeams.map(team => (
           <div key={team.id} style={tile} onClick={() => setCreatingTeam(team)}>
@@ -260,7 +215,6 @@ export default function TeamsPage() {
         ))}
       </div>
 
-      {/* 🔥 ASSIGNED TEAMS RESTORED */}
       <h3 style={{ marginTop: 30 }}>Assigned Teams</h3>
 
       {["K-1","2nd-3rd","4th-5th","6th-8th"].map(div => {
@@ -269,7 +223,16 @@ export default function TeamsPage() {
 
         return (
           <div key={div} style={divisionTile}>
-            <div style={divisionHeader}>{div}</div>
+            <div style={divisionHeaderRow}>
+              <div>{div}</div>
+
+              <button
+                style={secondaryBtn}
+                onClick={() => autoRosterByDivision(div)}
+              >
+                Auto Roster
+              </button>
+            </div>
 
             <div style={grid}>
               {divTeams.map(t => {
@@ -280,9 +243,15 @@ export default function TeamsPage() {
                   <div key={t.id} style={tile} onClick={() => setActiveTeam(t)}>
                     <img src={teamLogos[nfl?.short_name]} width={50}/>
                     <div>{nfl?.full_name}</div>
-                    <div style={{ fontSize: 11 }}>Coach: {getCoachName(t.coach_id)}</div>
-                    <div style={{ fontSize: 11 }}>Asst: {getCoachName(t.assistant_coach_id)}</div>
-                    <div style={{ fontSize: 12 }}>{count} Players</div>
+                    <div style={{ fontSize: 11 }}>
+                      Coach: {getCoachName(t.coach_id)}
+                    </div>
+                    <div style={{ fontSize: 11 }}>
+                      Asst: {getCoachName(t.assistant_coach_id)}
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      {count} Players
+                    </div>
                   </div>
                 );
               })}
@@ -317,17 +286,9 @@ const primaryBtn = {
 const secondaryBtn = {
   background:"#e5e7eb",
   border:"none",
-  padding:"8px 14px",
+  padding:"6px 12px",
   borderRadius:8,
-  marginTop:10
-};
-
-const removeBtn = {
-  background:"#ef4444",
-  color:"#fff",
-  border:"none",
-  padding:"6px 10px",
-  borderRadius:6
+  cursor:"pointer"
 };
 
 const dashboardCard = { display:"flex", justifyContent:"space-between", background:"#fff", padding:20, borderRadius:16 };
@@ -349,13 +310,10 @@ const tableRow = { display:"flex", justifyContent:"space-between", padding:12 };
 
 const row = { display:"flex", justifyContent:"space-between", padding:10 };
 
-const formBox = { background:"#fff", padding:20, borderRadius:12 };
 const formInput = { width:"100%", padding:8, marginBottom:10 };
 
 const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
 const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
 
 const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
-const divisionHeader = { fontWeight:"600", marginBottom:10 };
-
-const teamHero = { display:"flex", gap:20, alignItems:"center" };
+const divisionHeaderRow = { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 };
