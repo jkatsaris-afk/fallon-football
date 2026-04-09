@@ -32,10 +32,9 @@ export default function TeamsPage() {
 
   const [activeTeam, setActiveTeam] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-
   const [newTeam, setNewTeam] = useState(null);
 
-  // ✅ ADDED
+  // ✅ ONLY ADDITION
   const [playerSearch, setPlayerSearch] = useState("");
 
   useEffect(() => { loadData(); }, []);
@@ -88,11 +87,6 @@ export default function TeamsPage() {
       t => t.division === activeTeam.division
     );
 
-    if (!divisionTeams.length) {
-      alert("No teams in this division");
-      return;
-    }
-
     let teamIndex = 0;
 
     for (let p of divisionPlayers) {
@@ -110,40 +104,6 @@ export default function TeamsPage() {
     loadData();
   };
 
-  const createTeam = (nflTeamId) => {
-    setNewTeam({
-      nfl_team_id: nflTeamId,
-      division: "",
-      coach_id: "",
-      assistant_coach_id: ""
-    });
-  };
-
-  const saveTeam = async () => {
-    if (!newTeam.division) {
-      alert("Select a division");
-      return;
-    }
-
-    const { error } = await supabase.from("teams").insert([
-      {
-        nfl_team_id: newTeam.nfl_team_id,
-        division: newTeam.division,
-        coach_id: newTeam.coach_id || null,
-        assistant_coach_id: newTeam.assistant_coach_id || null
-      }
-    ]);
-
-    if (error) {
-      console.error(error);
-      alert("Failed to create team");
-      return;
-    }
-
-    setNewTeam(null);
-    loadData();
-  };
-
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
     const teamPlayers = players.filter(p => p.team_id === activeTeam.id);
@@ -151,45 +111,31 @@ export default function TeamsPage() {
     return (
       <div>
 
-        <button style={backBtn} onClick={() => setActiveTeam(null)}>
+        <button onClick={() => setActiveTeam(null)}>
           ← Back to Teams
         </button>
 
-        <div style={teamHero}>
-          <img src={teamLogos[nfl?.short_name]} width={90} />
-          <div>
-            <h1>{nfl?.full_name}</h1>
-            <div style={divisionBadge}>{activeTeam.division}</div>
-          </div>
-        </div>
+        <h2>{nfl?.full_name} ({activeTeam.division})</h2>
 
-        <div style={{ display: "flex", gap: 10 }}>
-          <button style={saveBtn} onClick={() => setShowAdd(true)}>
-            + Add Player
-          </button>
+        <button onClick={() => setShowAdd(true)}>
+          + Add Player
+        </button>
 
-          <button style={saveBtn} onClick={autoRoster}>
-            ⚡ Auto Roster
-          </button>
-        </div>
+        <button onClick={autoRoster}>
+          ⚡ Auto Roster
+        </button>
 
         {showAdd && (
-          <div style={formBox}>
+          <div>
 
             <h3>Add Player</h3>
 
-            {/* ✅ ADDED SEARCH */}
+            {/* ✅ SEARCH BAR */}
             <input
               placeholder="Search players..."
               value={playerSearch}
               onChange={(e) => setPlayerSearch(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px",
-                marginBottom: 10,
-                borderRadius: 8,
-                border: "1px solid #e2e8f0"
-              }}
+              style={{ marginBottom: 10 }}
             />
 
             {players
@@ -201,41 +147,31 @@ export default function TeamsPage() {
                   .includes(playerSearch.toLowerCase())
               )
               .map(p => (
-                <div key={p.id} style={playerRow}>
-                  <div>{p.first_name} {p.last_name}</div>
+                <div key={p.id}>
+                  {p.first_name} {p.last_name}
 
-                  <button
-                    style={saveBtn}
-                    onClick={() => addPlayerToTeam(p.id)}
-                  >
+                  <button onClick={() => addPlayerToTeam(p.id)}>
                     Add
                   </button>
                 </div>
               ))}
 
-            <button style={cancelBtn} onClick={() => setShowAdd(false)}>
+            <button onClick={() => setShowAdd(false)}>
               Close
             </button>
 
           </div>
         )}
 
-        <div style={{ marginTop: 20 }}>
-          {teamPlayers.map(p => (
-            <div key={p.id} style={playerRow}>
-              <div>
-                {p.first_name} {p.last_name}
-              </div>
+        {teamPlayers.map(p => (
+          <div key={p.id}>
+            {p.first_name} {p.last_name}
 
-              <button
-                style={removeBtn}
-                onClick={() => removeFromTeam(p.id)}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
+            <button onClick={() => removeFromTeam(p.id)}>
+              Remove
+            </button>
+          </div>
+        ))}
 
       </div>
     );
@@ -243,18 +179,7 @@ export default function TeamsPage() {
 
   return (
     <div>
-      {/* YOUR ORIGINAL MAIN CONTENT */}
+      <h1>Teams Manager</h1>
     </div>
   );
 }
-
-/* ================= STYLES ================= */
-
-const saveBtn = { background:"#2f6ea6", color:"#fff", border:"none", padding:"8px 14px", borderRadius:8, cursor:"pointer" };
-const cancelBtn = { background:"#e5e7eb", border:"none", padding:"8px 14px", borderRadius:8, cursor:"pointer" };
-const removeBtn = { background:"#ef4444", color:"#fff", border:"none", padding:"6px 10px", borderRadius:6, cursor:"pointer" };
-const backBtn = { marginBottom:15, padding:"8px 12px", borderRadius:8, border:"1px solid #e2e8f0", cursor:"pointer" };
-const teamHero = { display:"flex", alignItems:"center", gap:20, marginBottom:20 };
-const divisionBadge = { background:"#e2e8f0", padding:"4px 10px", borderRadius:8 };
-const playerRow = { display:"flex", justifyContent:"space-between", padding:"10px", borderBottom:"1px solid #e5e7eb" };
-const formBox = { background:"#fff", padding:20, borderRadius:12, marginTop:20, maxWidth:400 };
