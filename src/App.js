@@ -7,7 +7,10 @@ import ScoreboardPage from "./pages/Public/ScoreboardPage";
 import SignUpPage from "./pages/Public/SignUpPage";
 import CoachSignUpPage from "./pages/Public/CoachSignUpPage";
 import RefSignUpPage from "./pages/Public/RefSignUpPage";
-import SignUpSelectPage from "./pages/Public/SignUpSelectPage"; // ✅ NEW
+import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
+
+// ✅ NEW IMPORT
+import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
@@ -26,7 +29,7 @@ export default function App() {
       checkAdmin();
     }
 
-    if (path.includes("/signup")) setPage("signupSelect"); // ✅ UPDATED
+    if (path.includes("/signup")) setPage("signupSelect");
     if (path.includes("/coach-signup")) setPage("coachSignup");
     if (path.includes("/ref-signup")) setPage("refSignup");
   }, []);
@@ -75,10 +78,18 @@ export default function App() {
 
           {/* PUBLIC PAGES */}
           {page === "home" && <HomePage setPage={setPage} />}
-          {page === "schedule" && <SchedulePage />}
+
+          {/* ✅ FIXED */}
+          {page === "schedule" && <SchedulePage setPage={setPage} />}
+
           {page === "scoreboard" && <ScoreboardPage />}
 
-          {/* ✅ NEW FLOW */}
+          {/* ✅ NEW PAGE */}
+          {page === "teamSchedules" && (
+            <TeamSchedulesPage setPage={setPage} />
+          )}
+
+          {/* SIGNUPS */}
           {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />}
           {page === "signup" && <SignUpPage />}
           {page === "coachSignup" && <CoachSignUpPage />}
@@ -108,7 +119,6 @@ export default function App() {
               Scores
             </button>
 
-            {/* 🔥 SINGLE SIGNUP BUTTON */}
             <button
               className={`nav-btn ${page === "signupSelect" ? "active" : ""}`}
               onClick={() => setPage("signupSelect")}
