@@ -14,9 +14,9 @@ import lions from "../../resources/Detroit Lions.png";
 import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
-import ravens from "../../resources/Baltimore Ravens.png";
+import ravens from "../../resources/Baltimore Ravens.png"; // ✅ NEW
 
-// ===== LOGO MAP =====
+// ===== MAP =====
 const teamLogos = {
   "49ers": sf,
   "Bengals": bengals,
@@ -30,7 +30,7 @@ const teamLogos = {
   "Raiders": raiders,
   "Rams": rams,
   "Steelers": steelers,
-  "Ravens": ravens,
+  "Ravens": ravens, // ✅ NEW
 };
 
 function getLogo(name) {
@@ -38,85 +38,146 @@ function getLogo(name) {
   return teamLogos[name.trim()] || null;
 }
 
-// ✅ NEW: PDF PATH BUILDER
-function getPdfPath(team) {
-  return `/schedules/${team}.pdf`;
-}
-
 export default function SchedulePage() {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
-
-  const [showTeamSchedules, setShowTeamSchedules] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null);
 
   useEffect(() => {
     load();
   }, []);
 
   const load = async () => {
-    const { data } = await supabase.from("schedule_master").select("*");
+    const { data } = await supabase
+      .from("schedule_master")
+      .select("*");
+
     if (!data) return;
     setGames(data);
   };
 
-  // BUILD TEAM LIST
-  const teamList = [...new Set(
-    games.map(g => `${g.division} ${g.team}`)
-  )];
+  const cleanGames = games.map(g => ({
+    ...g,
+    clean_date: normalizeDate(g.event_date),
+    clean_type: (g.event_type || "").toLowerCase().trim()
+  }));
+
+  const grouped = cleanGames.reduce((acc, game) => {
+    if (!game.clean_date) return acc;
+    if (!acc[game.clean_date]) acc[game.clean_date] = [];
+    acc[game.clean_date].push(game);
+    return acc;
+  }, {});
+
+  const dates = Object.keys(grouped).sort(
+    (a, b) => new Date(a) - new Date(b)
+  );
 
   return (
     <div>
 
-      {/* FULL TEAM SCHEDULE TILE */}
-      {!selectedDate && !showTeamSchedules && (
-        <div className="card" onClick={() => setShowTeamSchedules(true)}>
-          <div className="title">Full Team Schedules</div>
-        </div>
-      )}
+      {!selectedDate &&
+        dates.map(date => (
+          <div key={date} className="card" onClick={() => setSelectedDate(date)}>
+            <div className="title">{formatDate(date)}</div>
+            <div className="sub">{grouped[date].length} events</div>
+          </div>
+        ))}
 
-      {/* TEAM LIST */}
-      {showTeamSchedules && !selectedTeam && (
+      {selectedDate && !selectedType && (
         <div>
 
           <div className="card active-card">
-            <div className="title">Select Team</div>
+            <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
-          <div className="card" onClick={() => setShowTeamSchedules(false)}>
+          <div className="card" onClick={() => {
+            setSelectedDate(null);
+            setSelectedType(null);
+          }}>
             <div className="sub">← Back</div>
           </div>
 
-          {teamList.map((team, i) => (
-            <div key={i} className="card" onClick={() => setSelectedTeam(team)}>
-              <div className="title">{team}</div>
+          <div className="card" onClick={() => setSelectedType("game")}>
+            <div className="title">Games</div>
+          </div>
+
+          <div className="card" onClick={() => setSelectedType("practice")}>
+            <div className="title">Practices</div>
+          </div>
+
+        </div>
+      )}
+
+      {selectedDate && selectedType && (
+        <div>
+
+          <div className="card active-card">
+            <div className="title">
+              {formatDate(selectedDate)} - {selectedType.toUpperCase()}
             </div>
-          ))}
-
-        </div>
-      )}
-
-      {/* PDF VIEW */}
-      {selectedTeam && (
-        <div>
-
-          <div className="card active-card">
-            <div className="title">{selectedTeam}</div>
           </div>
 
-          <div className="card" onClick={() => setSelectedTeam(null)}>
+          <div className="card" onClick={() => setSelectedType(null)}>
             <div className="sub">← Back</div>
           </div>
 
-          <div className="card">
-            <iframe
-              src={getPdfPath(selectedTeam)}
-              width="100%"
-              height="600px"
-              title="Team Schedule"
-            />
-          </div>
+          {grouped[selectedDate]
+            .filter(g => g.clean_type.includes(selectedType))
+            .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
+            .map((item, i) => (
+              <div key={item.id}>
+
+                {i !== 0 && <div className="divider" />}
+
+                <div className="inner-tile">
+
+                  {selectedType === "game" ? (
+                    <div className="game-row">
+
+                      <div className="game-top">
+                        <div className="team-row">
+                          {getLogo(item.team) && (
+                            <img src={getLogo(item.team)} style={logo} />
+                          )}
+                          <span>{item.team}</span>
+                        </div>
+                        <div className="game-time">{item.event_time}</div>
+                      </div>
+
+                      <div className="vs">vs</div>
+
+                      <div className="game-bottom">
+                        <div className="team-row">
+                          {getLogo(item.opponent) && (
+                            <img src={getLogo(item.opponent)} style={logo} />
+                          )}
+                          <span>{item.opponent || "TBD"}</span>
+                        </div>
+
+                        <div className="field-badge">
+                          {item.division} • {item.field}
+                        </div>
+                      </div>
+
+                    </div>
+                  ) : (
+                    <div className="practice-row">
+
+                      <div className="team">{item.team}</div>
+                      <div className="game-time">{item.event_time}</div>
+
+                      <div className="field-badge">
+                        {item.division} • {item.field}
+                      </div>
+
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            ))}
 
         </div>
       )}
@@ -124,3 +185,39 @@ export default function SchedulePage() {
     </div>
   );
 }
+
+/* HELPERS */
+
+function normalizeDate(dateStr) {
+  if (!dateStr) return null;
+  if (dateStr.includes("-")) return dateStr;
+
+  const [m, d, y] = dateStr.split("/");
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric"
+  });
+}
+
+function toTime(timeStr) {
+  if (!timeStr) return 0;
+
+  const [time, mod] = timeStr.split(" ");
+  let [h, m] = time.split(":");
+
+  if (mod === "PM" && h !== "12") h = +h + 12;
+  if (mod === "AM" && h === "12") h = "00";
+
+  return parseInt(h) * 60 + parseInt(m);
+}
+
+const logo = {
+  width: 20,
+  height: 20,
+  marginRight: 6
+};
