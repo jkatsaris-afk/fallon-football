@@ -14,7 +14,7 @@ import lions from "../../resources/Detroit Lions.png";
 import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
-import ravens from "../../resources/Baltimore Ravens.png"; // ✅ NEW
+import ravens from "../../resources/Baltimore Ravens.png";
 
 // ===== MAP =====
 const teamLogos = {
@@ -30,7 +30,7 @@ const teamLogos = {
   "Raiders": raiders,
   "Rams": rams,
   "Steelers": steelers,
-  "Ravens": ravens, // ✅ NEW
+  "Ravens": ravens,
 };
 
 function getLogo(name) {
@@ -38,7 +38,7 @@ function getLogo(name) {
   return teamLogos[name.trim()] || null;
 }
 
-export default function SchedulePage() {
+export default function SchedulePage({ setPage }) {
   const [games, setGames] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
@@ -76,14 +76,30 @@ export default function SchedulePage() {
   return (
     <div>
 
-      {!selectedDate &&
-        dates.map(date => (
-          <div key={date} className="card" onClick={() => setSelectedDate(date)}>
-            <div className="title">{formatDate(date)}</div>
-            <div className="sub">{grouped[date].length} events</div>
+      {/* TOP LEVEL */}
+      {!selectedDate && (
+        <>
+          {/* ✅ NEW TILE */}
+          <div className="card" onClick={() => setPage("teamSchedules")}>
+            <div className="title">Full Team Schedules</div>
+            <div className="sub">View all team PDFs</div>
           </div>
-        ))}
 
+          {/* EXISTING DATE TILES */}
+          {dates.map(date => (
+            <div
+              key={date}
+              className="card"
+              onClick={() => setSelectedDate(date)}
+            >
+              <div className="title">{formatDate(date)}</div>
+              <div className="sub">{grouped[date].length} events</div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* DATE SELECTED */}
       {selectedDate && !selectedType && (
         <div>
 
@@ -91,10 +107,13 @@ export default function SchedulePage() {
             <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
-          <div className="card" onClick={() => {
-            setSelectedDate(null);
-            setSelectedType(null);
-          }}>
+          <div
+            className="card"
+            onClick={() => {
+              setSelectedDate(null);
+              setSelectedType(null);
+            }}
+          >
             <div className="sub">← Back</div>
           </div>
 
@@ -109,6 +128,7 @@ export default function SchedulePage() {
         </div>
       )}
 
+      {/* GAME / PRACTICE VIEW */}
       {selectedDate && selectedType && (
         <div>
 
@@ -118,7 +138,10 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          <div className="card" onClick={() => setSelectedType(null)}>
+          <div
+            className="card"
+            onClick={() => setSelectedType(null)}
+          >
             <div className="sub">← Back</div>
           </div>
 
