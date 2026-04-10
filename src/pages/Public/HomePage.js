@@ -48,12 +48,9 @@ export default function HomePage({ setPage }) {
   }, []);
 
   const fetchGames = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("schedule_master")
       .select("*");
-
-    console.log("HOME DATA:", data);
-    console.log("HOME ERROR:", error);
 
     if (!data) return;
 
@@ -94,32 +91,27 @@ export default function HomePage({ setPage }) {
   return (
     <div>
 
-      {/* HEADER */}
       <div className="card">
         <div className="title">Fallon Flag Football</div>
         <div className="sub">2026 Season</div>
       </div>
 
-      {/* LIVE / UPCOMING */}
       <div className="card">
 
         <div className="title">
           {liveGames.length > 0 ? "Live Games" : "Upcoming Games"}
         </div>
 
-        {/* LIVE */}
         {liveGames.length > 0 &&
           liveGames.map((g, i) => (
             <GameRow key={g.id} game={g} index={i} live />
           ))}
 
-        {/* UPCOMING */}
         {liveGames.length === 0 &&
           upcomingGames.slice(0, 3).map((g, i) => (
             <GameRow key={g.id} game={g} index={i} />
           ))}
 
-        {/* EMPTY */}
         {liveGames.length === 0 && upcomingGames.length === 0 && (
           <div className="sub">No games found</div>
         )}
@@ -147,7 +139,6 @@ function GameRow({ game, index, live }) {
         <div className="game-row">
           <div className="game-top">
 
-            {/* TEAM 1 */}
             <div className="team-row">
               {getLogo(game.team) && (
                 <img src={getLogo(game.team)} style={logo} />
@@ -162,7 +153,6 @@ function GameRow({ game, index, live }) {
 
           <div className="game-bottom">
 
-            {/* TEAM 2 */}
             <div className="team-row">
               {getLogo(game.opponent) && (
                 <img src={getLogo(game.opponent)} style={logo} />
@@ -170,7 +160,11 @@ function GameRow({ game, index, live }) {
               <span>{game.opponent || "TBD"}</span>
             </div>
 
-            <div className="field-badge">{game.field}</div>
+            {/* ✅ THIS IS THE ONLY CHANGE */}
+            <div className="field-badge">
+              {game.division} • {game.field}
+            </div>
+
           </div>
         </div>
 
@@ -182,13 +176,9 @@ function GameRow({ game, index, live }) {
 /* HELPERS */
 function normalizeDate(dateStr) {
   if (!dateStr) return null;
-
   if (dateStr.includes("-")) return dateStr;
 
-  const parts = dateStr.split("/");
-  if (parts.length !== 3) return null;
-
-  const [m, d, y] = parts;
+  const [m, d, y] = dateStr.split("/");
   return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
@@ -204,7 +194,6 @@ function convertTo24Hour(timeStr) {
   return `${h}:${m}`;
 }
 
-/* STYLE */
 const logo = {
   width: 20,
   height: 20,
