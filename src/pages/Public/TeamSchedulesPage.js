@@ -23,9 +23,9 @@ export default function TeamSchedulesPage({ setPage }) {
     games.map(g => `${g.division} ${g.team}`)
   )].sort();
 
-  // PDF path (from /public/schedules)
+  // ✅ FIXED PATH (ROOT PUBLIC)
   const getPdfPath = (team) => {
-    return `/schedules/${encodeURIComponent(team)}.pdf`;
+    return `/${encodeURIComponent(team)}.pdf`;
   };
 
   return (
