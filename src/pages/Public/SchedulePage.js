@@ -14,9 +14,53 @@ import lions from "../../resources/Detroit Lions.png";
 import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
-import ravens from "../../resources/Baltimore Ravens.png"; // ✅ NEW
+import ravens from "../../resources/Baltimore Ravens.png";
 
-// ===== MAP =====
+// ===== PDF IMPORTS =====
+
+// 2nd - 3rd
+import chiefs23 from "../../resources/2nd - 3rd Chiefs.pdf";
+import rams23 from "../../resources/2nd - 3rd Rams.pdf";
+import raiders23 from "../../resources/2nd - 3rd Raiders.pdf";
+import ravens23 from "../../resources/2nd - 3rd Ravens.pdf";
+import bengals23 from "../../resources/2nd - 3rd Bengals.pdf";
+import bills23 from "../../resources/2nd - 3rd Bills.pdf";
+import colts23 from "../../resources/2nd - 3rd Colts.pdf";
+import eagles23 from "../../resources/2nd - 3rd Eagles.pdf";
+import jets23 from "../../resources/2nd - 3rd Jets.pdf";
+import lions23 from "../../resources/2nd - 3rd Lions.pdf";
+import steelers23 from "../../resources/2nd - 3rd Steelers.pdf";
+import niners23 from "../../resources/2nd - 3rd 49ers.pdf";
+
+// 4th - 5th
+import chiefs45 from "../../resources/4th - 5th Chiefs.pdf";
+import rams45 from "../../resources/4th - 5th Rams.pdf";
+import raiders45 from "../../resources/4th - 5th Raiders.pdf";
+import ravens45 from "../../resources/4th - 5th Ravens.pdf";
+import bengals45 from "../../resources/4th - 5th Bengals.pdf";
+import bills45 from "../../resources/4th - 5th Bills.pdf";
+import colts45 from "../../resources/4th - 5th Colts.pdf";
+import eagles45 from "../../resources/4th - 5th Eagles.pdf";
+import jets45 from "../../resources/4th - 5th Jets.pdf";
+import lions45 from "../../resources/4th - 5th Lions.pdf";
+import steelers45 from "../../resources/4th - 5th Steelers.pdf";
+import niners45 from "../../resources/4th - 5th 49ers.pdf";
+
+// 6th - 8th
+import chiefs68 from "../../resources/6th - 8th Chiefs.pdf";
+import rams68 from "../../resources/6th - 8th Rams.pdf";
+import raiders68 from "../../resources/6th - 8th Raiders.pdf";
+import ravens68 from "../../resources/6th - 8th Ravens.pdf";
+import bengals68 from "../../resources/6th - 8th Bengals.pdf";
+import bills68 from "../../resources/6th - 8th Bills.pdf";
+import colts68 from "../../resources/6th - 8th Colts.pdf";
+import eagles68 from "../../resources/6th - 8th Eagles.pdf";
+import jets68 from "../../resources/6th - 8th Jets.pdf";
+import lions68 from "../../resources/6th - 8th Lions.pdf";
+import steelers68 from "../../resources/6th - 8th Steelers.pdf";
+import niners68 from "../../resources/6th - 8th 49ers.pdf";
+
+// ===== LOGO MAP =====
 const teamLogos = {
   "49ers": sf,
   "Bengals": bengals,
@@ -30,7 +74,50 @@ const teamLogos = {
   "Raiders": raiders,
   "Rams": rams,
   "Steelers": steelers,
-  "Ravens": ravens, // ✅ NEW
+  "Ravens": ravens,
+};
+
+// ===== PDF MAP =====
+const teamSchedules = {
+
+  "2nd - 3rd Chiefs": chiefs23,
+  "2nd - 3rd Rams": rams23,
+  "2nd - 3rd Raiders": raiders23,
+  "2nd - 3rd Ravens": ravens23,
+  "2nd - 3rd Bengals": bengals23,
+  "2nd - 3rd Bills": bills23,
+  "2nd - 3rd Colts": colts23,
+  "2nd - 3rd Eagles": eagles23,
+  "2nd - 3rd Jets": jets23,
+  "2nd - 3rd Lions": lions23,
+  "2nd - 3rd Steelers": steelers23,
+  "2nd - 3rd 49ers": niners23,
+
+  "4th - 5th Chiefs": chiefs45,
+  "4th - 5th Rams": rams45,
+  "4th - 5th Raiders": raiders45,
+  "4th - 5th Ravens": ravens45,
+  "4th - 5th Bengals": bengals45,
+  "4th - 5th Bills": bills45,
+  "4th - 5th Colts": colts45,
+  "4th - 5th Eagles": eagles45,
+  "4th - 5th Jets": jets45,
+  "4th - 5th Lions": lions45,
+  "4th - 5th Steelers": steelers45,
+  "4th - 5th 49ers": niners45,
+
+  "6th - 8th Chiefs": chiefs68,
+  "6th - 8th Rams": rams68,
+  "6th - 8th Raiders": raiders68,
+  "6th - 8th Ravens": ravens68,
+  "6th - 8th Bengals": bengals68,
+  "6th - 8th Bills": bills68,
+  "6th - 8th Colts": colts68,
+  "6th - 8th Eagles": eagles68,
+  "6th - 8th Jets": jets68,
+  "6th - 8th Lions": lions68,
+  "6th - 8th Steelers": steelers68,
+  "6th - 8th 49ers": niners68,
 };
 
 function getLogo(name) {
@@ -43,181 +130,78 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
 
+  const [showTeamSchedules, setShowTeamSchedules] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+
   useEffect(() => {
     load();
   }, []);
 
   const load = async () => {
-    const { data } = await supabase
-      .from("schedule_master")
-      .select("*");
-
+    const { data } = await supabase.from("schedule_master").select("*");
     if (!data) return;
     setGames(data);
   };
 
-  const cleanGames = games.map(g => ({
-    ...g,
-    clean_date: normalizeDate(g.event_date),
-    clean_type: (g.event_type || "").toLowerCase().trim()
-  }));
-
-  const grouped = cleanGames.reduce((acc, game) => {
-    if (!game.clean_date) return acc;
-    if (!acc[game.clean_date]) acc[game.clean_date] = [];
-    acc[game.clean_date].push(game);
-    return acc;
-  }, {});
-
-  const dates = Object.keys(grouped).sort(
-    (a, b) => new Date(a) - new Date(b)
-  );
+  const teamList = [...new Set(
+    games.map(g => `${g.division} ${g.team}`)
+  )];
 
   return (
     <div>
 
-      {!selectedDate &&
-        dates.map(date => (
-          <div key={date} className="card" onClick={() => setSelectedDate(date)}>
-            <div className="title">{formatDate(date)}</div>
-            <div className="sub">{grouped[date].length} events</div>
-          </div>
-        ))}
-
-      {selectedDate && !selectedType && (
-        <div>
-
-          <div className="card active-card">
-            <div className="title">{formatDate(selectedDate)}</div>
-          </div>
-
-          <div className="card" onClick={() => {
-            setSelectedDate(null);
-            setSelectedType(null);
-          }}>
-            <div className="sub">← Back</div>
-          </div>
-
-          <div className="card" onClick={() => setSelectedType("game")}>
-            <div className="title">Games</div>
-          </div>
-
-          <div className="card" onClick={() => setSelectedType("practice")}>
-            <div className="title">Practices</div>
-          </div>
-
+      {/* FULL TEAM SCHEDULE TILE */}
+      {!selectedDate && !showTeamSchedules && (
+        <div className="card" onClick={() => setShowTeamSchedules(true)}>
+          <div className="title">Full Team Schedules</div>
         </div>
       )}
 
-      {selectedDate && selectedType && (
+      {/* TEAM LIST */}
+      {showTeamSchedules && !selectedTeam && (
         <div>
-
           <div className="card active-card">
-            <div className="title">
-              {formatDate(selectedDate)} - {selectedType.toUpperCase()}
-            </div>
+            <div className="title">Select Team</div>
           </div>
 
-          <div className="card" onClick={() => setSelectedType(null)}>
+          <div className="card" onClick={() => setShowTeamSchedules(false)}>
             <div className="sub">← Back</div>
           </div>
 
-          {grouped[selectedDate]
-            .filter(g => g.clean_type.includes(selectedType))
-            .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
-            .map((item, i) => (
-              <div key={item.id}>
+          {teamList.map((team, i) => (
+            <div key={i} className="card" onClick={() => setSelectedTeam(team)}>
+              <div className="title">{team}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
-                {i !== 0 && <div className="divider" />}
+      {/* PDF VIEW */}
+      {selectedTeam && (
+        <div>
+          <div className="card active-card">
+            <div className="title">{selectedTeam}</div>
+          </div>
 
-                <div className="inner-tile">
+          <div className="card" onClick={() => setSelectedTeam(null)}>
+            <div className="sub">← Back</div>
+          </div>
 
-                  {selectedType === "game" ? (
-                    <div className="game-row">
-
-                      <div className="game-top">
-                        <div className="team-row">
-                          {getLogo(item.team) && (
-                            <img src={getLogo(item.team)} style={logo} />
-                          )}
-                          <span>{item.team}</span>
-                        </div>
-                        <div className="game-time">{item.event_time}</div>
-                      </div>
-
-                      <div className="vs">vs</div>
-
-                      <div className="game-bottom">
-                        <div className="team-row">
-                          {getLogo(item.opponent) && (
-                            <img src={getLogo(item.opponent)} style={logo} />
-                          )}
-                          <span>{item.opponent || "TBD"}</span>
-                        </div>
-
-                        <div className="field-badge">
-                          {item.division} • {item.field}
-                        </div>
-                      </div>
-
-                    </div>
-                  ) : (
-                    <div className="practice-row">
-
-                      <div className="team">{item.team}</div>
-                      <div className="game-time">{item.event_time}</div>
-
-                      <div className="field-badge">
-                        {item.division} • {item.field}
-                      </div>
-
-                    </div>
-                  )}
-
-                </div>
-
-              </div>
-            ))}
-
+          <div className="card">
+            {teamSchedules[selectedTeam] ? (
+              <iframe
+                src={teamSchedules[selectedTeam]}
+                width="100%"
+                height="600px"
+                title="Team Schedule"
+              />
+            ) : (
+              <div className="sub">No schedule uploaded</div>
+            )}
+          </div>
         </div>
       )}
 
     </div>
   );
 }
-
-/* HELPERS */
-
-function normalizeDate(dateStr) {
-  if (!dateStr) return null;
-  if (dateStr.includes("-")) return dateStr;
-
-  const [m, d, y] = dateStr.split("/");
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-}
-
-function formatDate(dateStr) {
-  const [y, m, d] = dateStr.split("-");
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric"
-  });
-}
-
-function toTime(timeStr) {
-  if (!timeStr) return 0;
-
-  const [time, mod] = timeStr.split(" ");
-  let [h, m] = time.split(":");
-
-  if (mod === "PM" && h !== "12") h = +h + 12;
-  if (mod === "AM" && h === "12") h = "00";
-
-  return parseInt(h) * 60 + parseInt(m);
-}
-
-const logo = {
-  width: 20,
-  height: 20,
-  marginRight: 6
-};
