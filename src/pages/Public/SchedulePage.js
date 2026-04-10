@@ -14,8 +14,9 @@ import lions from "../../resources/Detroit Lions.png";
 import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
+import ravens from "../../resources/Baltimore Ravens.png"; // ✅ NEW
 
-// ===== MAP (DB → FILE) =====
+// ===== MAP =====
 const teamLogos = {
   "49ers": sf,
   "Bengals": bengals,
@@ -29,9 +30,9 @@ const teamLogos = {
   "Raiders": raiders,
   "Rams": rams,
   "Steelers": steelers,
+  "Ravens": ravens, // ✅ NEW
 };
 
-// ===== SAFE LOOKUP =====
 function getLogo(name) {
   if (!name) return null;
   return teamLogos[name.trim()] || null;
@@ -47,15 +48,11 @@ export default function SchedulePage() {
   }, []);
 
   const load = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("schedule_master")
       .select("*");
 
-    console.log("SCHEDULE DATA:", data);
-    console.log("SCHEDULE ERROR:", error);
-
     if (!data) return;
-
     setGames(data);
   };
 
@@ -67,10 +64,8 @@ export default function SchedulePage() {
 
   const grouped = cleanGames.reduce((acc, game) => {
     if (!game.clean_date) return acc;
-
     if (!acc[game.clean_date]) acc[game.clean_date] = [];
     acc[game.clean_date].push(game);
-
     return acc;
   }, {});
 
@@ -83,15 +78,9 @@ export default function SchedulePage() {
 
       {!selectedDate &&
         dates.map(date => (
-          <div
-            key={date}
-            className="card"
-            onClick={() => setSelectedDate(date)}
-          >
+          <div key={date} className="card" onClick={() => setSelectedDate(date)}>
             <div className="title">{formatDate(date)}</div>
-            <div className="sub">
-              {grouped[date].length} events
-            </div>
+            <div className="sub">{grouped[date].length} events</div>
           </div>
         ))}
 
@@ -102,27 +91,18 @@ export default function SchedulePage() {
             <div className="title">{formatDate(selectedDate)}</div>
           </div>
 
-          <div
-            className="card"
-            onClick={() => {
-              setSelectedDate(null);
-              setSelectedType(null);
-            }}
-          >
+          <div className="card" onClick={() => {
+            setSelectedDate(null);
+            setSelectedType(null);
+          }}>
             <div className="sub">← Back</div>
           </div>
 
-          <div
-            className="card"
-            onClick={() => setSelectedType("game")}
-          >
+          <div className="card" onClick={() => setSelectedType("game")}>
             <div className="title">Games</div>
           </div>
 
-          <div
-            className="card"
-            onClick={() => setSelectedType("practice")}
-          >
+          <div className="card" onClick={() => setSelectedType("practice")}>
             <div className="title">Practices</div>
           </div>
 
@@ -138,10 +118,7 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          <div
-            className="card"
-            onClick={() => setSelectedType(null)}
-          >
+          <div className="card" onClick={() => setSelectedType(null)}>
             <div className="sub">← Back</div>
           </div>
 
@@ -178,7 +155,6 @@ export default function SchedulePage() {
                           <span>{item.opponent || "TBD"}</span>
                         </div>
 
-                        {/* ✅ UPDATED HERE */}
                         <div className="field-badge">
                           {item.division} • {item.field}
                         </div>
@@ -191,7 +167,6 @@ export default function SchedulePage() {
                       <div className="team">{item.team}</div>
                       <div className="game-time">{item.event_time}</div>
 
-                      {/* ✅ UPDATED HERE */}
                       <div className="field-badge">
                         {item.division} • {item.field}
                       </div>
@@ -211,17 +186,13 @@ export default function SchedulePage() {
   );
 }
 
-/* ===== HELPERS ===== */
+/* HELPERS */
 
 function normalizeDate(dateStr) {
   if (!dateStr) return null;
-
   if (dateStr.includes("-")) return dateStr;
 
-  const parts = dateStr.split("/");
-  if (parts.length !== 3) return null;
-
-  const [m, d, y] = parts;
+  const [m, d, y] = dateStr.split("/");
   return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
@@ -244,8 +215,6 @@ function toTime(timeStr) {
 
   return parseInt(h) * 60 + parseInt(m);
 }
-
-/* ===== STYLE ===== */
 
 const logo = {
   width: 20,
