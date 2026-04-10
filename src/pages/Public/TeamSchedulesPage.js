@@ -3,7 +3,6 @@ import { supabase } from "../../supabase";
 
 export default function TeamSchedulesPage({ setPage }) {
   const [games, setGames] = useState([]);
-  const [selectedTeam, setSelectedTeam] = useState(null);
 
   useEffect(() => {
     load();
@@ -18,16 +17,14 @@ export default function TeamSchedulesPage({ setPage }) {
     setGames(data);
   };
 
-  // Build team list
+  // (still useful later if you want counts or features)
   const teamList = [...new Set(
     games.map(g => `${g.division} ${g.team}`)
   )].sort();
 
-  // ✅ ONLY ONE TEAM (YOU ADD THE REST)
-  const teamSchedules = {
-    "2nd - 3rd Chiefs":
-      "https://drive.google.com/file/d/1cZ0n8oGAgS2IamolguPbFeuXe35_CUwO/preview",
-  };
+  // ✅ YOUR GOOGLE DRIVE FOLDER
+  const scheduleFolder =
+    "https://drive.google.com/drive/folders/1Fg9x-JOQhCMOBrSfRdzup0oqLaeTekwA";
 
   return (
     <div>
@@ -42,59 +39,14 @@ export default function TeamSchedulesPage({ setPage }) {
         <div className="sub">← Back to Schedule</div>
       </div>
 
-      {/* TEAM LIST */}
-      {!selectedTeam && (
-        <div>
-          {teamList.map((team, i) => (
-            <div key={i} className="card" onClick={() => setSelectedTeam(team)}>
-              <div className="title">{team}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* PDF VIEW */}
-      {selectedTeam && (
-        <div>
-
-          <div className="card active-card">
-            <div className="title">{selectedTeam}</div>
-          </div>
-
-          <div className="card" onClick={() => setSelectedTeam(null)}>
-            <div className="sub">← Back to Teams</div>
-          </div>
-
-          <div className="card">
-            {teamSchedules[selectedTeam] ? (
-              <>
-                <iframe
-                  src={teamSchedules[selectedTeam]}
-                  width="100%"
-                  height="650px"
-                  title="Team Schedule"
-                />
-
-                {/* OPTIONAL BUTTON */}
-                <div style={{ marginTop: "10px" }}>
-                  <a
-                    href={teamSchedules[selectedTeam]}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open in new tab
-                  </a>
-                </div>
-              </>
-            ) : (
-              <div className="sub">
-                Schedule not uploaded yet
-              </div>
-            )}
-          </div>
-
-        </div>
-      )}
+      {/* 🔥 MAIN TILE */}
+      <div
+        className="card"
+        onClick={() => window.open(scheduleFolder, "_blank")}
+      >
+        <div className="title">View All Team Schedules</div>
+        <div className="sub">Opens Google Drive folder</div>
+      </div>
 
     </div>
   );
