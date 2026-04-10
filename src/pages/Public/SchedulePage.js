@@ -159,12 +159,18 @@ export default function SchedulePage() {
                     <div className="game-row">
 
                       <div className="game-top">
-                        <div className="team-row">
-                          {getLogo(item.team) && (
-                            <img src={getLogo(item.team)} style={logo} />
-                          )}
-                          <span>{item.team}</span>
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <div className="team-row">
+                            {getLogo(item.team) && (
+                              <img src={getLogo(item.team)} style={logo} />
+                            )}
+                            <span>{item.team}</span>
+                          </div>
+
+                          {/* ✅ DIVISION ADDED */}
+                          <div className="division">{item.division}</div>
                         </div>
+
                         <div className="game-time">{item.event_time}</div>
                       </div>
 
@@ -184,7 +190,13 @@ export default function SchedulePage() {
                   ) : (
                     <div className="practice-row">
 
-                      <div className="team">{item.team}</div>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <div className="team">{item.team}</div>
+
+                        {/* ✅ DIVISION ADDED */}
+                        <div className="division">{item.division}</div>
+                      </div>
+
                       <div className="game-time">{item.event_time}</div>
                       <div className="field-badge">{item.field}</div>
 
