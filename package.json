@@ -1,15 +1,8 @@
 {
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*\\.pdf)",
-      "headers": {
-        "cache-control": "public, max-age=0, must-revalidate"
-      },
-      "dest": "/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!.*\\.pdf$).*)",
+      "destination": "/index.html"
     }
   ]
 }
