@@ -15,7 +15,7 @@ import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
 
-// ===== MAP (DB → FILE) ===== 
+// ===== MAP (DB → FILE) =====
 const teamLogos = {
   "49ers": sf,
   "Bengals": bengals,
@@ -159,18 +159,12 @@ export default function SchedulePage() {
                     <div className="game-row">
 
                       <div className="game-top">
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <div className="team-row">
-                            {getLogo(item.team) && (
-                              <img src={getLogo(item.team)} style={logo} />
-                            )}
-                            <span>{item.team}</span>
-                          </div>
-
-                          {/* ✅ DIVISION ADDED */}
-                          <div className="division">{item.division}</div>
+                        <div className="team-row">
+                          {getLogo(item.team) && (
+                            <img src={getLogo(item.team)} style={logo} />
+                          )}
+                          <span>{item.team}</span>
                         </div>
-
                         <div className="game-time">{item.event_time}</div>
                       </div>
 
@@ -183,22 +177,24 @@ export default function SchedulePage() {
                           )}
                           <span>{item.opponent || "TBD"}</span>
                         </div>
-                        <div className="field-badge">{item.field}</div>
+
+                        {/* ✅ UPDATED HERE */}
+                        <div className="field-badge">
+                          {item.division} • {item.field}
+                        </div>
                       </div>
 
                     </div>
                   ) : (
                     <div className="practice-row">
 
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <div className="team">{item.team}</div>
-
-                        {/* ✅ DIVISION ADDED */}
-                        <div className="division">{item.division}</div>
-                      </div>
-
+                      <div className="team">{item.team}</div>
                       <div className="game-time">{item.event_time}</div>
-                      <div className="field-badge">{item.field}</div>
+
+                      {/* ✅ UPDATED HERE */}
+                      <div className="field-badge">
+                        {item.division} • {item.field}
+                      </div>
 
                     </div>
                   )}
