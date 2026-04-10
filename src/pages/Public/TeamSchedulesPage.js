@@ -23,9 +23,10 @@ export default function TeamSchedulesPage({ setPage }) {
     games.map(g => `${g.division} ${g.team}`)
   )].sort();
 
-  // ✅ FIXED PATH (ROOT PUBLIC)
-  const getPdfPath = (team) => {
-    return `/${encodeURIComponent(team)}.pdf`;
+  // ✅ GOOGLE DRIVE LINKS (ADD ONE AT A TIME)
+  const teamSchedules = {
+    "2nd - 3rd Chiefs":
+      "https://drive.google.com/file/d/1cZ0n8oGAgS2IamolguPbFeuXe35_CUwO/preview",
   };
 
   return (
@@ -65,12 +66,18 @@ export default function TeamSchedulesPage({ setPage }) {
           </div>
 
           <div className="card">
-            <iframe
-              src={getPdfPath(selectedTeam)}
-              width="100%"
-              height="650px"
-              title="Team Schedule"
-            />
+            {teamSchedules[selectedTeam] ? (
+              <iframe
+                src={teamSchedules[selectedTeam]}
+                width="100%"
+                height="650px"
+                title="Team Schedule"
+              />
+            ) : (
+              <div className="sub">
+                Schedule not uploaded yet
+              </div>
+            )}
           </div>
 
         </div>
