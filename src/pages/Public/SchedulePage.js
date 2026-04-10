@@ -15,7 +15,7 @@ import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
 
-// ===== MAP (DB → FILE) =====
+// ===== MAP (DB → FILE) ===== 
 const teamLogos = {
   "49ers": sf,
   "Bengals": bengals,
