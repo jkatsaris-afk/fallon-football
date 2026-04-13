@@ -41,15 +41,15 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showIOSInstall, setShowIOSInstall] = useState(false);
 
-  /* 🔥 NEW: ONLY SHOW INSTALL ON HOME */
-  const isHomePage =
-    window.location.pathname === "/" ||
-    window.location.pathname === "";
+  const isHomePage = page === "home";
 
   /* ================= INSTALL ================= */
 
   useEffect(() => {
     const handler = (e) => {
+      // 🔥 ONLY ALLOW ON HOME URL
+      if (window.location.pathname !== "/") return;
+
       e.preventDefault();
       setDeferredPrompt(e);
     };
@@ -59,8 +59,11 @@ export default function App() {
     const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
     const isStandalone = window.navigator.standalone;
 
-    if (isIOS && !isStandalone) {
-      setShowIOSInstall(true);
+    // 🔥 ONLY SHOW ON HOME URL
+    if (isIOS && !isStandalone && window.location.pathname === "/") {
+      setTimeout(() => {
+        setShowIOSInstall(true);
+      }, 1000);
     }
 
     return () => {
@@ -202,14 +205,14 @@ export default function App() {
 
   return (
     <>
-      {/* 🔥 ANDROID INSTALL (HOME ONLY) */}
+      {/* 🔥 ANDROID INSTALL */}
       {deferredPrompt && isHomePage && (
         <button style={installBtn} onClick={installApp}>
           Install App
         </button>
       )}
 
-      {/* 🔥 iPHONE INSTALL (HOME ONLY) */}
+      {/* 🔥 iOS INSTALL */}
       {showIOSInstall && isHomePage &&
         createPortal(
           <IOSInstallModal onClose={() => setShowIOSInstall(false)} />,
