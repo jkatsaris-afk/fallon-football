@@ -1,5 +1,5 @@
 import logo from "../resources/logo.png";
-import { Home, Calendar, Trophy, UserPlus } from "lucide-react";
+import { Home, Calendar, Trophy, UserPlus, LogIn } from "lucide-react";
 
 export default function PublicLayout({ children, page, setPage }) {
   return (
@@ -44,6 +44,18 @@ export default function PublicLayout({ children, page, setPage }) {
           label="Sign Up"
           active={page === "signupSelect"}
           onClick={() => setPage("signupSelect")}
+        />
+
+        <NavItem
+          icon={<LogIn size={22} />}
+          label="Login"
+          active={
+            page === "loginSelect" ||
+            page === "coachLogin" ||
+            page === "refLogin" ||
+            page === "parentLogin"
+          }
+          onClick={() => setPage("loginSelect")}
         />
 
       </div>
