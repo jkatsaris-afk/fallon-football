@@ -375,3 +375,14 @@ body {
   border-radius: 10px;
   border: 1px solid #ddd;
 }
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 70px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
