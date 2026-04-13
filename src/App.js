@@ -14,7 +14,7 @@ import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
 
 import PublicLayout from "./layouts/PublicLayout";
-import AdminLayout from "./layouts/AdminLayout"; // ✅ ADDED
+import AdminLayout from "./layouts/AdminLayout"; // ✅ keep
 
 import { supabase } from "./supabase";
 
@@ -51,7 +51,10 @@ export default function App() {
 
       {/* 🛠 ADMIN DASHBOARD */}
       {page === "dashboard" && (
-        <AdminLayout> {/* ✅ CHANGED */}
+        <AdminLayout
+          adminPage={adminPage}          // ✅ FIX
+          setAdminPage={setAdminPage}    // ✅ FIX
+        >
           <Dashboard
             adminPage={adminPage}
             setAdminPage={setAdminPage}
