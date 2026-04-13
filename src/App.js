@@ -41,6 +41,11 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showIOSInstall, setShowIOSInstall] = useState(false);
 
+  /* 🔥 NEW: ONLY SHOW INSTALL ON HOME */
+  const isHomePage =
+    window.location.pathname === "/" ||
+    window.location.pathname === "";
+
   /* ================= INSTALL ================= */
 
   useEffect(() => {
@@ -72,7 +77,7 @@ export default function App() {
     setDeferredPrompt(null);
   };
 
-  /* ================= 🔥 SESSION RESTORE (NEW) ================= */
+  /* ================= SESSION RESTORE ================= */
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -151,7 +156,7 @@ export default function App() {
     setPage("refDashboard");
   };
 
-  /* ================= 🔥 FIXED AUTH LISTENER ================= */
+  /* ================= AUTH LISTENER ================= */
 
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
@@ -197,15 +202,15 @@ export default function App() {
 
   return (
     <>
-      {/* ANDROID INSTALL */}
-      {deferredPrompt && (
+      {/* 🔥 ANDROID INSTALL (HOME ONLY) */}
+      {deferredPrompt && isHomePage && (
         <button style={installBtn} onClick={installApp}>
           Install App
         </button>
       )}
 
-      {/* iPHONE INSTALL */}
-      {showIOSInstall &&
+      {/* 🔥 iPHONE INSTALL (HOME ONLY) */}
+      {showIOSInstall && isHomePage &&
         createPortal(
           <IOSInstallModal onClose={() => setShowIOSInstall(false)} />,
           document.body
@@ -265,64 +270,3 @@ export default function App() {
     </>
   );
 }
-
-/* ================= MODALS ================= */
-
-function IOSInstallModal({ onClose }) {
-  return (
-    <div style={overlay}>
-      <div style={modal}>
-        <h2>Install App</h2>
-        <p>Tap Share → Add to Home Screen</p>
-        <button style={btn} onClick={onClose}>Got it</button>
-      </div>
-    </div>
-  );
-}
-
-function AccessDeniedModal({ onClose }) {
-  return (
-    <div style={overlay}>
-      <div style={modal}>
-        <h2>Access Denied</h2>
-        <button style={btn} onClick={onClose}>OK</button>
-      </div>
-    </div>
-  );
-}
-
-/* ================= STYLES ================= */
-
-const installBtn = {
-  position: "fixed",
-  bottom: 20,
-  right: 20,
-  padding: 12,
-  borderRadius: 10,
-  background: "#16a34a",
-  color: "#fff",
-  border: "none"
-};
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.5)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center"
-};
-
-const modal = {
-  background: "#fff",
-  padding: 20,
-  borderRadius: 12
-};
-
-const btn = {
-  padding: 10,
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  borderRadius: 8
-};
