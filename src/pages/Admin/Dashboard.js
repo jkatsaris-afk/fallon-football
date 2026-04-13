@@ -11,6 +11,7 @@ import RefereeManager from "./RefereeManager";
 import FieldManager from "./FieldManager";
 import ReportsPage from "./ReportsPage";
 import AdminSettings from "./AdminSettings";
+import PlayerLookup from "./PlayerLookup"; // ✅ NEW
 
 export default function Dashboard({
   adminPage,
@@ -127,12 +128,16 @@ export default function Dashboard({
         </>
       )}
 
-      {/* MORE (NEW MOBILE PAGE) */}
+      {/* 🔍 PLAYER LOOKUP (NEW PRIMARY MOBILE TOOL) */}
+      {adminPage === "lookup" && <PlayerLookup />}
+
+      {/* MORE */}
       {adminPage === "more" && (
         <>
           <h2 style={{ marginTop: 0 }}>More</h2>
 
           <div style={moreGrid}>
+            <MoreBtn label="Lookup" onClick={() => setAdminPage("lookup")} />
             <MoreBtn label="Players" onClick={() => setAdminPage("players")} />
             <MoreBtn label="Coaches" onClick={() => setAdminPage("coaches")} />
             <MoreBtn label="Referees" onClick={() => setAdminPage("referees")} />
