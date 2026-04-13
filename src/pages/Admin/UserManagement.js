@@ -38,53 +38,116 @@ export default function UserManagement() {
     alert("Password reset email sent");
   };
 
-  // 🔥 DETAIL VIEW
+  const uploadAvatar = async (file) => {
+    if (!file) return;
+
+    const filePath = `${selectedUser.id}-${Date.now()}`;
+
+    const { error } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file);
+
+    if (error) {
+      alert("Upload failed");
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(filePath);
+
+    const url = data.publicUrl;
+
+    await supabase
+      .from("users")
+      .update({ avatar_url: url })
+      .eq("id", selectedUser.id);
+
+    setSelectedUser(prev => ({
+      ...prev,
+      avatar_url: url
+    }));
+  };
+
+  /* 🔥 DETAIL VIEW */
   if (selectedUser) {
     return (
       <div>
-        <button onClick={() => setSelectedUser(null)}>← Back</button>
 
-        <h2>
-          {selectedUser.first_name} {selectedUser.last_name}
-        </h2>
+        {/* 🔥 CLEAN TOP BAR */}
+        <div style={topBar}>
+          <button style={backBtn} onClick={() => setSelectedUser(null)}>
+            ← Back
+          </button>
 
-        <div style={info}>Email: {selectedUser.email}</div>
-        <div style={info}>Phone: {selectedUser.phone || "—"}</div>
+          <div style={title}>
+            User Profile
+          </div>
+        </div>
 
-        <h4 style={{ marginTop: 20 }}>Roles</h4>
+        {/* PROFILE */}
+        <div style={profileContainer}>
 
-        <RoleCheck
-          label="Admin"
-          value={selectedUser.is_admin}
-          onChange={(v) => toggleRole("is_admin", v)}
-        />
+          <img
+            src={selectedUser.avatar_url || "/default-avatar.png"}
+            alt="avatar"
+            style={avatar}
+          />
 
-        <RoleCheck
-          label="Coach"
-          value={selectedUser.is_coach}
-          onChange={(v) => toggleRole("is_coach", v)}
-        />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => uploadAvatar(e.target.files[0])}
+          />
 
-        <RoleCheck
-          label="Parent"
-          value={selectedUser.is_parent}
-          onChange={(v) => toggleRole("is_parent", v)}
-        />
+          <h2 style={{ marginTop: 10 }}>
+            {selectedUser.first_name} {selectedUser.last_name}
+          </h2>
 
-        <RoleCheck
-          label="Referee"
-          value={selectedUser.is_referee}
-          onChange={(v) => toggleRole("is_referee", v)}
-        />
+          <div style={info}>{selectedUser.email}</div>
+          <div style={info}>
+            {selectedUser.phone || "No phone"}
+          </div>
 
-        <button style={resetBtn} onClick={resetPassword}>
-          Send Password Reset
-        </button>
+          {/* ROLES */}
+          <div style={{ marginTop: 20 }}>
+            <h4>Roles</h4>
+
+            <RoleCheck
+              label="Admin"
+              value={selectedUser.is_admin}
+              onChange={(v) => toggleRole("is_admin", v)}
+            />
+
+            <RoleCheck
+              label="Coach"
+              value={selectedUser.is_coach}
+              onChange={(v) => toggleRole("is_coach", v)}
+            />
+
+            <RoleCheck
+              label="Parent"
+              value={selectedUser.is_parent}
+              onChange={(v) => toggleRole("is_parent", v)}
+            />
+
+            <RoleCheck
+              label="Referee"
+              value={selectedUser.is_referee}
+              onChange={(v) => toggleRole("is_referee", v)}
+            />
+          </div>
+
+          <button style={resetBtn} onClick={resetPassword}>
+            Send Password Reset
+          </button>
+
+        </div>
       </div>
     );
   }
 
-  // 🔥 LIST VIEW
+  /* 🔥 LIST VIEW */
   return (
     <div>
       <h2>User Management</h2>
@@ -132,7 +195,39 @@ function RoleCheck({ label, value, onChange }) {
   );
 }
 
-/* STYLES */
+/* 🔥 STYLES */
+
+const topBar = {
+  display: "flex",
+  alignItems: "center",
+  marginBottom: 15
+};
+
+const backBtn = {
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "none",
+  background: "#e5e7eb",
+  cursor: "pointer",
+  marginRight: 10
+};
+
+const title = {
+  fontWeight: 600,
+  fontSize: 18
+};
+
+const profileContainer = {
+  textAlign: "center"
+};
+
+const avatar = {
+  width: 90,
+  height: 90,
+  borderRadius: "50%",
+  objectFit: "cover",
+  marginBottom: 10
+};
 
 const searchBox = {
   width: "100%",
@@ -156,8 +251,8 @@ const sub = {
 };
 
 const info = {
-  marginTop: 5,
-  fontSize: 14
+  fontSize: 14,
+  color: "#64748b"
 };
 
 const checkRow = {
