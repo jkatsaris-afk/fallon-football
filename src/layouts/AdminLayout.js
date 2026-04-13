@@ -50,15 +50,39 @@ export default function AdminLayout({
           {children}
         </div>
 
-        {/* MOBILE NAV */}
+        {/* MOBILE NAV — MATCHES PUBLIC */}
         {isMobile && (
           <div style={mobileNav}>
 
-            <MobileNavBtn label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
-            <MobileNavBtn label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
-            <MobileNavBtn label="Lookup" active={adminPage === "lookup"} onClick={() => setAdminPage("lookup")} />
-            <MobileNavBtn label="Game" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
-            <MobileNavBtn label="More" active={adminPage === "more"} onClick={() => setAdminPage("more")} />
+            <MobileNavBtn
+              label="Home"
+              active={adminPage === "dashboard"}
+              onClick={() => setAdminPage("dashboard")}
+            />
+
+            <MobileNavBtn
+              label="Teams"
+              active={adminPage === "teams"}
+              onClick={() => setAdminPage("teams")}
+            />
+
+            <MobileNavBtn
+              label="Lookup"
+              active={adminPage === "lookup"}
+              onClick={() => setAdminPage("lookup")}
+            />
+
+            <MobileNavBtn
+              label="Game"
+              active={adminPage === "games"}
+              onClick={() => setAdminPage("games")}
+            />
+
+            <MobileNavBtn
+              label="More"
+              active={adminPage === "more"}
+              onClick={() => setAdminPage("more")}
+            />
 
           </div>
         )}
@@ -72,49 +96,41 @@ export default function AdminLayout({
 
 function NavBtn({ label, active, onClick }) {
   return (
-    <div onClick={onClick} style={{
-      padding: "10px 12px",
-      borderRadius: 8,
-      cursor: "pointer",
-      background: active ? "#16a34a" : "transparent",
-      color: active ? "#fff" : "#374151",
-      marginBottom: 4
-    }}>
-      {label}
-    </div>
-  );
-}
-
-function MobileNavBtn({ label, active, onClick }) {
-  return (
     <div
       onClick={onClick}
       style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        fontSize: 11,
+        padding: "10px 12px",
+        borderRadius: 8,
         cursor: "pointer",
-        color: active ? "#16a34a" : "#777",
-        transform: active ? "translateY(-2px)" : "none"
+        background: active ? "#16a34a" : "transparent",
+        color: active ? "#fff" : "#374151",
+        marginBottom: 4
       }}
     >
-      <div style={{ fontSize: 18 }}>{getIcon(label)}</div>
       {label}
     </div>
   );
 }
 
-function getIcon(label) {
-  switch (label) {
-    case "Home": return "🏠";
-    case "Teams": return "👥";
-    case "Lookup": return "🔍";
-    case "Game": return "🏈";
-    case "More": return "⚙️";
-    default: return "•";
-  }
+/* 🔥 THIS MATCHES YOUR PUBLIC NAV EXACTLY */
+function MobileNavBtn({ label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1,
+        height: "100%",
+        border: "none",
+        background: "transparent",
+        fontSize: 13,
+        fontWeight: active ? 600 : 500,
+        color: active ? "#16a34a" : "#374151",
+        cursor: "pointer"
+      }}
+    >
+      {label}
+    </button>
+  );
 }
 
 /* STYLES */
@@ -155,15 +171,14 @@ const content = {
   paddingBottom: 80
 };
 
+/* 🔥 MATCHES YOUR PUBLIC NAV BAR */
 const mobileNav = {
   position: "fixed",
   bottom: 0,
   left: 0,
   right: 0,
-  height: 65,
+  height: 60,
   background: "#fff",
   borderTop: "1px solid #ddd",
-  display: "flex",
-  justifyContent: "space-around",
-  alignItems: "center"
+  display: "flex"
 };
