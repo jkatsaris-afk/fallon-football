@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-import fallonLogo from "../../resources/logo.png";
-
 import GameManager from "./GameManager";
 import ScheduleManager from "./ScheduleManager";
 import TeamsPage from "./TeamsPage";
@@ -29,7 +27,6 @@ export default function Dashboard({
     matchups: 0
   });
 
-  // ✅ NEW
   const [divisionCounts, setDivisionCounts] = useState({});
 
   useEffect(() => {
@@ -74,13 +71,11 @@ export default function Dashboard({
       .from("matchups")
       .select("*", { count: "exact", head: true });
 
-    // 🔥 NEW — DIVISION COUNTS
     const { data: playersWithDiv } = await supabase
       .from("players")
       .select("division_id, divisions(name)");
 
     const counts = {};
-
     (playersWithDiv || []).forEach(p => {
       const name = p.divisions?.name || "Unassigned";
       counts[name] = (counts[name] || 0) + 1;
@@ -101,95 +96,60 @@ export default function Dashboard({
   };
 
   return (
-    <div style={{ display: "flex", height: "100%" }}>
+    <>
+      {/* HOME */}
+      {adminPage === "dashboard" && (
+        <>
+          <h1 style={{ marginTop: 0 }}>Home</h1>
+          <p style={{ color: "#64748b" }}>
+            League overview and quick actions
+          </p>
 
-      {/* SIDEBAR */}
-      <div style={sidebar}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <img src={fallonLogo} alt="Fallon Flag" style={{ width: 32 }} />
-          <h2 style={{ margin: 0 }}>Admin</h2>
-        </div>
+          <div style={grid}>
+            <StatTile title="Players" value={stats.players} />
+            <StatTile title="Games" value={stats.games} />
+            <StatTile title="Approved Coaches" value={stats.coachesApproved} color="#16a34a" />
+            <StatTile title="Pending Coaches" value={stats.coachesPending} color="#f59e0b" />
+            <StatTile title="Approved Referees" value={stats.refsApproved} color="#16a34a" />
+            <StatTile title="Pending Referees" value={stats.refsPending} color="#f59e0b" />
+            <StatTile title="Scheduled Games" value={stats.scheduledGames} />
+            <StatTile title="Matchups" value={stats.matchups} />
 
-        <NavBtn active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} label="Dashboard" />
-        <NavBtn active={adminPage === "teams"} onClick={() => setAdminPage("teams")} label="Team Manager" />
-        <NavBtn active={adminPage === "players"} onClick={() => setAdminPage("players")} label="Player Manager" />
-        <NavBtn active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} label="Matchup Manager" />
-        <NavBtn active={adminPage === "fields"} onClick={() => setAdminPage("fields")} label="Field Manager" />
-        <NavBtn active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} label="Schedule Manager" />
-        <NavBtn active={adminPage === "games"} onClick={() => setAdminPage("games")} label="Game Manager" />
-        <NavBtn active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} label="Coach Manager" />
-        <NavBtn active={adminPage === "referees"} onClick={() => setAdminPage("referees")} label="Referee Manager" />
-        <NavBtn active={adminPage === "reports"} onClick={() => setAdminPage("reports")} label="Reports" />
+            {["K-1","2nd-3rd","4th-5th","6th-8th"].map(name => (
+              <StatTile
+                key={name}
+                title={`${name} Players`}
+                value={divisionCounts[name] || 0}
+                color="#6366f1"
+              />
+            ))}
+          </div>
+        </>
+      )}
 
-        <div style={settingsHeader}>SETTINGS</div>
-        <NavBtn active={adminPage === "settings"} onClick={() => setAdminPage("settings")} label="Settings" />
-      </div>
-
-      {/* CONTENT */}
-      <div style={{ flex: 1, padding: 25, overflow: "auto" }}>
-        {adminPage === "dashboard" && (
-          <>
-            <h1>Dashboard</h1>
-            <p style={{ color: "#64748b" }}>
-              League overview and quick actions
-            </p>
-
-            <div style={grid}>
-              <StatTile title="Players" value={stats.players} />
-              <StatTile title="Games" value={stats.games} />
-              <StatTile title="Approved Coaches" value={stats.coachesApproved} color="#16a34a" />
-              <StatTile title="Pending Coaches" value={stats.coachesPending} color="#f59e0b" />
-              <StatTile title="Approved Referees" value={stats.refsApproved} color="#16a34a" />
-              <StatTile title="Pending Referees" value={stats.refsPending} color="#f59e0b" />
-              <StatTile title="Scheduled Games" value={stats.scheduledGames} />
-              <StatTile title="Matchups" value={stats.matchups} />
-
-              {/* 🔥 NEW DIVISION TILES */}
-              {["K-1","2nd-3rd","4th-5th","6th-8th"].map(name => (
-                <StatTile
-                  key={name}
-                  title={`${name} Players`}
-                  value={divisionCounts[name] || 0}
-                  color="#6366f1"
-                />
-              ))}
-            </div>
-          </>
-        )}
-
-        {adminPage === "teams" && <TeamsPage />}
-        {adminPage === "players" && <PlayerManager />}
-        {adminPage === "schedule" && <ScheduleManager />}
-        {adminPage === "games" && <GameManager />}
-        {adminPage === "matchups" && <MatchupManager />}
-        {adminPage === "fields" && <FieldManager />}
-        {adminPage === "coaches" && <CoachManager />}
-        {adminPage === "referees" && <RefereeManager />}
-        {adminPage === "reports" && <ReportsPage />}
-        {adminPage === "settings" && <AdminSettings />}
-      </div>
-    </div>
+      {/* PAGES */}
+      {adminPage === "teams" && <TeamsPage />}
+      {adminPage === "players" && <PlayerManager />}
+      {adminPage === "schedule" && <ScheduleManager />}
+      {adminPage === "games" && <GameManager />}
+      {adminPage === "matchups" && <MatchupManager />}
+      {adminPage === "fields" && <FieldManager />}
+      {adminPage === "coaches" && <CoachManager />}
+      {adminPage === "referees" && <RefereeManager />}
+      {adminPage === "reports" && <ReportsPage />}
+      {adminPage === "settings" && <AdminSettings />}
+    </>
   );
 }
 
-/* COMPONENTS */
+/* STYLES */
 
-function NavBtn({ active, onClick, label }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: "12px",
-      borderRadius: 10,
-      border: "none",
-      background: active ? "#2f6ea6" : "transparent",
-      color: active ? "#fff" : "#0f172a",
-      textAlign: "left",
-      cursor: "pointer",
-      fontWeight: active ? "600" : "500"
-    }}>
-      {label}
-    </button>
-  );
-}
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 20,
+  marginTop: 25
+};
 
 function StatTile({ title, value, color = "#2f6ea6" }) {
   return (
@@ -206,28 +166,3 @@ function StatTile({ title, value, color = "#2f6ea6" }) {
     </div>
   );
 }
-
-/* STYLES */
-
-const sidebar = {
-  width: 220,
-  background: "#ffffff",
-  padding: 20,
-  display: "flex",
-  flexDirection: "column",
-  gap: 15,
-  borderRight: "1px solid #e5e7eb",
-};
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 20,
-  marginTop: 25
-};
-
-const settingsHeader = {
-  marginTop: 20,
-  fontSize: 12,
-  color: "#94a3b8"
-};
