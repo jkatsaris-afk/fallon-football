@@ -7,11 +7,13 @@ import {
   Trophy,
   MoreHorizontal
 } from "lucide-react";
+import { supabase } from "../supabase"; // 🔥 ADD
 
 export default function AdminLayout({
   adminPage,
   setAdminPage,
-  children
+  children,
+  setPage // 🔥 ADD THIS PROP
 }) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -21,6 +23,12 @@ export default function AdminLayout({
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // 🔥 LOGOUT FUNCTION
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setPage("home");
+  };
 
   return (
     <div style={container}>
@@ -38,14 +46,7 @@ export default function AdminLayout({
           <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
           <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
           <NavBtn label="Coaches" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
-
-          {/* 🔥 FIXED LABEL */}
-          <NavBtn
-            label="Referee Manager"
-            active={adminPage === "referees"}
-            onClick={() => setAdminPage("referees")}
-          />
-
+          <NavBtn label="Referee Manager" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
           <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
           <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
         </div>
@@ -54,9 +55,14 @@ export default function AdminLayout({
       {/* MAIN */}
       <div style={main}>
 
-        {/* TOP BAR */}
+        {/* 🔥 TOP BAR */}
         <div style={topBar}>
           Fallon Football Admin
+
+          {/* 🔥 LOGOUT BUTTON */}
+          <button style={logoutBtn} onClick={logout}>
+            Logout
+          </button>
         </div>
 
         {/* CONTENT */}
@@ -64,45 +70,14 @@ export default function AdminLayout({
           {children}
         </div>
 
-        {/* 🔥 MOBILE NAV — MATCHES PUBLIC */}
+        {/* MOBILE NAV */}
         {isMobile && (
           <div className="nav">
-
-            <NavItem
-              icon={<Home size={22} />}
-              label="Home"
-              active={adminPage === "dashboard"}
-              onClick={() => setAdminPage("dashboard")}
-            />
-
-            <NavItem
-              icon={<Users size={22} />}
-              label="Teams"
-              active={adminPage === "teams"}
-              onClick={() => setAdminPage("teams")}
-            />
-
-            <NavItem
-              icon={<Search size={22} />}
-              label="Lookup"
-              active={adminPage === "lookup"}
-              onClick={() => setAdminPage("lookup")}
-            />
-
-            <NavItem
-              icon={<Trophy size={22} />}
-              label="Game"
-              active={adminPage === "games"}
-              onClick={() => setAdminPage("games")}
-            />
-
-            <NavItem
-              icon={<MoreHorizontal size={22} />}
-              label="More"
-              active={adminPage === "more"}
-              onClick={() => setAdminPage("more")}
-            />
-
+            <NavItem icon={<Home size={22} />} label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
+            <NavItem icon={<Users size={22} />} label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
+            <NavItem icon={<Search size={22} />} label="Lookup" active={adminPage === "lookup"} onClick={() => setAdminPage("lookup")} />
+            <NavItem icon={<Trophy size={22} />} label="Game" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
+            <NavItem icon={<MoreHorizontal size={22} />} label="More" active={adminPage === "more"} onClick={() => setAdminPage("more")} />
           </div>
         )}
 
@@ -111,13 +86,10 @@ export default function AdminLayout({
   );
 }
 
-/* SAME NAV ITEM AS PUBLIC */
+/* NAV ITEM */
 function NavItem({ icon, label, active, onClick }) {
   return (
-    <div
-      className={`nav-item ${active ? "active" : ""}`}
-      onClick={onClick}
-    >
+    <div className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
       {icon}
       <span>{label}</span>
     </div>
@@ -170,6 +142,7 @@ const topBar = {
   borderBottom: "1px solid #e5e7eb",
   display: "flex",
   alignItems: "center",
+  justifyContent: "space-between", // 🔥 IMPORTANT
   padding: "0 20px",
   fontWeight: 600
 };
@@ -179,4 +152,12 @@ const content = {
   overflowY: "auto",
   padding: 20,
   paddingBottom: 80
+};
+
+const logoutBtn = {
+  padding: "6px 12px",
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  background: "#fff",
+  cursor: "pointer"
 };
