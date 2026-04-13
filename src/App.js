@@ -13,10 +13,11 @@ import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 // 🔥 LOGIN PAGES
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
 import CoachLoginPage from "./pages/Public/CoachLoginPage";
-import RefLoginPage from "./pages/Public/RefLoginPage";
+// ✅ FIXED HERE
+import RefLoginPage from "./pages/Ref/RefLogin";
 import ParentLoginPage from "./pages/Public/ParentLoginPage";
 
-// 🔥 ADD THIS
+// 🔥 REF DASHBOARD
 import RefDashboard from "./pages/Ref/RefDashboard";
 
 import Dashboard from "./pages/Admin/Dashboard";
@@ -95,10 +96,10 @@ export default function App() {
           )}
 
           {page === "coachLogin" && <CoachLoginPage />}
-          {page === "refLogin" && <RefLoginPage setPage={setPage} />} {/* 🔥 PASS setPage */}
+          {page === "refLogin" && <RefLoginPage setPage={setPage} />}
           {page === "parentLogin" && <ParentLoginPage />}
 
-          {/* 🔥 ADD THIS */}
+          {/* 🔥 REF DASHBOARD */}
           {page === "refDashboard" && <RefDashboard />}
 
           {/* SIGNUPS */}
