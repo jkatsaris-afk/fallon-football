@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 import fallonLogo from "../resources/logo.png";
+import {
+  Home,
+  Users,
+  Search,
+  Trophy,
+  MoreHorizontal
+} from "lucide-react";
 
 export default function AdminLayout({
   adminPage,
@@ -50,35 +57,40 @@ export default function AdminLayout({
           {children}
         </div>
 
-        {/* MOBILE NAV — MATCHES PUBLIC */}
+        {/* 🔥 MOBILE NAV — MATCHES PUBLIC */}
         {isMobile && (
-          <div style={mobileNav}>
+          <div className="nav">
 
-            <MobileNavBtn
+            <NavItem
+              icon={<Home size={22} />}
               label="Home"
               active={adminPage === "dashboard"}
               onClick={() => setAdminPage("dashboard")}
             />
 
-            <MobileNavBtn
+            <NavItem
+              icon={<Users size={22} />}
               label="Teams"
               active={adminPage === "teams"}
               onClick={() => setAdminPage("teams")}
             />
 
-            <MobileNavBtn
+            <NavItem
+              icon={<Search size={22} />}
               label="Lookup"
               active={adminPage === "lookup"}
               onClick={() => setAdminPage("lookup")}
             />
 
-            <MobileNavBtn
+            <NavItem
+              icon={<Trophy size={22} />}
               label="Game"
               active={adminPage === "games"}
               onClick={() => setAdminPage("games")}
             />
 
-            <MobileNavBtn
+            <NavItem
+              icon={<MoreHorizontal size={22} />}
               label="More"
               active={adminPage === "more"}
               onClick={() => setAdminPage("more")}
@@ -92,8 +104,20 @@ export default function AdminLayout({
   );
 }
 
-/* COMPONENTS */
+/* SAME NAV ITEM AS PUBLIC */
+function NavItem({ icon, label, active, onClick }) {
+  return (
+    <div
+      className={`nav-item ${active ? "active" : ""}`}
+      onClick={onClick}
+    >
+      {icon}
+      <span>{label}</span>
+    </div>
+  );
+}
 
+/* DESKTOP BUTTON */
 function NavBtn({ label, active, onClick }) {
   return (
     <div
@@ -109,27 +133,6 @@ function NavBtn({ label, active, onClick }) {
     >
       {label}
     </div>
-  );
-}
-
-/* 🔥 THIS MATCHES YOUR PUBLIC NAV EXACTLY */
-function MobileNavBtn({ label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        height: "100%",
-        border: "none",
-        background: "transparent",
-        fontSize: 13,
-        fontWeight: active ? 600 : 500,
-        color: active ? "#16a34a" : "#374151",
-        cursor: "pointer"
-      }}
-    >
-      {label}
-    </button>
   );
 }
 
@@ -169,16 +172,4 @@ const content = {
   overflowY: "auto",
   padding: 20,
   paddingBottom: 80
-};
-
-/* 🔥 MATCHES YOUR PUBLIC NAV BAR */
-const mobileNav = {
-  position: "fixed",
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: 60,
-  background: "#fff",
-  borderTop: "1px solid #ddd",
-  display: "flex"
 };
