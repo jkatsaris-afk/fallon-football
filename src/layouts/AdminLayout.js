@@ -15,16 +15,12 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // 🔥 DEBUG (you can remove later)
-  console.log("Current Page:", adminPage);
-
   return (
     <div style={container}>
 
       {/* DESKTOP SIDEBAR */}
       {!isMobile && (
         <div style={sidebar}>
-
           <img src={fallonLogo} alt="logo" style={{ width: 36, marginBottom: 20 }} />
 
           <NavBtn label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
@@ -38,28 +34,50 @@ export default function AdminLayout({
           <NavBtn label="Referees" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
           <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
           <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
-
         </div>
       )}
 
       {/* MAIN */}
       <div style={main}>
 
+        {/* TOP BAR */}
         <div style={topBar}>
           Fallon Football Admin
         </div>
 
+        {/* CONTENT */}
         <div style={content}>
           {children}
         </div>
 
-        {/* MOBILE NAV */}
+        {/* MOBILE NAV (MATCHES PUBLIC STYLE) */}
         {isMobile && (
           <div style={mobileNav}>
-            <NavIcon label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
-            <NavIcon label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
-            <NavIcon label="Players" active={adminPage === "players"} onClick={() => setAdminPage("players")} />
-            <NavIcon label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
+
+            <MobileNavBtn
+              label="Home"
+              active={adminPage === "dashboard"}
+              onClick={() => setAdminPage("dashboard")}
+            />
+
+            <MobileNavBtn
+              label="Teams"
+              active={adminPage === "teams"}
+              onClick={() => setAdminPage("teams")}
+            />
+
+            <MobileNavBtn
+              label="Game Day"
+              active={adminPage === "games"}
+              onClick={() => setAdminPage("games")}
+            />
+
+            <MobileNavBtn
+              label="More"
+              active={adminPage === "more"}
+              onClick={() => setAdminPage("more")}
+            />
+
           </div>
         )}
 
@@ -88,7 +106,7 @@ function NavBtn({ label, active, onClick }) {
   );
 }
 
-function NavIcon({ label, active, onClick }) {
+function MobileNavBtn({ label, active, onClick }) {
   return (
     <div
       onClick={onClick}
@@ -96,8 +114,10 @@ function NavIcon({ label, active, onClick }) {
         flex: 1,
         textAlign: "center",
         fontSize: 12,
+        cursor: "pointer",
         color: active ? "#16a34a" : "#777",
-        cursor: "pointer"
+        transform: active ? "translateY(-2px)" : "none",
+        fontWeight: active ? 600 : 400
       }}
     >
       {label}
@@ -110,7 +130,7 @@ function NavIcon({ label, active, onClick }) {
 const container = {
   display: "flex",
   height: "100vh",
-  background: "#f1f5f9"
+  background: "#f8fafc"
 };
 
 const sidebar = {
@@ -148,7 +168,7 @@ const mobileNav = {
   bottom: 0,
   left: 0,
   right: 0,
-  height: 60,
+  height: 65,
   background: "#fff",
   borderTop: "1px solid #ddd",
   display: "flex",
