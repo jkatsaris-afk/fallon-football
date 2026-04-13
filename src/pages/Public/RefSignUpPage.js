@@ -20,20 +20,35 @@ export default function RefSignUpPage() {
     loadSettings();
   }, []);
 
+  /* ================= LOAD SETTINGS ================= */
+
   const loadSettings = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("app_settings")
       .select("*")
       .eq("id", 1)
-      .single();
+      .maybeSingle(); // 🔥 safer than .single()
+
+    if (error) {
+      console.error("Settings load error:", error);
+    }
+
+    console.log("SETTINGS:", data); // 🔥 DEBUG
 
     setSettings(data);
   };
 
+  /* ================= SUBMIT ================= */
+
   const handleSubmit = async () => {
+    if (!settings) {
+      alert("Settings not loaded yet");
+      return;
+    }
+
     setLoading(true);
 
-    await supabase.from("referees").insert([
+    const { error } = await supabase.from("referees").insert([
       {
         first_name: form.firstName,
         last_name: form.lastName,
@@ -43,15 +58,45 @@ export default function RefSignUpPage() {
         experience: form.experience,
         availability: form.availability,
         notes: form.notes,
-        season_id: settings.current_season
+        season_id: settings?.current_season || null
       }
     ]);
 
+    if (error) {
+      console.error(error);
+      alert("Error submitting form");
+      setLoading(false);
+      return;
+    }
+
     alert("✅ Referee Registered!");
+
+    setForm({
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "",
+      age: "",
+      experience: "",
+      availability: "",
+      notes: ""
+    });
+
     setLoading(false);
   };
 
-  if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
+  /* ================= LOADING ================= */
+
+  if (!settings || !settings.id) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h3>Loading settings...</h3>
+
+        {/* 🔥 DEBUG VIEW */}
+        <pre>{JSON.stringify(settings, null, 2)}</pre>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 20, maxWidth: 500, margin: "auto" }}>
@@ -71,11 +116,11 @@ export default function RefSignUpPage() {
 
           <Card>
             <Section title="Basic Info">
-              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
-              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
-              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
-              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
-              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
+              <Input placeholder="First Name" value={form.firstName} onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" value={form.lastName} onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" value={form.phone} onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" value={form.email} onChange={(v)=>setForm({...form, email:v})}/>
+              <Input placeholder="Age" type="number" value={form.age} onChange={(v)=>setForm({...form, age:v})}/>
             </Section>
           </Card>
 
@@ -83,6 +128,7 @@ export default function RefSignUpPage() {
             <Section title="Experience">
               <textarea
                 placeholder="Describe experience"
+                value={form.experience}
                 onChange={(e)=>setForm({...form, experience:e.target.value})}
                 style={textareaStyle}
               />
@@ -93,6 +139,7 @@ export default function RefSignUpPage() {
             <Section title="Availability">
               <textarea
                 placeholder="Days / times available"
+                value={form.availability}
                 onChange={(e)=>setForm({...form, availability:e.target.value})}
                 style={textareaStyle}
               />
@@ -102,6 +149,7 @@ export default function RefSignUpPage() {
           <Card>
             <textarea
               placeholder="Additional notes"
+              value={form.notes}
               onChange={(e)=>setForm({...form, notes:e.target.value})}
               style={textareaStyle}
             />
@@ -116,7 +164,7 @@ export default function RefSignUpPage() {
   );
 }
 
-/* UI reused */
+/* ================= UI ================= */
 
 function Card({ children, center }) {
   return (
@@ -144,16 +192,19 @@ function Section({ title, children }) {
   );
 }
 
-function Input({ placeholder, onChange, type="text" }) {
+function Input({ placeholder, value, onChange, type="text" }) {
   return (
     <input
       type={type}
       placeholder={placeholder}
+      value={value}
       onChange={(e)=>onChange(e.target.value)}
       style={inputStyle}
     />
   );
 }
+
+/* ================= STYLES ================= */
 
 const inputStyle = {
   padding: 12,
