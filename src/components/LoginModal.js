@@ -46,7 +46,14 @@ export default function LoginModal({ setPage }) {
   return (
     <div style={container}>
 
-      <div style={card}>
+      {/* 🔥 FORM WRAPPER (ENABLES ENTER KEY) */}
+      <form
+        style={card}
+        onSubmit={(e) => {
+          e.preventDefault();
+          login();
+        }}
+      >
 
         <img src={logo} alt="logo" style={logoStyle} />
 
@@ -72,11 +79,12 @@ export default function LoginModal({ setPage }) {
           style={input}
         />
 
-        <button onClick={login} style={btn}>
+        {/* 🔥 SUBMIT BUTTON */}
+        <button type="submit" style={btn}>
           {loading ? "Signing In..." : "Login"}
         </button>
 
-      </div>
+      </form>
 
     </div>
   );
