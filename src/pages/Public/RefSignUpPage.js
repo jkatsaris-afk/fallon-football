@@ -6,7 +6,6 @@ export default function RefSignUpPage() {
   const [loading, setLoading] = useState(false);
 
   const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -34,35 +33,25 @@ export default function RefSignUpPage() {
     setSettings(data);
   };
 
-  /* ================= IMAGE PICK ================= */
-
-  const handleFileChange = (e) => {
-    const selected = e.target.files[0];
-
-    if (!selected) return;
-
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
-  };
-
   /* ================= SUBMIT ================= */
 
   const handleSubmit = async () => {
+    if (!file) {
+      alert("Profile picture is required");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      let fileName = null;
-
       // 🔥 UPLOAD IMAGE
-      if (file) {
-        fileName = `${Date.now()}-${file.name}`;
+      const fileName = `${Date.now()}-${file.name}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("profile-images")
-          .upload(fileName, file);
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
       // 🔥 CREATE USER
       const { data: authData, error: authError } =
@@ -76,30 +65,26 @@ export default function RefSignUpPage() {
       const user = authData.user;
 
       // 🔥 INSERT REF
-      const { error: insertError } = await supabase
-        .from("referees")
-        .insert([
-          {
-            auth_id: user.id,
-            first_name: form.firstName,
-            last_name: form.lastName,
-            phone: form.phone,
-            email: form.email,
-            age: Number(form.age),
-            experience: form.experience,
-            availability: form.availability,
-            notes: form.notes,
-            profile_image: fileName
-          }
-        ]);
-
-      if (insertError) throw insertError;
+      await supabase.from("referees").insert([
+        {
+          auth_id: user.id,
+          first_name: form.firstName,
+          last_name: form.lastName,
+          phone: form.phone,
+          email: form.email,
+          age: Number(form.age),
+          experience: form.experience,
+          availability: form.availability,
+          notes: form.notes,
+          profile_image: fileName
+        }
+      ]);
 
       alert("Account Created!");
 
     } catch (err) {
       console.error(err);
-      alert(err.message || "Something went wrong");
+      alert(err.message);
     }
 
     setLoading(false);
@@ -120,68 +105,72 @@ export default function RefSignUpPage() {
 
       {settings.ref_signups_open && (
         <>
-          {/* PROFILE IMAGE */}
+          {/* 🔥 BASIC INFO (CLEAN + FIXED) */}
           <Card>
-            <div style={center}>
-              <div style={imageWrap}>
-                <img
-                  src={preview || "/default-profile.png"}
-                  alt="preview"
-                  style={profileImg}
-                />
+            <Section title="Basic Info">
+
+              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+              <Input placeholder="Password" type="password" onChange={(v)=>setForm({...form, password:v})}/>
+              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
+
+              {/* 🔥 CLEAN UPLOAD BUTTON */}
+              <div style={uploadWrap}>
+                <label style={uploadBtn}>
+                  Upload Profile Picture (Required)
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e)=>setFile(e.target.files[0])}
+                    hidden
+                  />
+                </label>
+
+                {file && (
+                  <div style={fileName}>
+                    {file.name}
+                  </div>
+                )}
               </div>
 
-              <label style={uploadBtn}>
-                Upload Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  hidden
-                />
-              </label>
-            </div>
-          </Card>
-
-          {/* BASIC INFO */}
-          <Card>
-            <Input placeholder="First Name" required onChange={(v)=>setForm({...form, firstName:v})}/>
-            <Input placeholder="Last Name" required onChange={(v)=>setForm({...form, lastName:v})}/>
-            <Input placeholder="Phone" required onChange={(v)=>setForm({...form, phone:v})}/>
-            <Input placeholder="Email" required onChange={(v)=>setForm({...form, email:v})}/>
-            <Input placeholder="Password" type="password" required onChange={(v)=>setForm({...form, password:v})}/>
-            <Input placeholder="Age" type="number" required onChange={(v)=>setForm({...form, age:v})}/>
+            </Section>
           </Card>
 
           {/* EXPERIENCE */}
           <Card>
-            <textarea
-              placeholder="Experience"
-              onChange={(e)=>setForm({...form, experience:e.target.value})}
-              style={textarea}
-            />
+            <Section title="Experience">
+              <textarea
+                placeholder="Describe experience"
+                onChange={(e)=>setForm({...form, experience:e.target.value})}
+                style={textarea}
+              />
+            </Section>
           </Card>
 
           {/* AVAILABILITY */}
           <Card>
-            <textarea
-              placeholder="Availability"
-              onChange={(e)=>setForm({...form, availability:e.target.value})}
-              style={textarea}
-            />
+            <Section title="Availability">
+              <textarea
+                placeholder="Days / times available"
+                onChange={(e)=>setForm({...form, availability:e.target.value})}
+                style={textarea}
+              />
+            </Section>
           </Card>
 
           {/* NOTES */}
           <Card>
             <textarea
-              placeholder="Notes"
+              placeholder="Additional notes"
               onChange={(e)=>setForm({...form, notes:e.target.value})}
               style={textarea}
             />
           </Card>
 
           <button onClick={handleSubmit} style={submitBtn}>
-            {loading ? "Creating..." : "Create Account"}
+            {loading ? "Submitting..." : "Register Referee"}
           </button>
         </>
       )}
@@ -200,9 +189,20 @@ function Card({ children, center }) {
       padding: 20,
       marginBottom: 15,
       textAlign: center ? "center" : "left",
-      boxShadow: "0 6px 20px rgba(0,0,0,0.05)"
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
     }}>
       {children}
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div>
+      <div style={{ fontWeight: 600, marginBottom: 10 }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -226,37 +226,13 @@ const container = {
   margin: "auto"
 };
 
-const center = {
-  textAlign: "center"
-};
-
-const imageWrap = {
-  marginBottom: 10
-};
-
-const profileImg = {
-  width: 100,
-  height: 100,
-  borderRadius: "50%",
-  objectFit: "cover"
-};
-
-const uploadBtn = {
-  background: "#16a34a",
-  color: "#fff",
-  padding: "8px 14px",
-  borderRadius: 8,
-  cursor: "pointer",
-  display: "inline-block"
-};
-
 const input = {
-  width: "100%",
   padding: 12,
   borderRadius: 10,
-  border: "1px solid #e5e7eb",
-  marginBottom: 10,
-  fontSize: 16
+  border: "1px solid #e2e8f0",
+  fontSize: 16,
+  width: "100%",
+  boxSizing: "border-box"
 };
 
 const textarea = {
@@ -264,9 +240,30 @@ const textarea = {
   minHeight: 80,
   padding: 12,
   borderRadius: 10,
-  border: "1px solid #e5e7eb",
-  fontSize: 16,
-  boxSizing: "border-box"
+  border: "1px solid #e2e8f0",
+  boxSizing: "border-box",
+  resize: "vertical",
+  fontSize: 16
+};
+
+const uploadWrap = {
+  marginTop: 10
+};
+
+const uploadBtn = {
+  display: "inline-block",
+  padding: "10px 14px",
+  borderRadius: 10,
+  background: "#16a34a",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 14
+};
+
+const fileName = {
+  marginTop: 6,
+  fontSize: 12,
+  color: "#64748b"
 };
 
 const submitBtn = {
@@ -274,7 +271,7 @@ const submitBtn = {
   padding: 16,
   borderRadius: 14,
   border: "none",
-  background: "#16a34a",
+  background: "#2f6ea6",
   color: "#fff",
   fontWeight: 600
 };
