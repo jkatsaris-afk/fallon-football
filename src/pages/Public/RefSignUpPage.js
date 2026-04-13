@@ -43,7 +43,10 @@ export default function RefSignUpPage({ setPage }) {
       .from("ref-avatars")
       .upload(filePath, file);
 
-    if (error) return null;
+    if (error) {
+      console.error("UPLOAD ERROR:", error);
+      return null;
+    }
 
     const { data } = supabase.storage
       .from("ref-avatars")
@@ -70,40 +73,77 @@ export default function RefSignUpPage({ setPage }) {
 
     setLoading(true);
 
-    const { data: authData, error: authError } =
-      await supabase.auth.signUp({
-        email: form.email,
-        password: form.password
-      });
+    try {
+      // 🔥 CREATE USER
+      const { data: authData, error: authError } =
+        await supabase.auth.signUp({
+          email: form.email,
+          password: form.password
+        });
 
-    if (authError) {
-      alert(authError.message);
-      setLoading(false);
-      return;
-    }
+      console.log("SIGNUP:", authData, authError);
 
-    const userId = authData.user.id;
+      if (authError) throw authError;
 
-    const imageUrl = await uploadImage(image, userId);
+      const userId = authData?.user?.id;
 
-    await supabase.from("referees").insert([
-      {
-        first_name: form.firstName,
-        last_name: form.lastName,
-        phone: form.phone,
-        email: form.email,
-        age: Number(form.age),
-        experience: form.experience,
-        availability: form.availability,
-        notes: form.notes,
-        season_id: settings.current_season,
-        auth_id: userId,
-        profile_image: imageUrl
+      // 🔥 IF EMAIL CONFIRMATION IS ON
+      if (!userId) {
+        alert("Account created. Please check your email to confirm.");
+        setPage("refLogin");
+        return;
       }
-    ]);
 
-    setPage("refDashboard");
-    setLoading(false);
+      // 🔥 UPLOAD IMAGE
+      const imageUrl = await uploadImage(image, userId);
+
+      // 🔥 SAVE REF PROFILE
+      const { error: dbError } = await supabase
+        .from("referees")
+        .insert([
+          {
+            first_name: form.firstName,
+            last_name: form.lastName,
+            phone: form.phone,
+            email: form.email,
+            age: Number(form.age),
+            experience: form.experience,
+            availability: form.availability,
+            notes: form.notes,
+            season_id: settings.current_season,
+            auth_id: userId,
+            profile_image: imageUrl
+          }
+        ]);
+
+      console.log("DB SAVE:", dbError);
+
+      if (dbError) throw dbError;
+
+      // 🔥 LOGIN USER
+      const { error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password
+        });
+
+      console.log("LOGIN:", loginError);
+
+      if (loginError) {
+        alert("Account created! Please log in.");
+        setPage("refLogin");
+        return;
+      }
+
+      // 🔥 SUCCESS → GO TO DASHBOARD
+      setPage("refDashboard");
+
+    } catch (err) {
+      console.error("ERROR:", err);
+      alert(err.message || "Something went wrong");
+    } finally {
+      setLoading(false); // 🔥 ALWAYS RESET
+    }
   };
 
   if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
