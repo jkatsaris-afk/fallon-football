@@ -8,7 +8,7 @@ export default function RefProfile() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
-  const [file, setFile] = useState(null); // 🔥 NEW
+  const [file, setFile] = useState(null);
 
   useEffect(() => {
     loadProfile();
@@ -20,7 +20,10 @@ export default function RefProfile() {
     const { data: authData } = await supabase.auth.getUser();
     const currentUser = authData?.user;
 
-    if (!currentUser) return;
+    if (!currentUser) {
+      setLoading(false); // 🔥 FIX: prevents blank screen
+      return;
+    }
 
     setUser(currentUser);
 
@@ -36,9 +39,11 @@ export default function RefProfile() {
   };
 
   const saveProfile = async () => {
+    if (!ref) return;
+
     let fileName = ref.profile_image;
 
-    // 🔥 UPLOAD NEW IMAGE IF SELECTED
+    // 🔥 upload new image if selected
     if (file) {
       fileName = `${Date.now()}-${file.name}`;
 
@@ -59,7 +64,7 @@ export default function RefProfile() {
         experience: form.experience,
         availability: form.availability,
         notes: form.notes,
-        profile_image: fileName // 🔥 SAVE IMAGE
+        profile_image: fileName
       })
       .eq("id", ref.id);
 
@@ -73,14 +78,22 @@ export default function RefProfile() {
     loadProfile();
   };
 
+  // 🔥 SAFE IMAGE BUILDER (NO ENV BREAK)
   const getImageUrl = () => {
-    if (!ref.profile_image) return "/default-profile.png";
+    if (!ref?.profile_image) return "/default-profile.png";
 
-    return `${process.env.REACT_APP_SUPABASE_URL}/storage/v1/object/public/profile-images/${ref.profile_image}`;
+    const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"; // 🔥 PUT YOUR REAL URL
+
+    return `${SUPABASE_URL}/storage/v1/object/public/profile-images/${ref.profile_image}`;
   };
 
+  /* ================= SAFE RENDERS ================= */
+
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
-  if (!ref) return <div style={{ padding: 20 }}>No profile found</div>;
+
+  if (!ref || !ref.id) {
+    return <div style={{ padding: 20 }}>No profile found</div>;
+  }
 
   return (
     <div style={container}>
@@ -88,7 +101,7 @@ export default function RefProfile() {
 
       <div style={card}>
 
-        {/* 🔥 PROFILE IMAGE */}
+        {/* PROFILE IMAGE */}
         <div style={imageWrap}>
           <img
             src={getImageUrl()}
@@ -97,7 +110,7 @@ export default function RefProfile() {
           />
         </div>
 
-        {/* 🔥 UPLOAD BUTTON (ONLY WHEN EDITING) */}
+        {/* UPLOAD BUTTON */}
         {editing && (
           <div style={{ textAlign: "center", marginBottom: 15 }}>
             <label style={uploadBtn}>
@@ -224,6 +237,72 @@ export default function RefProfile() {
 
 /* ================= STYLES ================= */
 
+const container = {
+  padding: 20
+};
+
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 20,
+  boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
+  maxWidth: 500,
+  margin: "auto"
+};
+
+const imageWrap = {
+  display: "flex",
+  justifyContent: "center",
+  marginBottom: 15
+};
+
+const profileImg = {
+  width: 100,
+  height: 100,
+  borderRadius: "50%",
+  objectFit: "cover"
+};
+
+const label = {
+  fontSize: 12,
+  color: "#64748b",
+  marginTop: 12
+};
+
+const input = {
+  width: "100%",
+  padding: 10,
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  fontSize: 16
+};
+
+const textarea = {
+  width: "100%",
+  minHeight: 80,
+  padding: 10,
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  fontSize: 16
+};
+
+const btn = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "none",
+  background: "#16a34a",
+  color: "#fff",
+  marginRight: 10
+};
+
+const cancelBtn = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "none",
+  background: "#64748b",
+  color: "#fff"
+};
+
 const uploadBtn = {
   display: "inline-block",
   padding: "8px 14px",
@@ -239,3 +318,14 @@ const fileName = {
   fontSize: 12,
   color: "#64748b"
 };
+
+const status = (s) => ({
+  color:
+    s === "approved"
+      ? "#16a34a"
+      : s === "denied"
+      ? "#dc2626"
+      : "#f59e0b",
+  fontWeight: "600",
+  marginBottom: 10
+});
