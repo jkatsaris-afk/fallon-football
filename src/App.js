@@ -83,7 +83,7 @@ export default function App() {
         </AdminLayout>
       )}
 
-      {/* 🔥 REF APP (SEPARATE APP FEEL) */}
+      {/* 🔥 REF APP */}
       {page.startsWith("ref") && page !== "refLogin" && (
         <RefLayout page={page} setPage={setPage}>
 
@@ -98,7 +98,7 @@ export default function App() {
       {/* 🌐 PUBLIC APP */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
-        !page.startsWith("ref") && (
+        ( !page.startsWith("ref") || page === "refLogin" ) && (  // 🔥 FIXED HERE
         <PublicLayout page={page} setPage={setPage}>
 
           {page === "home" && <HomePage setPage={setPage} />}
