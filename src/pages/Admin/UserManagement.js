@@ -1,12 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
-import defaultAvatar from "../../resources/Default-A.png";
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
-  const fileRef = useRef();
 
   useEffect(() => {
     loadUsers();
@@ -29,7 +27,10 @@ export default function UserManagement() {
       .update({ [field]: value })
       .eq("id", selectedUser.id);
 
-    setSelectedUser(prev => ({ ...prev, [field]: value }));
+    setSelectedUser(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const updateEmail = async (email) => {
@@ -72,61 +73,67 @@ export default function UserManagement() {
           </button>
         </div>
 
-        {/* PROFILE */}
-        <div style={profile}>
+        {/* PROFILE CARD */}
+        <div style={profileCard}>
 
-          {/* AVATAR CLICK UPLOAD */}
-          <div
-            style={avatarWrap}
-            onClick={() => fileRef.current.click()}
-          >
-            <img
-              src={selectedUser.avatar_url || defaultAvatar}
-              style={avatar}
-              alt=""
-            />
-            <div style={uploadOverlay}>Change</div>
-          </div>
-
-          <input
-            ref={fileRef}
-            type="file"
-            hidden
-            onChange={(e) => uploadAvatar(e.target.files[0])}
+          <img
+            src={selectedUser.avatar_url || "/default-avatar.png"}
+            style={avatar}
+            alt=""
           />
 
-          <h2>
+          <h2 style={{ marginTop: 10 }}>
             {selectedUser.first_name} {selectedUser.last_name}
           </h2>
 
-          {/* CLEAN INPUTS */}
-          <Field
-            label="Email"
-            value={selectedUser.email || ""}
-            onChange={updateEmail}
-          />
-
-          <Field
-            label="Phone"
-            value={selectedUser.phone || ""}
-            onChange={(v) => updateUser("phone", v)}
-          />
-
-          {/* ROLES */}
-          <div style={section}>
-            <SectionTitle title="Access" />
-
-            <RoleToggle label="Admin" value={selectedUser.is_admin} onChange={(v)=>toggleRole("is_admin",v)} />
-            <RoleToggle label="Coach" value={selectedUser.is_coach} onChange={(v)=>toggleRole("is_coach",v)} />
-            <RoleToggle label="Parent" value={selectedUser.is_parent} onChange={(v)=>toggleRole("is_parent",v)} />
-            <RoleToggle label="Referee" value={selectedUser.is_referee} onChange={(v)=>toggleRole("is_referee",v)} />
+          <div style={email}>
+            {selectedUser.email}
           </div>
 
+          <input
+            type="file"
+            onChange={(e) => uploadAvatar(e.target.files[0])}
+            style={{ marginTop: 10 }}
+          />
+
+        </div>
+
+        {/* CONTACT */}
+        <div style={card}>
+          <Row label="Email">
+            <input
+              value={selectedUser.email || ""}
+              onChange={(e) => updateEmail(e.target.value)}
+              style={inputInline}
+            />
+          </Row>
+
+          <Row label="Phone">
+            <input
+              value={selectedUser.phone || ""}
+              onChange={(e) => updateUser("phone", e.target.value)}
+              style={inputInline}
+            />
+          </Row>
+        </div>
+
+        {/* ROLES */}
+        <div style={card}>
+          <SectionTitle title="Access" />
+
+          <RoleToggle label="Admin" value={selectedUser.is_admin} onChange={(v)=>toggleRole("is_admin",v)} />
+          <RoleToggle label="Coach" value={selectedUser.is_coach} onChange={(v)=>toggleRole("is_coach",v)} />
+          <RoleToggle label="Parent" value={selectedUser.is_parent} onChange={(v)=>toggleRole("is_parent",v)} />
+          <RoleToggle label="Referee" value={selectedUser.is_referee} onChange={(v)=>toggleRole("is_referee",v)} />
+        </div>
+
+        {/* ACTION */}
+        <div style={card}>
           <button style={resetBtn} onClick={resetPassword}>
             Send Password Reset
           </button>
-
         </div>
+
       </div>
     );
   }
@@ -163,21 +170,21 @@ export default function UserManagement() {
 
 /* ================= COMPONENTS ================= */
 
-function Field({ label, value, onChange }) {
+function Row({ label, children }) {
   return (
-    <div style={field}>
-      <div style={label}>{label}</div>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={input}
-      />
+    <div style={row}>
+      <span>{label}</span>
+      {children}
     </div>
   );
 }
 
 function SectionTitle({ title }) {
-  return <div style={sectionTitle}>{title}</div>;
+  return (
+    <div style={sectionTitle}>
+      {title}
+    </div>
+  );
 }
 
 function RoleToggle({ label, value, onChange }) {
@@ -191,7 +198,7 @@ function RoleToggle({ label, value, onChange }) {
           width: 50,
           height: 26,
           borderRadius: 20,
-          background: value ? "#16a34a" : "#e5e7eb",
+          background: value ? "#7c3aed" : "#e5e7eb",
           position: "relative",
           cursor: "pointer"
         }}
@@ -216,7 +223,7 @@ function RoleToggle({ label, value, onChange }) {
 
 const page = {
   padding: 20,
-  background: "#ffffff",
+  background: "#f3f4f6",
   minHeight: "100vh"
 };
 
@@ -225,21 +232,21 @@ const header = {
 };
 
 const backBtn = {
-  background: "#f3f4f6",
+  background: "#fff",
   border: "none",
   borderRadius: 10,
   padding: "8px 12px",
-  cursor: "pointer"
+  cursor: "pointer",
+  boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
 };
 
-const profile = {
-  textAlign: "center"
-};
-
-const avatarWrap = {
-  position: "relative",
-  display: "inline-block",
-  cursor: "pointer"
+const profileCard = {
+  background: "#fff",
+  borderRadius: 20,
+  padding: 20,
+  textAlign: "center",
+  marginBottom: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
 };
 
 const avatar = {
@@ -249,71 +256,45 @@ const avatar = {
   objectFit: "cover"
 };
 
-const uploadOverlay = {
-  position: "absolute",
-  bottom: 0,
-  left: 0,
-  right: 0,
-  background: "rgba(0,0,0,0.5)",
-  color: "#fff",
-  fontSize: 12,
-  borderBottomLeftRadius: "50%",
-  borderBottomRightRadius: "50%",
-  padding: 3
-};
-
-const field = {
-  marginTop: 15,
-  textAlign: "left"
-};
-
-const label = {
-  fontSize: 12,
+const email = {
+  fontSize: 13,
   color: "#6b7280"
 };
 
-const input = {
-  width: "100%",
-  padding: 10,
-  borderRadius: 10,
-  border: "1px solid #e5e7eb",
-  marginTop: 4,
-  outline: "none"
-};
-
-const section = {
-  marginTop: 20
-};
-
-const sectionTitle = {
-  fontSize: 12,
-  color: "#9ca3af",
-  marginBottom: 10
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 15,
+  marginBottom: 12,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
 };
 
 const row = {
   display: "flex",
   justifyContent: "space-between",
-  marginTop: 10
+  alignItems: "center",
+  padding: "10px 0",
+  borderBottom: "1px solid #f1f5f9"
 };
 
-const resetBtn = {
-  marginTop: 20,
-  width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  background: "#16a34a",
-  color: "#fff",
+const inputInline = {
   border: "none",
-  fontWeight: 600,
-  cursor: "pointer"
+  borderBottom: "1px solid #ddd",
+  outline: "none",
+  textAlign: "right"
+};
+
+const sectionTitle = {
+  fontSize: 12,
+  color: "#9ca3af",
+  marginBottom: 8
 };
 
 const searchBox = {
   width: "100%",
   padding: 12,
   borderRadius: 10,
-  border: "1px solid #e5e7eb"
+  border: "1px solid #ddd"
 };
 
 const userRow = {
@@ -321,10 +302,22 @@ const userRow = {
   padding: 12,
   borderRadius: 10,
   marginBottom: 8,
-  cursor: "pointer"
+  cursor: "pointer",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
 };
 
 const sub = {
   fontSize: 12,
-  color: "#6b7280"
+  color: "#64748b"
+};
+
+const resetBtn = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 10,
+  background: "#7c3aed",
+  color: "#fff",
+  border: "none",
+  fontWeight: 600,
+  cursor: "pointer"
 };
