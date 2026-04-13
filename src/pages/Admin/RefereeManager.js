@@ -5,14 +5,8 @@ export default function RefereeManager() {
   const [refs, setRefs] = useState([]);
   const [view, setView] = useState("dashboard");
 
-  // 🔥 NEW STATE
-  const [games, setGames] = useState([]);
-  const [assignments, setAssignments] = useState([]);
-  const [selectedGame, setSelectedGame] = useState(null);
-
   useEffect(() => {
     loadRefs();
-    loadGames(); // 🔥 ADD
   }, []);
 
   /* ================= LOAD ================= */
@@ -24,24 +18,6 @@ export default function RefereeManager() {
       .order("first_name", { ascending: true });
 
     setRefs(data || []);
-  };
-
-  const loadGames = async () => {
-    const { data } = await supabase
-      .from("schedule_master")
-      .select("*")
-      .order("event_date", { ascending: true });
-
-    setGames(data || []);
-  };
-
-  const loadAssignments = async (gameId) => {
-    const { data } = await supabase
-      .from("ref_assignments")
-      .select("*, referees(*)")
-      .eq("game_id", gameId);
-
-    setAssignments(data || []);
   };
 
   /* ================= HELPERS ================= */
@@ -81,21 +57,18 @@ export default function RefereeManager() {
     loadRefs();
   };
 
-  // 🔥 HEAD REF ASSIGN
-  const setHeadRef = async (assignmentId) => {
-    if (!selectedGame) return;
+  /* 🔥 SET HEAD REF (GLOBAL) */
+  const setHeadRef = async (refId) => {
+    // clear all
+    await supabase.from("referees").update({ is_head_ref: false });
 
+    // set selected
     await supabase
-      .from("ref_assignments")
-      .update({ role: "assistant" })
-      .eq("game_id", selectedGame.id);
+      .from("referees")
+      .update({ is_head_ref: true })
+      .eq("id", refId);
 
-    await supabase
-      .from("ref_assignments")
-      .update({ role: "head" })
-      .eq("id", assignmentId);
-
-    loadAssignments(selectedGame.id);
+    loadRefs();
   };
 
   /* ================= DASHBOARD ================= */
@@ -103,14 +76,37 @@ export default function RefereeManager() {
   if (view === "dashboard") {
     return (
       <div>
+
         <h1>Referee Manager</h1>
 
         <div style={grid}>
-          <Tile title="Referee Staff" desc="View & approve referees" onClick={() => setView("staff")} />
-          <Tile title="Schedules" desc="View referee assignments" onClick={() => setView("schedule")} />
-          <Tile title="Head Ref Assign" desc="Assign head referees" onClick={() => setView("head")} />
-          <Tile title="Time Sheets" desc="Track referee hours" onClick={() => setView("time")} />
+
+          <Tile
+            title="Referee Staff"
+            desc="View & approve referees"
+            onClick={() => setView("staff")}
+          />
+
+          <Tile
+            title="Schedules"
+            desc="View referee assignments"
+            onClick={() => setView("schedule")}
+          />
+
+          <Tile
+            title="Head Ref"
+            desc="League head referee"
+            onClick={() => setView("head")}
+          />
+
+          <Tile
+            title="Time Sheets"
+            desc="Track referee hours"
+            onClick={() => setView("time")}
+          />
+
         </div>
+
       </div>
     );
   }
@@ -120,10 +116,13 @@ export default function RefereeManager() {
   if (view === "staff") {
     return (
       <div>
+
         <BackBtn onClick={() => setView("dashboard")} />
+
         <h1>Referee Staff</h1>
 
         <div style={table}>
+
           <div style={rowHeader}>
             <div>Name</div>
             <div>Email</div>
@@ -138,6 +137,7 @@ export default function RefereeManager() {
 
             return (
               <div key={ref.id} style={row}>
+
                 <div>{getName(ref)}</div>
                 <div>{ref.email || "-"}</div>
                 <div>{ref.phone || "-"}</div>
@@ -147,24 +147,41 @@ export default function RefereeManager() {
                 </div>
 
                 <div>
-                  <select value={role} onChange={(e) => updateRole(ref, e.target.value)}>
+                  <select
+                    value={role}
+                    onChange={(e) =>
+                      updateRole(ref, e.target.value)
+                    }
+                  >
                     <option value="assistant">Assistant Ref</option>
                     <option value="head">Head Ref</option>
                   </select>
-                  <div style={roleText}>{displayRole(ref)}</div>
+
+                  <div style={roleText}>
+                    {displayRole(ref)}
+                  </div>
                 </div>
 
                 <div style={actions}>
-                  <button style={approveBtn} onClick={() => updateStatus(ref.id, "approved")}>
+                  <button
+                    style={approveBtn}
+                    onClick={() => updateStatus(ref.id, "approved")}
+                  >
                     Approve
                   </button>
-                  <button style={denyBtn} onClick={() => updateStatus(ref.id, "denied")}>
+
+                  <button
+                    style={denyBtn}
+                    onClick={() => updateStatus(ref.id, "denied")}
+                  >
                     Deny
                   </button>
                 </div>
+
               </div>
             );
           })}
+
         </div>
       </div>
     );
@@ -173,53 +190,65 @@ export default function RefereeManager() {
   /* ================= HEAD REF ================= */
 
   if (view === "head") {
+    const headRef = refs.find(r => r.is_head_ref);
+
     return (
       <div>
+
         <BackBtn onClick={() => setView("dashboard")} />
-        <h1>Head Ref Assignment</h1>
 
-        <select
-          style={select}
-          value={selectedGame?.id || ""}
-          onChange={(e) => {
-            const game = games.find(g => g.id === e.target.value);
-            setSelectedGame(game);
-            loadAssignments(game.id);
-          }}
-        >
-          <option value="">Select Game</option>
-          {games.map(g => (
-            <option key={g.id} value={g.id}>
-              {g.home_team} vs {g.away_team} - {g.event_time}
-            </option>
-          ))}
-        </select>
+        <h1>Head Referee</h1>
 
-        {selectedGame && (
+        {/* CURRENT HEAD REF */}
+        {headRef ? (
+          <div style={profileCard}>
+
+            <h2>{getName(headRef)}</h2>
+
+            <div style={info}>Email: {headRef.email || "-"}</div>
+            <div style={info}>Phone: {headRef.phone || "-"}</div>
+
+            <div style={statusStyle(getStatus(headRef))}>
+              {getStatus(headRef)}
+            </div>
+
+          </div>
+        ) : (
           <div style={{ marginTop: 20 }}>
-            {assignments.map(a => {
-              const isHead = a.role === "head";
-
-              return (
-                <div key={a.id} style={assignRow}>
-                  <div>
-                    {a.referees?.first_name} {a.referees?.last_name}
-                  </div>
-
-                  <button
-                    style={isHead ? headBtn : assignBtn}
-                    onClick={() => setHeadRef(a.id)}
-                  >
-                    {isHead ? "Head Ref" : "Make Head"}
-                  </button>
-                </div>
-              );
-            })}
+            No Head Ref Assigned
           </div>
         )}
+
+        {/* ASSIGN */}
+        <div style={{ marginTop: 30 }}>
+          <h3>Assign Head Ref</h3>
+
+          {refs.map(ref => (
+            <div key={ref.id} style={assignRow}>
+
+              <div>{getName(ref)}</div>
+
+              <button
+                style={
+                  headRef?.id === ref.id ? headBtn : assignBtn
+                }
+                onClick={() => setHeadRef(ref.id)}
+              >
+                {headRef?.id === ref.id
+                  ? "Current Head"
+                  : "Make Head"}
+              </button>
+
+            </div>
+          ))}
+
+        </div>
+
       </div>
     );
   }
+
+  /* ================= DEFAULT ================= */
 
   return (
     <div>
@@ -279,11 +308,17 @@ const backBtn = {
   background: "#e5e7eb"
 };
 
-const select = {
+const profileCard = {
+  background: "#fff",
+  padding: 20,
+  borderRadius: 14,
   marginTop: 20,
-  padding: 10,
-  borderRadius: 8,
-  border: "1px solid #ddd"
+  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+};
+
+const info = {
+  marginTop: 6,
+  color: "#374151"
 };
 
 const assignRow = {
@@ -311,7 +346,7 @@ const headBtn = {
   borderRadius: 6
 };
 
-/* TABLE (unchanged) */
+/* ===== TABLE ===== */
 
 const table = {
   marginTop: 20,
