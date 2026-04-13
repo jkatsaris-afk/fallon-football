@@ -3,8 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <title>Fallon Flag Football</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- 🔥 MOBILE FIX (prevents zoom issues) -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+
+    <!-- 🔥 PWA THEME -->
+    <meta name="theme-color" content="#16a34a" />
+
+    <!-- 🔥 MANIFEST -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- 🔥 APPLE SUPPORT (VERY IMPORTANT FOR iPHONE) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Football" />
+
+    <!-- 🔥 ICONS (THIS FIXES YOUR ISSUE) -->
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+
   </head>
+
   <body style="margin:0;">
     <div id="root"></div>
   </body>
