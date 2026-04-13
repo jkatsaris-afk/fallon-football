@@ -1,211 +1,254 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 export default function RefProfile() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState(null);
   const [ref, setRef] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({});
 
   useEffect(() => {
     loadProfile();
   }, []);
 
   const loadProfile = async () => {
+    setLoading(true);
+
     const { data: authData } = await supabase.auth.getUser();
-    const user = authData?.user;
+    const currentUser = authData?.user;
 
-    if (!user) return;
+    if (!currentUser) return;
 
-    const { data, error } = await supabase
+    setUser(currentUser);
+
+    const { data } = await supabase
       .from("referees")
       .select("*")
-      .eq("auth_id", user.id)
+      .eq("auth_id", currentUser.id)
       .maybeSingle();
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
     setRef(data);
+    setForm(data || {});
     setLoading(false);
   };
 
-  const updateField = (field, value) => {
-    setRef(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   const saveProfile = async () => {
-    setSaving(true);
-
     const { error } = await supabase
       .from("referees")
       .update({
-        first_name: ref.first_name,
-        last_name: ref.last_name,
-        phone: ref.phone,
-        age: ref.age,
-        experience: ref.experience,
-        availability: ref.availability,
-        notes: ref.notes
+        phone: form.phone,
+        experience: form.experience,
+        availability: form.availability,
+        notes: form.notes
       })
       .eq("id", ref.id);
 
     if (error) {
-      console.error(error);
       alert("Failed to save");
-    } else {
-      alert("Profile updated!");
+      return;
     }
 
-    setSaving(false);
+    setEditing(false);
+    loadProfile();
   };
 
-  if (loading) {
-    return <div style={{ padding: 20 }}>Loading...</div>;
-  }
-
-  if (!ref) {
-    return <div style={{ padding: 20 }}>No profile found</div>;
-  }
+  if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (!ref) return <div style={{ padding: 20 }}>No profile found</div>;
 
   return (
     <div style={container}>
+      <h2 style={{ marginBottom: 20 }}>My Profile</h2>
 
-      <h2 style={{ marginBottom: 15 }}>My Profile</h2>
-
+      {/* PROFILE CARD */}
       <div style={card}>
 
-        <Section title="Basic Info">
-          <Input label="First Name" value={ref.first_name} onChange={(v) => updateField("first_name", v)} />
-          <Input label="Last Name" value={ref.last_name} onChange={(v) => updateField("last_name", v)} />
-          <Input label="Email" value={ref.email} disabled />
-          <Input label="Phone" value={ref.phone} onChange={(v) => updateField("phone", v)} />
-          <Input label="Age" value={ref.age || ""} onChange={(v) => updateField("age", v)} />
-        </Section>
+        {/* PROFILE IMAGE */}
+        <div style={imageWrap}>
+          <img
+            src={ref.profile_image || "/default-profile.png"}
+            alt="profile"
+            style={profileImg}
+          />
+        </div>
 
-      </div>
+        {/* NAME */}
+        <h3>
+          {ref.first_name} {ref.last_name}
+        </h3>
 
-      <div style={card}>
-        <Section title="Experience">
+        {/* STATUS */}
+        <div style={status(ref.status)}>
+          {ref.status || "pending"}
+        </div>
+
+        {/* ROLE */}
+        <div style={{ marginBottom: 10 }}>
+          {ref.role || "Assistant Ref"}
+        </div>
+
+        {/* EMAIL */}
+        <div style={label}>Email</div>
+        <div>{ref.email}</div>
+
+        {/* PHONE */}
+        <div style={label}>Phone</div>
+        {editing ? (
+          <input
+            value={form.phone || ""}
+            onChange={(e) =>
+              setForm({ ...form, phone: e.target.value })
+            }
+            style={input}
+          />
+        ) : (
+          <div>{ref.phone || "-"}</div>
+        )}
+
+        {/* EXPERIENCE */}
+        <div style={label}>Experience</div>
+        {editing ? (
           <textarea
-            value={ref.experience || ""}
-            onChange={(e) => updateField("experience", e.target.value)}
+            value={form.experience || ""}
+            onChange={(e) =>
+              setForm({ ...form, experience: e.target.value })
+            }
             style={textarea}
           />
-        </Section>
-      </div>
+        ) : (
+          <div>{ref.experience || "-"}</div>
+        )}
 
-      <div style={card}>
-        <Section title="Availability">
+        {/* AVAILABILITY */}
+        <div style={label}>Availability</div>
+        {editing ? (
           <textarea
-            value={ref.availability || ""}
-            onChange={(e) => updateField("availability", e.target.value)}
+            value={form.availability || ""}
+            onChange={(e) =>
+              setForm({ ...form, availability: e.target.value })
+            }
             style={textarea}
           />
-        </Section>
-      </div>
+        ) : (
+          <div>{ref.availability || "-"}</div>
+        )}
 
-      <div style={card}>
-        <Section title="Notes">
+        {/* NOTES */}
+        <div style={label}>Notes</div>
+        {editing ? (
           <textarea
-            value={ref.notes || ""}
-            onChange={(e) => updateField("notes", e.target.value)}
+            value={form.notes || ""}
+            onChange={(e) =>
+              setForm({ ...form, notes: e.target.value })
+            }
             style={textarea}
           />
-        </Section>
+        ) : (
+          <div>{ref.notes || "-"}</div>
+        )}
+
+        {/* BUTTONS */}
+        <div style={{ marginTop: 20 }}>
+          {!editing ? (
+            <button style={btn} onClick={() => setEditing(true)}>
+              Edit Profile
+            </button>
+          ) : (
+            <>
+              <button style={btn} onClick={saveProfile}>
+                Save
+              </button>
+              <button
+                style={cancelBtn}
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
+
       </div>
-
-      <button onClick={saveProfile} style={saveBtn}>
-        {saving ? "Saving..." : "Save Profile"}
-      </button>
-
     </div>
   );
 }
 
-/* 🔥 COMPONENTS */
-
-function Section({ title, children }) {
-  return (
-    <div>
-      <div style={sectionTitle}>{title}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Input({ label, value, onChange, disabled }) {
-  return (
-    <div>
-      <div style={labelStyle}>{label}</div>
-      <input
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        style={input}
-      />
-    </div>
-  );
-}
-
-/* 🔥 STYLES */
+/* ================= STYLES ================= */
 
 const container = {
-  padding: 20,
-  maxWidth: 500,
-  margin: "auto"
+  padding: 20
 };
 
 const card = {
   background: "#fff",
   borderRadius: 16,
   padding: 20,
-  marginBottom: 15,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+  boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
+  maxWidth: 500,
+  margin: "auto"
 };
 
-const sectionTitle = {
-  fontWeight: 600,
-  marginBottom: 10
+const imageWrap = {
+  display: "flex",
+  justifyContent: "center",
+  marginBottom: 15
 };
 
-const labelStyle = {
+const profileImg = {
+  width: 100,
+  height: 100,
+  borderRadius: "50%",
+  objectFit: "cover"
+};
+
+const label = {
   fontSize: 12,
   color: "#64748b",
-  marginBottom: 4
+  marginTop: 12
 };
 
 const input = {
   width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #e2e8f0",
-  boxSizing: "border-box"
+  padding: 10,
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  fontSize: 16
 };
 
 const textarea = {
   width: "100%",
-  minHeight: 90,
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #e2e8f0",
-  boxSizing: "border-box"
+  minHeight: 80,
+  padding: 10,
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  fontSize: 16
 };
 
-const saveBtn = {
-  width: "100%",
-  padding: 16,
-  borderRadius: 14,
+const btn = {
+  padding: "10px 14px",
+  borderRadius: 8,
   border: "none",
   background: "#16a34a",
   color: "#fff",
-  fontWeight: 600,
-  marginTop: 10,
-  cursor: "pointer"
+  marginRight: 10
 };
+
+const cancelBtn = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "none",
+  background: "#64748b",
+  color: "#fff"
+};
+
+const status = (s) => ({
+  color:
+    s === "approved"
+      ? "#16a34a"
+      : s === "denied"
+      ? "#dc2626"
+      : "#f59e0b",
+  fontWeight: "600",
+  marginBottom: 10
+});
