@@ -10,11 +10,14 @@ import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 
-// 🔥 NEW LOGIN PAGES
+// 🔥 LOGIN PAGES
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
 import CoachLoginPage from "./pages/Public/CoachLoginPage";
 import RefLoginPage from "./pages/Public/RefLoginPage";
 import ParentLoginPage from "./pages/Public/ParentLoginPage";
+
+// 🔥 ADD THIS
+import RefDashboard from "./pages/Ref/RefDashboard";
 
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
@@ -39,9 +42,7 @@ export default function App() {
     if (path.includes("/coach-signup")) setPage("coachSignup");
     if (path.includes("/ref-signup")) setPage("refSignup");
 
-    // 🔥 OPTIONAL: allow /login URL
     if (path.includes("/login")) setPage("loginSelect");
-
   }, []);
 
   const checkAdmin = async () => {
@@ -94,8 +95,11 @@ export default function App() {
           )}
 
           {page === "coachLogin" && <CoachLoginPage />}
-          {page === "refLogin" && <RefLoginPage />}
+          {page === "refLogin" && <RefLoginPage setPage={setPage} />} {/* 🔥 PASS setPage */}
           {page === "parentLogin" && <ParentLoginPage />}
+
+          {/* 🔥 ADD THIS */}
+          {page === "refDashboard" && <RefDashboard />}
 
           {/* SIGNUPS */}
           {page === "signupSelect" && (
