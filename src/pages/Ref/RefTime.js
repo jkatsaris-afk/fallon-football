@@ -87,16 +87,12 @@ export default function RefTime() {
     setLoading(false);
   };
 
-  /* ================= LOGO HELPER ================= */
+  /* ================= HELPERS ================= */
 
   const getLogo = (team) => {
     if (!team) return null;
-
-    const key = team.toLowerCase().trim();
-    return teamLogos[key] || null;
+    return teamLogos[team.toLowerCase().trim()] || null;
   };
-
-  /* ================= TOGGLE ================= */
 
   const toggleDate = (date) => {
     setOpenDates((prev) => ({
@@ -104,8 +100,6 @@ export default function RefTime() {
       [date]: !prev[date]
     }));
   };
-
-  /* ================= CHECK IN ================= */
 
   const checkIn = async (game) => {
     const exists = checkins.find((c) => c.game_id === game.id);
@@ -134,10 +128,12 @@ export default function RefTime() {
     <div style={container}>
       <h2>Ref Time</h2>
 
+      {/* 💰 PAY */}
       <div style={payBox}>
         Total Earnings: <strong>${totalPay}</strong>
       </div>
 
+      {/* 📅 DATES */}
       <div style={{ marginTop: 20 }}>
         {Object.keys(grouped).map((date) => {
           const isOpen = openDates[date];
@@ -163,7 +159,7 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
-                      {/* 🔥 TEAMS */}
+                      {/* TEAMS */}
                       <div style={teamsRow}>
 
                         {/* HOME */}
@@ -192,13 +188,19 @@ export default function RefTime() {
 
                       </div>
 
-                      {/* META */}
-                      <div style={gameMeta}>
-                        {game.event_time} • Field {game.field}
+                      {/* 🔥 TIME CENTERED */}
+                      <div style={timeStyle}>
+                        {game.event_time}
                       </div>
 
-                      {/* CHECK IN */}
-                      <div style={{ marginTop: 10 }}>
+                      {/* 🔥 DIVISION + FIELD */}
+                      <div style={metaRow}>
+                        <div>Division: {game.division}</div>
+                        <div>Field: {game.field}</div>
+                      </div>
+
+                      {/* 🔥 CHECK IN CENTERED */}
+                      <div style={checkInWrap}>
                         {checked ? (
                           <span style={checkedBadge}>
                             ✅ Checked In
@@ -271,13 +273,29 @@ const vs = {
   fontWeight: 700
 };
 
-const gameMeta = {
+const timeStyle = {
+  textAlign: "center",
+  fontSize: 18,
+  fontWeight: 700,
+  marginTop: 10,
+  marginBottom: 6
+};
+
+const metaRow = {
+  display: "flex",
+  justifyContent: "space-between",
   fontSize: 12,
   color: "#64748b"
 };
 
+const checkInWrap = {
+  display: "flex",
+  justifyContent: "center",
+  marginTop: 10
+};
+
 const btn = {
-  padding: "6px 10px",
+  padding: "6px 12px",
   borderRadius: 8,
   border: "none",
   background: "#16a34a",
