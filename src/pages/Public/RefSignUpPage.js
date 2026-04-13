@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabase";
 
-export default function RefSignUpPage() {
+export default function RefSignUpPage({ setPage }) {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -10,6 +10,7 @@ export default function RefSignUpPage() {
     lastName: "",
     phone: "",
     email: "",
+    password: "", // 🔥 NEW
     age: "",
     experience: "",
     availability: "",
@@ -23,17 +24,11 @@ export default function RefSignUpPage() {
   /* ================= LOAD SETTINGS ================= */
 
   const loadSettings = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("app_settings")
       .select("*")
       .eq("id", 1)
-      .maybeSingle(); // 🔥 safer than .single()
-
-    if (error) {
-      console.error("Settings load error:", error);
-    }
-
-    console.log("SETTINGS:", data); // 🔥 DEBUG
+      .maybeSingle();
 
     setSettings(data);
   };
@@ -46,8 +41,30 @@ export default function RefSignUpPage() {
       return;
     }
 
+    if (!form.email || !form.password) {
+      alert("Email and password required");
+      return;
+    }
+
     setLoading(true);
 
+    // 🔥 1. CREATE AUTH USER (AUTO LOGIN)
+    const { data: authData, error: authError } =
+      await supabase.auth.signUp({
+        email: form.email,
+        password: form.password
+      });
+
+    if (authError) {
+      console.error(authError);
+      alert(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    const userId = authData?.user?.id;
+
+    // 🔥 2. INSERT REF PROFILE
     const { error } = await supabase.from("referees").insert([
       {
         first_name: form.firstName,
@@ -58,29 +75,20 @@ export default function RefSignUpPage() {
         experience: form.experience,
         availability: form.availability,
         notes: form.notes,
-        season_id: settings?.current_season || null
+        season_id: settings.current_season,
+        auth_id: userId
       }
     ]);
 
     if (error) {
       console.error(error);
-      alert("Error submitting form");
+      alert("Error saving referee");
       setLoading(false);
       return;
     }
 
-    alert("✅ Referee Registered!");
-
-    setForm({
-      firstName: "",
-      lastName: "",
-      phone: "",
-      email: "",
-      age: "",
-      experience: "",
-      availability: "",
-      notes: ""
-    });
+    // 🔥 3. AUTO REDIRECT TO REF DASHBOARD
+    setPage("refDashboard");
 
     setLoading(false);
   };
@@ -88,39 +96,37 @@ export default function RefSignUpPage() {
   /* ================= LOADING ================= */
 
   if (!settings || !settings.id) {
-    return (
-      <div style={{ padding: 20 }}>
-        <h3>Loading settings...</h3>
-
-        {/* 🔥 DEBUG VIEW */}
-        <pre>{JSON.stringify(settings, null, 2)}</pre>
-      </div>
-    );
+    return <div style={{ padding: 20 }}>Loading...</div>;
   }
 
   return (
     <div style={{ padding: 20, maxWidth: 500, margin: "auto" }}>
 
-      {/* 🔒 CLOSED */}
       {!settings.ref_signups_open && (
         <Card center>
           <h2>🚫 Referee Registration Closed</h2>
-          <p>Ref signups are currently closed.</p>
         </Card>
       )}
 
-      {/* ✅ OPEN */}
       {settings.ref_signups_open && (
         <>
           <h2>🏈 Referee Registration</h2>
 
           <Card>
             <Section title="Basic Info">
-              <Input placeholder="First Name" value={form.firstName} onChange={(v)=>setForm({...form, firstName:v})}/>
-              <Input placeholder="Last Name" value={form.lastName} onChange={(v)=>setForm({...form, lastName:v})}/>
-              <Input placeholder="Phone" value={form.phone} onChange={(v)=>setForm({...form, phone:v})}/>
-              <Input placeholder="Email" value={form.email} onChange={(v)=>setForm({...form, email:v})}/>
-              <Input placeholder="Age" type="number" value={form.age} onChange={(v)=>setForm({...form, age:v})}/>
+              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+              
+              {/* 🔥 PASSWORD FIELD */}
+              <Input
+                placeholder="Create Password"
+                type="password"
+                onChange={(v)=>setForm({...form, password:v})}
+              />
+
+              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
             </Section>
           </Card>
 
@@ -128,7 +134,6 @@ export default function RefSignUpPage() {
             <Section title="Experience">
               <textarea
                 placeholder="Describe experience"
-                value={form.experience}
                 onChange={(e)=>setForm({...form, experience:e.target.value})}
                 style={textareaStyle}
               />
@@ -139,7 +144,6 @@ export default function RefSignUpPage() {
             <Section title="Availability">
               <textarea
                 placeholder="Days / times available"
-                value={form.availability}
                 onChange={(e)=>setForm({...form, availability:e.target.value})}
                 style={textareaStyle}
               />
@@ -149,14 +153,13 @@ export default function RefSignUpPage() {
           <Card>
             <textarea
               placeholder="Additional notes"
-              value={form.notes}
               onChange={(e)=>setForm({...form, notes:e.target.value})}
               style={textareaStyle}
             />
           </Card>
 
           <button onClick={handleSubmit} style={submitBtn}>
-            {loading ? "Submitting..." : "Register Referee"}
+            {loading ? "Creating Account..." : "Register & Login"}
           </button>
         </>
       )}
@@ -164,7 +167,7 @@ export default function RefSignUpPage() {
   );
 }
 
-/* ================= UI ================= */
+/* UI */
 
 function Card({ children, center }) {
   return (
@@ -192,19 +195,18 @@ function Section({ title, children }) {
   );
 }
 
-function Input({ placeholder, value, onChange, type="text" }) {
+function Input({ placeholder, onChange, type="text" }) {
   return (
     <input
       type={type}
       placeholder={placeholder}
-      value={value}
       onChange={(e)=>onChange(e.target.value)}
       style={inputStyle}
     />
   );
 }
 
-/* ================= STYLES ================= */
+/* STYLES */
 
 const inputStyle = {
   padding: 12,
@@ -217,9 +219,7 @@ const textareaStyle = {
   minHeight: 80,
   padding: 12,
   borderRadius: 10,
-  border: "1px solid #e2e8f0",
-  boxSizing: "border-box",
-  resize: "vertical"
+  border: "1px solid #e2e8f0"
 };
 
 const submitBtn = {
@@ -227,7 +227,7 @@ const submitBtn = {
   padding: 16,
   borderRadius: 14,
   border: "none",
-  background: "#2f6ea6",
+  background: "#16a34a",
   color: "#fff",
   fontWeight: 600,
   marginTop: 10
