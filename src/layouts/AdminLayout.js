@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import fallonLogo from "../resources/logo.png";
 
 export default function AdminLayout({
@@ -5,51 +6,70 @@ export default function AdminLayout({
   setAdminPage,
   children
 }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 800);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   return (
     <div style={container}>
 
-      {/* SIDEBAR */}
-      <div style={sidebar}>
-        <img src={fallonLogo} alt="logo" style={{ width: 36, marginBottom: 20 }} />
+      {/* DESKTOP SIDEBAR */}
+      {!isMobile && (
+        <div style={sidebar}>
+          <img src={fallonLogo} alt="logo" style={{ width: 36, marginBottom: 20 }} />
 
-        <Section title="LEAGUE">
-          <NavBtn label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
-          <NavBtn label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
-          <NavBtn label="Players" active={adminPage === "players"} onClick={() => setAdminPage("players")} />
-        </Section>
+          <Section title="LEAGUE">
+            <NavBtn label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
+            <NavBtn label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
+            <NavBtn label="Players" active={adminPage === "players"} onClick={() => setAdminPage("players")} />
+          </Section>
 
-        <Section title="GAME DAY">
-          <NavBtn label="Matchups" active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} />
-          <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
-          <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
-          <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
-        </Section>
+          <Section title="GAME DAY">
+            <NavBtn label="Matchups" active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} />
+            <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
+            <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
+            <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
+          </Section>
 
-        <Section title="STAFF">
-          <NavBtn label="Coaches" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
-          <NavBtn label="Referees" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
-        </Section>
+          <Section title="STAFF">
+            <NavBtn label="Coaches" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
+            <NavBtn label="Referees" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
+          </Section>
 
-        <Section title="SYSTEM">
-          <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
-          <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
-        </Section>
-      </div>
+          <Section title="SYSTEM">
+            <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
+            <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
+          </Section>
+        </div>
+      )}
 
-      {/* MAIN AREA */}
+      {/* MAIN */}
       <div style={main}>
 
-        {/* TOP BAR */}
+        {/* TOP BAR (mobile + desktop) */}
         <div style={topBar}>
-          <div style={{ fontWeight: 600 }}>
-            Fallon Football Admin
-          </div>
+          Fallon Football Admin
         </div>
 
         {/* CONTENT */}
         <div style={content}>
           {children}
         </div>
+
+        {/* MOBILE NAV (like your public app) */}
+        {isMobile && (
+          <div style={mobileNav}>
+            <NavIcon label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
+            <NavIcon label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
+            <NavIcon label="Players" active={adminPage === "players"} onClick={() => setAdminPage("players")} />
+            <NavIcon label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
+          </div>
+        )}
 
       </div>
     </div>
@@ -69,18 +89,27 @@ function Section({ title, children }) {
 
 function NavBtn({ label, active, onClick }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: "10px 12px",
-        borderRadius: 8,
-        cursor: "pointer",
-        background: active ? "#16a34a" : "transparent",
-        color: active ? "#fff" : "#374151",
-        marginBottom: 4,
-        fontWeight: active ? 600 : 500
-      }}
-    >
+    <div onClick={onClick} style={{
+      padding: "10px 12px",
+      borderRadius: 8,
+      cursor: "pointer",
+      background: active ? "#16a34a" : "transparent",
+      color: active ? "#fff" : "#374151",
+      marginBottom: 4
+    }}>
+      {label}
+    </div>
+  );
+}
+
+function NavIcon({ label, active, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      flex: 1,
+      textAlign: "center",
+      fontSize: 12,
+      color: active ? "#16a34a" : "#777"
+    }}>
       {label}
     </div>
   );
@@ -91,15 +120,14 @@ function NavBtn({ label, active, onClick }) {
 const container = {
   display: "flex",
   height: "100vh",
-  background: "#f1f5f9" // softer background (app feel)
+  background: "#f1f5f9"
 };
 
 const sidebar = {
   width: 230,
-  background: "#ffffff",
+  background: "#fff",
   padding: 16,
-  borderRight: "1px solid #e5e7eb",
-  overflowY: "auto"
+  borderRight: "1px solid #e5e7eb"
 };
 
 const main = {
@@ -110,22 +138,35 @@ const main = {
 
 const topBar = {
   height: 60,
-  background: "#ffffff",
+  background: "#fff",
   borderBottom: "1px solid #e5e7eb",
   display: "flex",
   alignItems: "center",
-  padding: "0 20px"
+  padding: "0 20px",
+  fontWeight: 600
 };
 
 const content = {
   flex: 1,
   overflowY: "auto",
-  padding: 20
+  padding: 20,
+  paddingBottom: 80
+};
+
+const mobileNav = {
+  position: "fixed",
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: 60,
+  background: "#fff",
+  borderTop: "1px solid #ddd",
+  display: "flex",
+  alignItems: "center"
 };
 
 const section = {
   fontSize: 12,
   color: "#94a3b8",
-  fontWeight: 600,
   marginBottom: 6
 };
