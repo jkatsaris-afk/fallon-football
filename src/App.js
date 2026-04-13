@@ -35,22 +35,25 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [adminPage, setAdminPage] = useState("dashboard");
 
+  // 🔥 NEW: ACCESS DENIED STATE
+  const [accessDenied, setAccessDenied] = useState(false);
+
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
 
-    // 🔥 ADMIN ROUTE (PROTECTED)
+    // 🔥 ADMIN ROUTE
     if (path.includes("/admin")) {
       checkAdmin();
       return;
     }
 
-    // 🔥 REF ROUTE (PROTECTED)
+    // 🔥 REF ROUTE
     if (
       (path === "/ref" || path.startsWith("/ref")) &&
       !path.includes("ref-signup") &&
       !path.includes("ref-login")
     ) {
-      checkRef(); // ✅ NEW
+      checkRef();
       return;
     }
 
@@ -95,7 +98,7 @@ export default function App() {
       .maybeSingle();
 
     if (!userData?.is_admin) {
-      alert("You do not have admin access");
+      setAccessDenied(true); // 🔥 NEW
       setPage("home");
       return;
     }
@@ -103,7 +106,7 @@ export default function App() {
     setPage("dashboard");
   };
 
-  // 🔥 REF CHECK (NEW)
+  // 🔥 REF CHECK
   const checkRef = async () => {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -116,20 +119,18 @@ export default function App() {
     setPage("refDashboard");
   };
 
-  // 🔥 AUTH LISTENER (CRITICAL)
+  // 🔥 AUTH LISTENER
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
 
         if (!session) {
 
-          // ADMIN → force login
           if (page === "dashboard") {
             setPage("adminLogin");
             return;
           }
 
-          // REF → force login
           if (page.startsWith("ref")) {
             setPage("refLogin");
             return;
@@ -163,6 +164,11 @@ export default function App() {
 
   return (
     <>
+      {/* 🚫 ACCESS DENIED MODAL */}
+      {accessDenied && (
+        <AccessDeniedModal onClose={() => setAccessDenied(false)} />
+      )}
+
       {/* 🔐 ADMIN LOGIN */}
       {page === "adminLogin" && (
         <LoginModal setPage={setPage} />
@@ -222,3 +228,56 @@ export default function App() {
     </>
   );
 }
+
+/* 🔥 ACCESS DENIED MODAL */
+
+function AccessDeniedModal({ onClose }) {
+  return (
+    <div style={overlay}>
+      <div style={modal}>
+        <h2 style={{ marginBottom: 10 }}>Access Denied</h2>
+
+        <p style={{ color: "#64748b", marginBottom: 20 }}>
+          You do not have access to this area.
+        </p>
+
+        <button style={btn} onClick={onClose}>
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* 🔥 STYLES */
+
+const overlay = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: "rgba(0,0,0,0.4)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000
+};
+
+const modal = {
+  background: "#fff",
+  padding: 24,
+  borderRadius: 12,
+  width: 320,
+  textAlign: "center",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
+};
+
+const btn = {
+  padding: "10px 16px",
+  borderRadius: 8,
+  border: "none",
+  background: "#16a34a",
+  color: "#fff",
+  cursor: "pointer"
+};
