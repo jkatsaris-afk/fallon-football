@@ -6,7 +6,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
-  const fileRef = useRef(null);
+  const fileRef = useRef();
 
   useEffect(() => {
     loadUsers();
@@ -17,29 +17,22 @@ export default function UserManagement() {
     setUsers(data || []);
   };
 
-  const filtered = (users || []).filter(u =>
-    `${u?.first_name || ""} ${u?.last_name || ""} ${u?.email || ""}`
+  const filtered = users.filter(u =>
+    `${u.first_name || ""} ${u.last_name || ""} ${u.email || ""}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
 
   const updateUser = async (field, value) => {
-    if (!selectedUser?.id) return;
-
     await supabase
       .from("users")
       .update({ [field]: value })
       .eq("id", selectedUser.id);
 
-    setSelectedUser(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setSelectedUser(prev => ({ ...prev, [field]: value }));
   };
 
   const updateEmail = async (email) => {
-    if (!email) return;
-
     await supabase.auth.updateUser({ email });
     await updateUser("email", email);
   };
@@ -49,25 +42,16 @@ export default function UserManagement() {
   };
 
   const resetPassword = async () => {
-    if (!selectedUser?.email) return;
-
     await supabase.auth.resetPasswordForEmail(selectedUser.email);
     alert("Password reset sent");
   };
 
   const uploadAvatar = async (file) => {
-    if (!file || !selectedUser?.id) return;
+    if (!file) return;
 
     const path = `${selectedUser.id}-${Date.now()}`;
 
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(path, file);
-
-    if (error) {
-      alert("Upload failed");
-      return;
-    }
+    await supabase.storage.from("avatars").upload(path, file);
 
     const { data } = supabase.storage
       .from("avatars")
@@ -77,7 +61,7 @@ export default function UserManagement() {
   };
 
   /* ================= PROFILE VIEW ================= */
-  if (selectedUser && typeof selectedUser === "object") {
+  if (selectedUser) {
     return (
       <div style={page}>
 
@@ -91,42 +75,40 @@ export default function UserManagement() {
         {/* PROFILE */}
         <div style={profile}>
 
-          {/* AVATAR CLICK */}
+          {/* AVATAR CLICK UPLOAD */}
           <div
             style={avatarWrap}
-            onClick={() => fileRef.current?.click()}
+            onClick={() => fileRef.current.click()}
           >
             <img
-              src={selectedUser?.avatar_url || defaultAvatar}
+              src={selectedUser.avatar_url || defaultAvatar}
               style={avatar}
               alt=""
             />
-            <div style={overlay}>Change</div>
+            <div style={uploadOverlay}>Change</div>
           </div>
 
           <input
             ref={fileRef}
             type="file"
             hidden
-            onChange={(e) => uploadAvatar(e.target.files?.[0])}
+            onChange={(e) => uploadAvatar(e.target.files[0])}
           />
 
           <h2>
-            {selectedUser?.first_name || ""}{" "}
-            {selectedUser?.last_name || ""}
+            {selectedUser.first_name} {selectedUser.last_name}
           </h2>
 
-          {/* EMAIL */}
+          {/* CLEAN INPUTS */}
           <Field
             label="Email"
-            value={selectedUser?.email || ""}
+            value={selectedUser.email || ""}
             onChange={updateEmail}
           />
 
-          {/* PHONE */}
           <Field
             label="Phone"
-            value={selectedUser?.phone || ""}
+            value={selectedUser.phone || ""}
             onChange={(v) => updateUser("phone", v)}
           />
 
@@ -134,10 +116,10 @@ export default function UserManagement() {
           <div style={section}>
             <SectionTitle title="Access" />
 
-            <RoleToggle label="Admin" value={!!selectedUser?.is_admin} onChange={(v)=>toggleRole("is_admin",v)} />
-            <RoleToggle label="Coach" value={!!selectedUser?.is_coach} onChange={(v)=>toggleRole("is_coach",v)} />
-            <RoleToggle label="Parent" value={!!selectedUser?.is_parent} onChange={(v)=>toggleRole("is_parent",v)} />
-            <RoleToggle label="Referee" value={!!selectedUser?.is_referee} onChange={(v)=>toggleRole("is_referee",v)} />
+            <RoleToggle label="Admin" value={selectedUser.is_admin} onChange={(v)=>toggleRole("is_admin",v)} />
+            <RoleToggle label="Coach" value={selectedUser.is_coach} onChange={(v)=>toggleRole("is_coach",v)} />
+            <RoleToggle label="Parent" value={selectedUser.is_parent} onChange={(v)=>toggleRole("is_parent",v)} />
+            <RoleToggle label="Referee" value={selectedUser.is_referee} onChange={(v)=>toggleRole("is_referee",v)} />
           </div>
 
           <button style={resetBtn} onClick={resetPassword}>
@@ -169,9 +151,9 @@ export default function UserManagement() {
             onClick={() => setSelectedUser(user)}
           >
             <div style={{ fontWeight: 600 }}>
-              {user?.first_name || ""} {user?.last_name || ""}
+              {user.first_name} {user.last_name}
             </div>
-            <div style={sub}>{user?.email || ""}</div>
+            <div style={sub}>{user.email}</div>
           </div>
         ))}
       </div>
@@ -186,7 +168,7 @@ function Field({ label, value, onChange }) {
     <div style={field}>
       <div style={label}>{label}</div>
       <input
-        value={value || ""}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
         style={input}
       />
@@ -232,9 +214,15 @@ function RoleToggle({ label, value, onChange }) {
 
 /* ================= STYLES ================= */
 
-const page = { padding: 20, background: "#fff", minHeight: "100vh" };
+const page = {
+  padding: 20,
+  background: "#ffffff",
+  minHeight: "100vh"
+};
 
-const header = { marginBottom: 10 };
+const header = {
+  marginBottom: 10
+};
 
 const backBtn = {
   background: "#f3f4f6",
@@ -244,7 +232,9 @@ const backBtn = {
   cursor: "pointer"
 };
 
-const profile = { textAlign: "center" };
+const profile = {
+  textAlign: "center"
+};
 
 const avatarWrap = {
   position: "relative",
@@ -259,7 +249,7 @@ const avatar = {
   objectFit: "cover"
 };
 
-const overlay = {
+const uploadOverlay = {
   position: "absolute",
   bottom: 0,
   left: 0,
@@ -267,23 +257,33 @@ const overlay = {
   background: "rgba(0,0,0,0.5)",
   color: "#fff",
   fontSize: 12,
-  padding: 3,
   borderBottomLeftRadius: "50%",
-  borderBottomRightRadius: "50%"
+  borderBottomRightRadius: "50%",
+  padding: 3
 };
 
-const field = { marginTop: 15, textAlign: "left" };
+const field = {
+  marginTop: 15,
+  textAlign: "left"
+};
 
-const label = { fontSize: 12, color: "#6b7280" };
+const label = {
+  fontSize: 12,
+  color: "#6b7280"
+};
 
 const input = {
   width: "100%",
   padding: 10,
   borderRadius: 10,
-  border: "1px solid #e5e7eb"
+  border: "1px solid #e5e7eb",
+  marginTop: 4,
+  outline: "none"
 };
 
-const section = { marginTop: 20 };
+const section = {
+  marginTop: 20
+};
 
 const sectionTitle = {
   fontSize: 12,
@@ -304,7 +304,9 @@ const resetBtn = {
   borderRadius: 10,
   background: "#16a34a",
   color: "#fff",
-  border: "none"
+  border: "none",
+  fontWeight: 600,
+  cursor: "pointer"
 };
 
 const searchBox = {
