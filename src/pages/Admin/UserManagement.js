@@ -21,7 +21,7 @@ export default function UserManagement() {
       .includes(search.toLowerCase())
   );
 
-  const toggleRole = async (field, value) => {
+  const updateUser = async (field, value) => {
     await supabase
       .from("users")
       .update({ [field]: value })
@@ -33,109 +33,90 @@ export default function UserManagement() {
     }));
   };
 
+  const updateEmail = async (email) => {
+    // 🔥 update auth
+    await supabase.auth.updateUser({ email });
+
+    // 🔥 update table
+    await updateUser("email", email);
+  };
+
+  const toggleRole = async (field, value) => {
+    await updateUser(field, value);
+  };
+
   const resetPassword = async () => {
     await supabase.auth.resetPasswordForEmail(selectedUser.email);
-    alert("Password reset email sent");
+    alert("Password reset sent");
   };
 
   const uploadAvatar = async (file) => {
     if (!file) return;
 
-    const filePath = `${selectedUser.id}-${Date.now()}`;
+    const path = `${selectedUser.id}-${Date.now()}`;
 
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file);
-
-    if (error) {
-      alert("Upload failed");
-      return;
-    }
+    await supabase.storage.from("avatars").upload(path, file);
 
     const { data } = supabase.storage
       .from("avatars")
-      .getPublicUrl(filePath);
+      .getPublicUrl(path);
 
-    const url = data.publicUrl;
-
-    await supabase
-      .from("users")
-      .update({ avatar_url: url })
-      .eq("id", selectedUser.id);
-
-    setSelectedUser(prev => ({
-      ...prev,
-      avatar_url: url
-    }));
+    await updateUser("avatar_url", data.publicUrl);
   };
 
-  /* 🔥 DETAIL VIEW */
+  /* 🔥 PROFILE VIEW */
   if (selectedUser) {
     return (
       <div>
 
-        {/* 🔥 CLEAN TOP BAR */}
+        {/* HEADER */}
         <div style={topBar}>
-          <button style={backBtn} onClick={() => setSelectedUser(null)}>
+          <button onClick={() => setSelectedUser(null)} style={backBtn}>
             ← Back
           </button>
-
-          <div style={title}>
-            User Profile
-          </div>
+          <div style={title}>User Profile</div>
         </div>
 
-        {/* PROFILE */}
-        <div style={profileContainer}>
+        <div style={profile}>
 
+          {/* AVATAR */}
           <img
             src={selectedUser.avatar_url || "/default-avatar.png"}
-            alt="avatar"
             style={avatar}
+            alt=""
           />
 
           <input
             type="file"
-            accept="image/*"
             onChange={(e) => uploadAvatar(e.target.files[0])}
           />
 
-          <h2 style={{ marginTop: 10 }}>
+          <h2>
             {selectedUser.first_name} {selectedUser.last_name}
           </h2>
 
-          <div style={info}>{selectedUser.email}</div>
-          <div style={info}>
-            {selectedUser.phone || "No phone"}
-          </div>
+          {/* EMAIL */}
+          <Field
+            label="Email (Username)"
+            value={selectedUser.email || ""}
+            onChange={updateEmail}
+          />
+
+          {/* PHONE */}
+          <Field
+            label="Phone"
+            value={selectedUser.phone || ""}
+            onChange={(v) => updateUser("phone", v)}
+          />
 
           {/* ROLES */}
           <div style={{ marginTop: 20 }}>
-            <h4>Roles</h4>
+            <h4>Access</h4>
 
-            <RoleCheck
-              label="Admin"
-              value={selectedUser.is_admin}
-              onChange={(v) => toggleRole("is_admin", v)}
-            />
-
-            <RoleCheck
-              label="Coach"
-              value={selectedUser.is_coach}
-              onChange={(v) => toggleRole("is_coach", v)}
-            />
-
-            <RoleCheck
-              label="Parent"
-              value={selectedUser.is_parent}
-              onChange={(v) => toggleRole("is_parent", v)}
-            />
-
-            <RoleCheck
-              label="Referee"
-              value={selectedUser.is_referee}
-              onChange={(v) => toggleRole("is_referee", v)}
-            />
+            <RoleToggle label="Admin" value={selectedUser.is_admin} onChange={(v)=>toggleRole("is_admin",v)} />
+            <RoleToggle label="Coach" value={selectedUser.is_coach} onChange={(v)=>toggleRole("is_coach",v)} />
+            <RoleToggle label="Parent" value={selectedUser.is_parent} onChange={(v)=>toggleRole("is_parent",v)} />
+            <RoleToggle label="Referee" value={selectedUser.is_referee} onChange={(v)=>toggleRole("is_referee",v)} />
           </div>
 
           <button style={resetBtn} onClick={resetPassword}>
@@ -169,10 +150,7 @@ export default function UserManagement() {
             <div style={{ fontWeight: 600 }}>
               {user.first_name} {user.last_name}
             </div>
-
-            <div style={sub}>
-              {user.email}
-            </div>
+            <div style={sub}>{user.email}</div>
           </div>
         ))}
       </div>
@@ -180,92 +158,68 @@ export default function UserManagement() {
   );
 }
 
-/* COMPONENT */
+/* 🔥 COMPONENTS */
 
-function RoleCheck({ label, value, onChange }) {
+function Field({ label, value, onChange }) {
   return (
-    <label style={checkRow}>
+    <div style={{ marginTop: 12 }}>
+      <div style={labelStyle}>{label}</div>
       <input
-        type="checkbox"
-        checked={value || false}
-        onChange={(e) => onChange(e.target.checked)}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={input}
       />
-      {label}
-    </label>
+    </div>
+  );
+}
+
+function RoleToggle({ label, value, onChange }) {
+  return (
+    <div style={row}>
+      <div>{label}</div>
+      <div
+        onClick={() => onChange(!value)}
+        style={{
+          width: 50,
+          height: 26,
+          borderRadius: 20,
+          background: value ? "#16a34a" : "#e5e7eb",
+          position: "relative",
+          cursor: "pointer"
+        }}
+      >
+        <div
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            background: "#fff",
+            position: "absolute",
+            top: 2,
+            left: value ? 26 : 2
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
 /* 🔥 STYLES */
 
-const topBar = {
-  display: "flex",
-  alignItems: "center",
-  marginBottom: 15
-};
+const topBar = { display:"flex",alignItems:"center",marginBottom:15 };
+const backBtn = { padding:"6px 10px",borderRadius:8,border:"none",background:"#e5e7eb",cursor:"pointer",marginRight:10 };
+const title = { fontWeight:600,fontSize:18 };
 
-const backBtn = {
-  padding: "6px 10px",
-  borderRadius: 8,
-  border: "none",
-  background: "#e5e7eb",
-  cursor: "pointer",
-  marginRight: 10
-};
+const profile = { textAlign:"center" };
+const avatar = { width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:10 };
 
-const title = {
-  fontWeight: 600,
-  fontSize: 18
-};
+const searchBox = { width:"100%",padding:12,borderRadius:10,border:"1px solid #ddd" };
+const userRow = { background:"#fff",padding:12,borderRadius:10,marginBottom:8,cursor:"pointer",boxShadow:"0 4px 10px rgba(0,0,0,0.05)" };
+const sub = { fontSize:12,color:"#64748b" };
 
-const profileContainer = {
-  textAlign: "center"
-};
+const input = { width:"100%",padding:10,borderRadius:8,border:"1px solid #ddd" };
+const labelStyle = { fontSize:12,color:"#64748b" };
 
-const avatar = {
-  width: 90,
-  height: 90,
-  borderRadius: "50%",
-  objectFit: "cover",
-  marginBottom: 10
-};
+const row = { display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10 };
 
-const searchBox = {
-  width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #ddd"
-};
-
-const userRow = {
-  background: "#fff",
-  padding: 12,
-  borderRadius: 10,
-  marginBottom: 8,
-  cursor: "pointer",
-  boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
-};
-
-const sub = {
-  fontSize: 12,
-  color: "#64748b"
-};
-
-const info = {
-  fontSize: 14,
-  color: "#64748b"
-};
-
-const checkRow = {
-  display: "block",
-  marginTop: 6
-};
-
-const resetBtn = {
-  marginTop: 20,
-  padding: 12,
-  borderRadius: 10,
-  background: "#2563eb",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer"
-};
+const resetBtn = { marginTop:20,padding:12,borderRadius:10,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer" };
