@@ -11,7 +11,10 @@ import RefereeManager from "./RefereeManager";
 import FieldManager from "./FieldManager";
 import ReportsPage from "./ReportsPage";
 import AdminSettings from "./AdminSettings";
-import PlayerLookup from "./PlayerLookup"; // ✅ NEW
+import PlayerLookup from "./PlayerLookup";
+
+// 🔥 NEW
+import UserManagement from "./UserManagement";
 
 export default function Dashboard({
   adminPage,
@@ -115,29 +118,22 @@ export default function Dashboard({
             <StatTile title="Pending Referees" value={stats.refsPending} color="#f59e0b" />
             <StatTile title="Scheduled Games" value={stats.scheduledGames} />
             <StatTile title="Matchups" value={stats.matchups} />
-
-            {["K-1","2nd-3rd","4th-5th","6th-8th"].map(name => (
-              <StatTile
-                key={name}
-                title={`${name} Players`}
-                value={divisionCounts[name] || 0}
-                color="#6366f1"
-              />
-            ))}
           </div>
         </>
       )}
 
-      {/* 🔍 PLAYER LOOKUP (NEW PRIMARY MOBILE TOOL) */}
+      {/* LOOKUP */}
       {adminPage === "lookup" && <PlayerLookup />}
+
+      {/* USERS (NEW) */}
+      {adminPage === "users" && <UserManagement />}
 
       {/* MORE */}
       {adminPage === "more" && (
         <>
-          <h2 style={{ marginTop: 0 }}>More</h2>
-
+          <h2>More</h2>
           <div style={moreGrid}>
-            <MoreBtn label="Lookup" onClick={() => setAdminPage("lookup")} />
+            <MoreBtn label="Users" onClick={() => setAdminPage("users")} />
             <MoreBtn label="Players" onClick={() => setAdminPage("players")} />
             <MoreBtn label="Coaches" onClick={() => setAdminPage("coaches")} />
             <MoreBtn label="Referees" onClick={() => setAdminPage("referees")} />
@@ -186,8 +182,8 @@ function StatTile({ title, value, color = "#2f6ea6" }) {
       padding: 20,
       boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
     }}>
-      <div style={{ fontSize: 14, color: "#64748b" }}>{title}</div>
-      <div style={{ fontSize: 28, fontWeight: "700", marginTop: 5, color }}>
+      <div style={{ fontSize: 14 }}>{title}</div>
+      <div style={{ fontSize: 28, fontWeight: "700", color }}>
         {value}
       </div>
     </div>
@@ -196,19 +192,16 @@ function StatTile({ title, value, color = "#2f6ea6" }) {
 
 function MoreBtn({ label, onClick }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: 20,
-        background: "#fff",
-        borderRadius: 12,
-        textAlign: "center",
-        fontWeight: 600,
-        cursor: "pointer",
-        boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
-      }}
-    >
+    <div onClick={onClick} style={card}>
       {label}
     </div>
   );
 }
+
+const card = {
+  padding: 20,
+  background: "#fff",
+  borderRadius: 12,
+  textAlign: "center",
+  cursor: "pointer"
+};
