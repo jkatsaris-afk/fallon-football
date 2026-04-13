@@ -38,28 +38,72 @@ export default function App() {
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
 
+    // 🔥 ADMIN ROUTE (LOCKED FIRST)
     if (path.includes("/admin")) {
       checkAdmin();
+      return; // 🚨 STOP OTHER ROUTES
     }
 
-    if (path.includes("/signup")) setPage("signupSelect");
-    if (path.includes("/coach-signup")) setPage("coachSignup");
-    if (path.includes("/ref-signup")) setPage("refSignup");
-
-    if (path.includes("/login")) setPage("loginSelect");
-
-    // 🔥 SAFE REF ROUTING
+    // 🔥 REF ROUTE
     if (
       (path === "/ref" || path.startsWith("/ref")) &&
       !path.includes("ref-signup") &&
       !path.includes("ref-login")
     ) {
       setPage("refDashboard");
+      return;
+    }
+
+    // 🔥 SIGNUPS
+    if (path.includes("/signup")) {
+      setPage("signupSelect");
+      return;
+    }
+
+    if (path.includes("/coach-signup")) {
+      setPage("coachSignup");
+      return;
+    }
+
+    if (path.includes("/ref-signup")) {
+      setPage("refSignup");
+      return;
+    }
+
+    // 🔥 LOGIN
+    if (path.includes("/login")) {
+      setPage("loginSelect");
+      return;
     }
 
   }, []);
 
-  // 🔥 NEW: SYNC URL WITH PAGE STATE
+  // 🔥 ADMIN CHECK
+  const checkAdmin = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+
+    if (!user) {
+      setPage("adminLogin");
+      return;
+    }
+
+    const { data: userData } = await supabase
+      .from("users")
+      .select("is_admin")
+      .eq("auth_id", user.id)
+      .maybeSingle();
+
+    if (!userData?.is_admin) {
+      alert("You do not have admin access");
+      setPage("home");
+      return;
+    }
+
+    setPage("dashboard");
+  };
+
+  // 🔥 URL SYNC
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
     if (page === "signupSelect") window.history.pushState({}, "", "/signup");
@@ -72,28 +116,23 @@ export default function App() {
     if (page === "refTime") window.history.pushState({}, "", "/ref/time");
     if (page === "refProfile") window.history.pushState({}, "", "/ref/profile");
 
+    if (page === "dashboard") window.history.pushState({}, "", "/admin");
+
   }, [page]);
-
-  const checkAdmin = async () => {
-    const { data } = await supabase.auth.getUser();
-
-    if (!data.user) {
-      setPage("adminLogin");
-    } else {
-      setPage("dashboard");
-    }
-  };
 
   return (
     <>
       {/* 🔐 ADMIN LOGIN */}
-      {page === "adminLogin" && <LoginModal />}
+      {page === "adminLogin" && (
+        <LoginModal setPage={setPage} />
+      )}
 
       {/* 🛠 ADMIN DASHBOARD */}
       {page === "dashboard" && (
         <AdminLayout
           adminPage={adminPage}
           setAdminPage={setAdminPage}
+          setPage={setPage}
         >
           <Dashboard
             adminPage={adminPage}
@@ -107,12 +146,10 @@ export default function App() {
         page !== "refLogin" &&
         page !== "refSignup" && (
         <RefLayout page={page} setPage={setPage}>
-
           {page === "refDashboard" && <RefDashboard />}
           {page === "refSchedule" && <RefSchedule />}
           {page === "refTime" && <RefTime />}
           {page === "refProfile" && <RefProfile />}
-
         </RefLayout>
       )}
 
@@ -125,31 +162,16 @@ export default function App() {
         <PublicLayout page={page} setPage={setPage}>
 
           {page === "home" && <HomePage setPage={setPage} />}
-
-          {page === "schedule" && (
-            <SchedulePage setPage={setPage} />
-          )}
-
+          {page === "schedule" && <SchedulePage setPage={setPage} />}
           {page === "scoreboard" && <ScoreboardPage />}
+          {page === "teamSchedules" && <TeamSchedulesPage setPage={setPage} />}
 
-          {page === "teamSchedules" && (
-            <TeamSchedulesPage setPage={setPage} />
-          )}
-
-          {/* 🔥 LOGIN FLOW */}
-          {page === "loginSelect" && (
-            <LoginSelectPage setPage={setPage} />
-          )}
-
+          {page === "loginSelect" && <LoginSelectPage setPage={setPage} />}
           {page === "coachLogin" && <CoachLoginPage />}
           {page === "refLogin" && <RefLoginPage setPage={setPage} />}
           {page === "parentLogin" && <ParentLoginPage />}
 
-          {/* SIGNUPS */}
-          {page === "signupSelect" && (
-            <SignUpSelectPage setPage={setPage} />
-          )}
-
+          {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />}
           {page === "signup" && <SignUpPage />}
           {page === "coachSignup" && <CoachSignUpPage />}
           {page === "refSignup" && <RefSignUpPage />}
