@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 export default function RefTime() {
-  const [games, setGames] = useState([]);
   const [grouped, setGrouped] = useState({});
   const [checkins, setCheckins] = useState([]);
   const [ref, setRef] = useState(null);
+  const [openDates, setOpenDates] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,7 +20,6 @@ export default function RefTime() {
 
     if (!user) return;
 
-    // 🔥 get ref record
     const { data: refData } = await supabase
       .from("referees")
       .select("*")
@@ -31,7 +30,6 @@ export default function RefTime() {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // 🔥 LOAD FUTURE GAMES ONLY
     const { data: gamesData } = await supabase
       .from("schedule_master")
       .select("*")
@@ -39,8 +37,6 @@ export default function RefTime() {
       .ilike("event_type", "%game%")
       .order("event_date", { ascending: true })
       .order("event_time", { ascending: true });
-
-    setGames(gamesData || []);
 
     // 🔥 GROUP BY DATE
     const groupedData = (gamesData || []).reduce((acc, game) => {
@@ -53,7 +49,6 @@ export default function RefTime() {
 
     setGrouped(groupedData);
 
-    // 🔥 LOAD CHECKINS
     const { data: checkinData } = await supabase
       .from("ref_checkins")
       .select("*")
@@ -64,12 +59,19 @@ export default function RefTime() {
     setLoading(false);
   };
 
+  /* ================= TOGGLE ================= */
+
+  const toggleDate = (date) => {
+    setOpenDates((prev) => ({
+      ...prev,
+      [date]: !prev[date]
+    }));
+  };
+
   /* ================= CHECK IN ================= */
 
   const checkIn = async (game) => {
-    const exists = checkins.find(
-      (c) => c.game_id === game.id
-    );
+    const exists = checkins.find((c) => c.game_id === game.id);
 
     if (exists) {
       alert("Already checked in");
@@ -84,7 +86,6 @@ export default function RefTime() {
       }
     ]);
 
-    alert("Checked in!");
     loadData();
   };
 
@@ -101,63 +102,72 @@ export default function RefTime() {
     <div style={container}>
       <h2>Ref Time</h2>
 
-      {/* 💰 TOTAL PAY */}
+      {/* 💰 PAY */}
       <div style={payBox}>
         Total Earnings: <strong>${totalPay}</strong>
       </div>
 
-      {/* 📅 GROUPED GAMES */}
+      {/* 📅 DATES */}
       <div style={{ marginTop: 20 }}>
-        {Object.keys(grouped).length === 0 && (
-          <div>No upcoming games</div>
-        )}
+        {Object.keys(grouped).map((date) => {
+          const isOpen = openDates[date];
 
-        {Object.keys(grouped).map((date) => (
-          <div key={date} style={{ marginBottom: 20 }}>
+          return (
+            <div key={date} style={{ marginBottom: 15 }}>
 
-            {/* DATE HEADER */}
-            <div style={dateHeader}>
-              {date}
+              {/* 🔥 DATE HEADER (CLICKABLE) */}
+              <div
+                style={dateHeader}
+                onClick={() => toggleDate(date)}
+              >
+                {date}
+                <span style={{ float: "right" }}>
+                  {isOpen ? "▲" : "▼"}
+                </span>
+              </div>
+
+              {/* 🔥 DROPDOWN CONTENT */}
+              {isOpen &&
+                grouped[date].map((game) => {
+                  const checked = checkins.find(
+                    (c) => c.game_id === game.id
+                  );
+
+                  return (
+                    <div key={game.id} style={card}>
+
+                      {/* TEAMS */}
+                      <div style={teams}>
+                        {game.home_team} vs {game.away_team}
+                      </div>
+
+                      {/* META */}
+                      <div style={gameMeta}>
+                        {game.event_time} • Field {game.field}
+                      </div>
+
+                      {/* CHECK IN */}
+                      <div style={{ marginTop: 10 }}>
+                        {checked ? (
+                          <span style={checkedBadge}>
+                            ✅ Checked In
+                          </span>
+                        ) : (
+                          <button
+                            style={btn}
+                            onClick={() => checkIn(game)}
+                          >
+                            Check In
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+                  );
+                })}
             </div>
-
-            {/* GAMES */}
-            {grouped[date].map((game) => {
-              const checked = checkins.find(
-                (c) => c.game_id === game.id
-              );
-
-              return (
-                <div key={game.id} style={card}>
-
-                  <div style={{ fontWeight: 600 }}>
-                    {game.home_team} vs {game.away_team}
-                  </div>
-
-                  <div style={gameMeta}>
-                    {game.event_time} • Field {game.field}
-                  </div>
-
-                  <div style={{ marginTop: 10 }}>
-                    {checked ? (
-                      <span style={checkedBadge}>
-                        ✅ Checked In
-                      </span>
-                    ) : (
-                      <button
-                        style={btn}
-                        onClick={() => checkIn(game)}
-                      >
-                        Check In
-                      </button>
-                    )}
-                  </div>
-
-                </div>
-              );
-            })}
-
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -173,12 +183,31 @@ const card = {
   background: "#fff",
   padding: 15,
   borderRadius: 12,
-  marginBottom: 10,
+  marginTop: 8,
   boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
 };
 
+const dateHeader = {
+  fontWeight: 700,
+  fontSize: 16,
+  padding: 10,
+  background: "#f1f5f9",
+  borderRadius: 10,
+  cursor: "pointer"
+};
+
+const teams = {
+  fontWeight: 600,
+  marginBottom: 4
+};
+
+const gameMeta = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
 const btn = {
-  padding: "8px 12px",
+  padding: "6px 10px",
   borderRadius: 8,
   border: "none",
   background: "#16a34a",
@@ -197,15 +226,4 @@ const payBox = {
   borderRadius: 10,
   border: "1px solid #bbf7d0",
   color: "#166534"
-};
-
-const dateHeader = {
-  fontWeight: 700,
-  fontSize: 16,
-  marginBottom: 10
-};
-
-const gameMeta = {
-  fontSize: 12,
-  color: "#64748b"
 };
