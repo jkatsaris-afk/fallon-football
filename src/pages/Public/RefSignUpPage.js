@@ -124,24 +124,23 @@ export default function RefSignUpPage({ setPage }) {
           <Card>
             <Section title="Basic Info">
 
-              {/* 🔥 PROFILE IMAGE (CLEAN VERSION) */}
-              <div style={avatarSection}>
-                <img
-                  src={
-                    image
-                      ? URL.createObjectURL(image)
-                      : "/default-avatar.png"
-                  }
-                  alt="avatar"
-                  style={avatarImg}
-                />
+              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+              <Input type="password" placeholder="Create Password" onChange={(v)=>setForm({...form, password:v})}/>
+              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
+
+              {/* 🔥 CLEAN PROFILE UPLOAD */}
+              <div style={uploadRow}>
+                <div style={uploadLabel}>Profile Photo</div>
 
                 <button
                   type="button"
                   style={uploadBtn}
                   onClick={() => fileRef.current.click()}
                 >
-                  Upload Photo
+                  {image ? "Photo Selected" : "Upload Photo"}
                 </button>
 
                 <input
@@ -152,13 +151,6 @@ export default function RefSignUpPage({ setPage }) {
                   onChange={(e) => setImage(e.target.files[0])}
                 />
               </div>
-
-              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
-              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
-              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
-              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
-              <Input type="password" placeholder="Create Password" onChange={(v)=>setForm({...form, password:v})}/>
-              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
 
             </Section>
           </Card>
@@ -262,29 +254,20 @@ const submitBtn = {
   marginTop: 10
 };
 
-/* 🔥 CLEAN AVATAR */
-
-const avatarSection = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  marginBottom: 10
+const uploadRow = {
+  marginTop: 10
 };
 
-const avatarImg = {
-  width: 90,
-  height: 90,
-  borderRadius: "50%",
-  objectFit: "cover",
-  border: "2px solid #e5e7eb"
+const uploadLabel = {
+  fontSize: 13,
+  color: "#374151"
 };
 
 const uploadBtn = {
-  marginTop: 8,
-  padding: "6px 12px",
+  marginTop: 6,
+  padding: "8px 12px",
   borderRadius: 8,
   border: "1px solid #e2e8f0",
   background: "#f8fafc",
-  cursor: "pointer",
-  fontSize: 13
+  cursor: "pointer"
 };
