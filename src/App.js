@@ -13,12 +13,15 @@ import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 // 🔥 LOGIN PAGES
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
 import CoachLoginPage from "./pages/Public/CoachLoginPage";
-// ✅ FIXED HERE
 import RefLoginPage from "./pages/Ref/RefLogin";
 import ParentLoginPage from "./pages/Public/ParentLoginPage";
 
-// 🔥 REF DASHBOARD
+// 🔥 REF APP
+import RefLayout from "./layouts/RefLayout";
 import RefDashboard from "./pages/Ref/RefDashboard";
+import RefSchedule from "./pages/Ref/RefSchedule";
+import RefTime from "./pages/Ref/RefTime";
+import RefProfile from "./pages/Ref/RefProfile";
 
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
@@ -44,6 +47,12 @@ export default function App() {
     if (path.includes("/ref-signup")) setPage("refSignup");
 
     if (path.includes("/login")) setPage("loginSelect");
+
+    // 🔥 DIRECT REF LINK
+    if (path === "/ref" || path.startsWith("/ref")) {
+      setPage("refDashboard");
+    }
+
   }, []);
 
   const checkAdmin = async () => {
@@ -74,8 +83,22 @@ export default function App() {
         </AdminLayout>
       )}
 
+      {/* 🔥 REF APP (SEPARATE APP FEEL) */}
+      {page.startsWith("ref") && page !== "refLogin" && (
+        <RefLayout page={page} setPage={setPage}>
+
+          {page === "refDashboard" && <RefDashboard />}
+          {page === "refSchedule" && <RefSchedule />}
+          {page === "refTime" && <RefTime />}
+          {page === "refProfile" && <RefProfile />}
+
+        </RefLayout>
+      )}
+
       {/* 🌐 PUBLIC APP */}
-      {page !== "dashboard" && page !== "adminLogin" && (
+      {page !== "dashboard" &&
+        page !== "adminLogin" &&
+        !page.startsWith("ref") && (
         <PublicLayout page={page} setPage={setPage}>
 
           {page === "home" && <HomePage setPage={setPage} />}
@@ -98,9 +121,6 @@ export default function App() {
           {page === "coachLogin" && <CoachLoginPage />}
           {page === "refLogin" && <RefLoginPage setPage={setPage} />}
           {page === "parentLogin" && <ParentLoginPage />}
-
-          {/* 🔥 REF DASHBOARD */}
-          {page === "refDashboard" && <RefDashboard />}
 
           {/* SIGNUPS */}
           {page === "signupSelect" && (
