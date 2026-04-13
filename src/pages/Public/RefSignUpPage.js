@@ -44,7 +44,6 @@ export default function RefSignUpPage() {
     setLoading(true);
 
     try {
-      // 🔥 UPLOAD IMAGE
       const fileName = `${Date.now()}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage
@@ -53,7 +52,6 @@ export default function RefSignUpPage() {
 
       if (uploadError) throw uploadError;
 
-      // 🔥 CREATE USER
       const { data: authData, error: authError } =
         await supabase.auth.signUp({
           email: form.email,
@@ -64,7 +62,6 @@ export default function RefSignUpPage() {
 
       const user = authData.user;
 
-      // 🔥 INSERT REF
       await supabase.from("referees").insert([
         {
           auth_id: user.id,
@@ -97,6 +94,13 @@ export default function RefSignUpPage() {
 
       <h2 style={{ marginBottom: 20 }}>Referee Registration</h2>
 
+      {/* 🔥 PAY INFO */}
+      <Card>
+        <div style={payBox}>
+          Referees are paid <strong>$20 per game</strong>.
+        </div>
+      </Card>
+
       {!settings.ref_signups_open && (
         <Card center>
           <h3>Registration Closed</h3>
@@ -105,7 +109,7 @@ export default function RefSignUpPage() {
 
       {settings.ref_signups_open && (
         <>
-          {/* 🔥 BASIC INFO (CLEAN + FIXED) */}
+          {/* BASIC INFO */}
           <Card>
             <Section title="Basic Info">
 
@@ -116,7 +120,7 @@ export default function RefSignUpPage() {
               <Input placeholder="Password" type="password" onChange={(v)=>setForm({...form, password:v})}/>
               <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
 
-              {/* 🔥 CLEAN UPLOAD BUTTON */}
+              {/* 🔥 PROFILE IMAGE */}
               <div style={uploadWrap}>
                 <label style={uploadBtn}>
                   Upload Profile Picture (Required)
@@ -129,9 +133,7 @@ export default function RefSignUpPage() {
                 </label>
 
                 {file && (
-                  <div style={fileName}>
-                    {file.name}
-                  </div>
+                  <div style={fileName}>{file.name}</div>
                 )}
               </div>
 
@@ -274,4 +276,13 @@ const submitBtn = {
   background: "#2f6ea6",
   color: "#fff",
   fontWeight: 600
+};
+
+const payBox = {
+  background: "#f0fdf4",
+  border: "1px solid #bbf7d0",
+  padding: 12,
+  borderRadius: 10,
+  color: "#166534",
+  textAlign: "center"
 };
