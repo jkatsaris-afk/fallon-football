@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom"; // 🔥 IMPORTANT
 import "./styles.css";
 
 import HomePage from "./pages/Public/HomePage";
@@ -37,23 +38,19 @@ export default function App() {
 
   const [accessDenied, setAccessDenied] = useState(false);
 
-  // 🔥 INSTALL STATES
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showIOSInstall, setShowIOSInstall] = useState(false);
 
-  /* ================= INSTALL SETUP ================= */
+  /* ================= INSTALL ================= */
 
   useEffect(() => {
-    // ANDROID INSTALL
     const handler = (e) => {
       e.preventDefault();
-      console.log("🔥 Install prompt captured");
       setDeferredPrompt(e);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    // iPHONE DETECTION
     const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
     const isStandalone = window.navigator.standalone;
 
@@ -67,15 +64,10 @@ export default function App() {
   }, []);
 
   const installApp = async () => {
-    if (!deferredPrompt) {
-      alert("Install not available yet");
-      return;
-    }
+    if (!deferredPrompt) return;
 
     deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-
-    console.log("User choice:", choice);
+    await deferredPrompt.userChoice;
 
     setDeferredPrompt(null);
   };
@@ -110,6 +102,7 @@ export default function App() {
 
   const checkAdmin = async () => {
     const { data } = await supabase.auth.getUser();
+
     if (!data.user) return setPage("adminLogin");
 
     const { data: userData } = await supabase
@@ -129,6 +122,7 @@ export default function App() {
 
   const checkRef = async () => {
     const { data } = await supabase.auth.getUser();
+
     if (!data.user) return setPage("refLogin");
 
     setPage("refDashboard");
@@ -171,24 +165,28 @@ export default function App() {
 
   return (
     <>
-      {/* 🔥 ANDROID INSTALL BUTTON */}
+      {/* 🔥 ANDROID INSTALL */}
       {deferredPrompt && (
         <button style={installBtn} onClick={installApp}>
           Install App
         </button>
       )}
 
-      {/* 🔥 iPHONE POPUP */}
-      {showIOSInstall && (
-        <IOSInstallModal onClose={() => setShowIOSInstall(false)} />
-      )}
+      {/* 🔥 iPHONE INSTALL (PORTAL FIX) */}
+      {showIOSInstall &&
+        createPortal(
+          <IOSInstallModal onClose={() => setShowIOSInstall(false)} />,
+          document.body
+        )}
 
-      {/* ACCESS DENIED */}
-      {accessDenied && (
-        <AccessDeniedModal onClose={() => setAccessDenied(false)} />
-      )}
+      {/* 🔥 ACCESS DENIED (PORTAL FIX) */}
+      {accessDenied &&
+        createPortal(
+          <AccessDeniedModal onClose={() => setAccessDenied(false)} />,
+          document.body
+        )}
 
-      {/* ADMIN */}
+      {/* 🔐 ADMIN */}
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
       {page === "dashboard" && (
@@ -197,7 +195,7 @@ export default function App() {
         </AdminLayout>
       )}
 
-      {/* REF */}
+      {/* 🏈 REF */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -209,7 +207,7 @@ export default function App() {
         </RefLayout>
       )}
 
-      {/* PUBLIC */}
+      {/* 🌐 PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
@@ -271,13 +269,14 @@ const installBtn = {
   borderRadius: 10,
   background: "#16a34a",
   color: "#fff",
-  border: "none"
+  border: "none",
+  zIndex: 10
 };
 
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.4)",
+  background: "rgba(0,0,0,0.5)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center"
@@ -285,8 +284,10 @@ const overlay = {
 
 const modal = {
   background: "#fff",
-  padding: 20,
-  borderRadius: 12
+  padding: 24,
+  borderRadius: 14,
+  width: 320,
+  textAlign: "center"
 };
 
 const btn = {
