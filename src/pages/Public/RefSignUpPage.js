@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-export default function RefSignUpPage({ setPage }) {
+export default function RefSignUpPage() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [image, setImage] = useState(null);
 
-  const fileRef = useRef();
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -29,51 +29,41 @@ export default function RefSignUpPage({ setPage }) {
       .from("app_settings")
       .select("*")
       .eq("id", 1)
-      .maybeSingle();
+      .single();
 
     setSettings(data);
   };
 
-  /* ================= IMAGE UPLOAD ================= */
+  /* ================= IMAGE PICK ================= */
 
-  const uploadImage = async (file, userId) => {
-    const filePath = `${userId}/${Date.now()}-${file.name}`;
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0];
 
-    const { error } = await supabase.storage
-      .from("ref-avatars")
-      .upload(filePath, file);
+    if (!selected) return;
 
-    if (error) {
-      console.error("UPLOAD ERROR:", error);
-      return null;
-    }
-
-    const { data } = supabase.storage
-      .from("ref-avatars")
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
+    setFile(selected);
+    setPreview(URL.createObjectURL(selected));
   };
 
   /* ================= SUBMIT ================= */
 
   const handleSubmit = async () => {
-    if (!settings) return alert("Settings not loaded");
-
-    if (
-      !form.firstName ||
-      !form.lastName ||
-      !form.phone ||
-      !form.email ||
-      !form.password ||
-      !image
-    ) {
-      return alert("Please complete all required fields and upload a photo");
-    }
-
     setLoading(true);
 
     try {
+      let fileName = null;
+
+      // 🔥 UPLOAD IMAGE
+      if (file) {
+        fileName = `${Date.now()}-${file.name}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("profile-images")
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+      }
+
       // 🔥 CREATE USER
       const { data: authData, error: authError } =
         await supabase.auth.signUp({
@@ -81,27 +71,16 @@ export default function RefSignUpPage({ setPage }) {
           password: form.password
         });
 
-      console.log("SIGNUP:", authData, authError);
-
       if (authError) throw authError;
 
-      const userId = authData?.user?.id;
+      const user = authData.user;
 
-      // 🔥 IF EMAIL CONFIRMATION IS ON
-      if (!userId) {
-        alert("Account created. Please check your email to confirm.");
-        setPage("refLogin");
-        return;
-      }
-
-      // 🔥 UPLOAD IMAGE
-      const imageUrl = await uploadImage(image, userId);
-
-      // 🔥 SAVE REF PROFILE
-      const { error: dbError } = await supabase
+      // 🔥 INSERT REF
+      const { error: insertError } = await supabase
         .from("referees")
         .insert([
           {
+            auth_id: user.id,
             first_name: form.firstName,
             last_name: form.lastName,
             phone: form.phone,
@@ -110,121 +89,108 @@ export default function RefSignUpPage({ setPage }) {
             experience: form.experience,
             availability: form.availability,
             notes: form.notes,
-            season_id: settings.current_season,
-            auth_id: userId,
-            profile_image: imageUrl
+            profile_image: fileName
           }
         ]);
 
-      console.log("DB SAVE:", dbError);
+      if (insertError) throw insertError;
 
-      if (dbError) throw dbError;
-
-      // 🔥 LOGIN USER
-      const { error: loginError } =
-        await supabase.auth.signInWithPassword({
-          email: form.email,
-          password: form.password
-        });
-
-      console.log("LOGIN:", loginError);
-
-      if (loginError) {
-        alert("Account created! Please log in.");
-        setPage("refLogin");
-        return;
-      }
-
-      // 🔥 SUCCESS → GO TO DASHBOARD
-      setPage("refDashboard");
+      alert("Account Created!");
 
     } catch (err) {
-      console.error("ERROR:", err);
+      console.error(err);
       alert(err.message || "Something went wrong");
-    } finally {
-      setLoading(false); // 🔥 ALWAYS RESET
     }
+
+    setLoading(false);
   };
 
   if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
-    <div style={{ padding: 20, maxWidth: 500, margin: "auto" }}>
+    <div style={container}>
+
+      <h2 style={{ marginBottom: 20 }}>Referee Registration</h2>
 
       {!settings.ref_signups_open && (
         <Card center>
-          <h2>Referee Registration Closed</h2>
+          <h3>Registration Closed</h3>
         </Card>
       )}
 
       {settings.ref_signups_open && (
         <>
-          <h2>Referee Registration</h2>
-
+          {/* PROFILE IMAGE */}
           <Card>
-            <Section title="Basic Info">
-
-              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
-              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
-              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
-              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
-              <Input type="password" placeholder="Create Password" onChange={(v)=>setForm({...form, password:v})}/>
-              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
-
-              {/* 🔥 CLEAN PROFILE UPLOAD */}
-              <div style={uploadRow}>
-                <div style={uploadLabel}>Profile Photo</div>
-
-                <button
-                  type="button"
-                  style={uploadBtn}
-                  onClick={() => fileRef.current.click()}
-                >
-                  {image ? "Photo Selected" : "Upload Photo"}
-                </button>
-
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={(e) => setImage(e.target.files[0])}
+            <div style={center}>
+              <div style={imageWrap}>
+                <img
+                  src={preview || "/default-profile.png"}
+                  alt="preview"
+                  style={profileImg}
                 />
               </div>
 
-            </Section>
+              <label style={uploadBtn}>
+                Upload Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  hidden
+                />
+              </label>
+            </div>
           </Card>
 
+          {/* BASIC INFO */}
           <Card>
-            <Section title="Experience">
-              <textarea
-                placeholder="Describe experience"
-                onChange={(e)=>setForm({...form, experience:e.target.value})}
-                style={textareaStyle}
-              />
-            </Section>
+            <Input placeholder="First Name" required onChange={(v)=>setForm({...form, firstName:v})}/>
+            <Input placeholder="Last Name" required onChange={(v)=>setForm({...form, lastName:v})}/>
+            <Input placeholder="Phone" required onChange={(v)=>setForm({...form, phone:v})}/>
+            <Input placeholder="Email" required onChange={(v)=>setForm({...form, email:v})}/>
+            <Input placeholder="Password" type="password" required onChange={(v)=>setForm({...form, password:v})}/>
+            <Input placeholder="Age" type="number" required onChange={(v)=>setForm({...form, age:v})}/>
           </Card>
 
+          {/* EXPERIENCE */}
           <Card>
-            <Section title="Availability">
-              <textarea
-                placeholder="Days / times available"
-                onChange={(e)=>setForm({...form, availability:e.target.value})}
-                style={textareaStyle}
-              />
-            </Section>
+            <textarea
+              placeholder="Experience"
+              onChange={(e)=>setForm({...form, experience:e.target.value})}
+              style={textarea}
+            />
+          </Card>
+
+          {/* AVAILABILITY */}
+          <Card>
+            <textarea
+              placeholder="Availability"
+              onChange={(e)=>setForm({...form, availability:e.target.value})}
+              style={textarea}
+            />
+          </Card>
+
+          {/* NOTES */}
+          <Card>
+            <textarea
+              placeholder="Notes"
+              onChange={(e)=>setForm({...form, notes:e.target.value})}
+              style={textarea}
+            />
           </Card>
 
           <button onClick={handleSubmit} style={submitBtn}>
-            {loading ? "Creating Account..." : "Register"}
+            {loading ? "Creating..." : "Create Account"}
           </button>
         </>
       )}
+
     </div>
   );
 }
 
-/* COMPONENTS */
+/* ================= UI ================= */
 
 function Card({ children, center }) {
   return (
@@ -233,21 +199,10 @@ function Card({ children, center }) {
       borderRadius: 16,
       padding: 20,
       marginBottom: 15,
-      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-      textAlign: center ? "center" : "left"
+      textAlign: center ? "center" : "left",
+      boxShadow: "0 6px 20px rgba(0,0,0,0.05)"
     }}>
       {children}
-    </div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <div>
-      <div style={{ fontWeight: 600, marginBottom: 12 }}>{title}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {children}
-      </div>
     </div>
   );
 }
@@ -258,29 +213,60 @@ function Input({ placeholder, onChange, type="text" }) {
       type={type}
       placeholder={placeholder}
       onChange={(e)=>onChange(e.target.value)}
-      style={inputStyle}
+      style={input}
     />
   );
 }
 
-/* STYLES */
+/* ================= STYLES ================= */
 
-const inputStyle = {
-  width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #e2e8f0",
-  boxSizing: "border-box"
+const container = {
+  padding: 20,
+  maxWidth: 500,
+  margin: "auto"
 };
 
-const textareaStyle = {
+const center = {
+  textAlign: "center"
+};
+
+const imageWrap = {
+  marginBottom: 10
+};
+
+const profileImg = {
+  width: 100,
+  height: 100,
+  borderRadius: "50%",
+  objectFit: "cover"
+};
+
+const uploadBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  padding: "8px 14px",
+  borderRadius: 8,
+  cursor: "pointer",
+  display: "inline-block"
+};
+
+const input = {
   width: "100%",
-  minHeight: 100,
   padding: 12,
   borderRadius: 10,
-  border: "1px solid #e2e8f0",
-  boxSizing: "border-box",
-  resize: "vertical"
+  border: "1px solid #e5e7eb",
+  marginBottom: 10,
+  fontSize: 16
+};
+
+const textarea = {
+  width: "100%",
+  minHeight: 80,
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #e5e7eb",
+  fontSize: 16,
+  boxSizing: "border-box"
 };
 
 const submitBtn = {
@@ -290,24 +276,5 @@ const submitBtn = {
   border: "none",
   background: "#16a34a",
   color: "#fff",
-  fontWeight: 600,
-  marginTop: 10
-};
-
-const uploadRow = {
-  marginTop: 10
-};
-
-const uploadLabel = {
-  fontSize: 13,
-  color: "#374151"
-};
-
-const uploadBtn = {
-  marginTop: 6,
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  background: "#f8fafc",
-  cursor: "pointer"
+  fontWeight: 600
 };
