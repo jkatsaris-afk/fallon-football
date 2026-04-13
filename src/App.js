@@ -47,7 +47,6 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e) => {
-      // 🔥 ONLY ALLOW ON HOME URL
       if (window.location.pathname !== "/") return;
 
       e.preventDefault();
@@ -59,7 +58,6 @@ export default function App() {
     const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
     const isStandalone = window.navigator.standalone;
 
-    // 🔥 ONLY SHOW ON HOME URL
     if (isIOS && !isStandalone && window.location.pathname === "/") {
       setTimeout(() => {
         setShowIOSInstall(true);
@@ -108,24 +106,28 @@ export default function App() {
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
 
+    // 🔥 FIRST: PUBLIC ROUTES (FIX)
+    if (path === "/") return setPage("home");
+
+    if (path.includes("/signup") && !path.includes("coach") && !path.includes("ref"))
+      return setPage("signup");
+
+    if (path.includes("/coach-signup")) return setPage("coachSignup");
+    if (path.includes("/ref-signup")) return setPage("refSignup");
+
+    if (path.includes("/login")) return setPage("loginSelect");
+
+    // 🔥 ADMIN
     if (path.includes("/admin")) {
       checkAdmin();
       return;
     }
 
-    if (
-      (path === "/ref" || path.startsWith("/ref")) &&
-      !path.includes("ref-signup") &&
-      !path.includes("ref-login")
-    ) {
+    // 🔥 REF PROTECTED ROUTES ONLY
+    if (path === "/ref" || path.startsWith("/ref/")) {
       checkRef();
       return;
     }
-
-    if (path.includes("/signup")) return setPage("signupSelect");
-    if (path.includes("/coach-signup")) return setPage("coachSignup");
-    if (path.includes("/ref-signup")) return setPage("refSignup");
-    if (path.includes("/login")) return setPage("loginSelect");
 
   }, []);
 
@@ -187,7 +189,7 @@ export default function App() {
 
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
-    if (page === "signupSelect") window.history.pushState({}, "", "/signup");
+    if (page === "signup") window.history.pushState({}, "", "/signup");
     if (page === "coachSignup") window.history.pushState({}, "", "/coach-signup");
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
     if (page === "loginSelect") window.history.pushState({}, "", "/login");
@@ -205,28 +207,24 @@ export default function App() {
 
   return (
     <>
-      {/* 🔥 ANDROID INSTALL */}
       {deferredPrompt && isHomePage && (
         <button style={installBtn} onClick={installApp}>
           Install App
         </button>
       )}
 
-      {/* 🔥 iOS INSTALL */}
       {showIOSInstall && isHomePage &&
         createPortal(
           <IOSInstallModal onClose={() => setShowIOSInstall(false)} />,
           document.body
         )}
 
-      {/* ACCESS DENIED */}
       {accessDenied &&
         createPortal(
           <AccessDeniedModal onClose={() => setAccessDenied(false)} />,
           document.body
         )}
 
-      {/* ADMIN */}
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
       {page === "dashboard" && (
@@ -235,7 +233,6 @@ export default function App() {
         </AdminLayout>
       )}
 
-      {/* REF */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -247,7 +244,6 @@ export default function App() {
         </RefLayout>
       )}
 
-      {/* PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
