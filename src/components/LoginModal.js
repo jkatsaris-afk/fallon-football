@@ -1,11 +1,20 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
+import logo from "../resources/logo.png";
 
 export default function LoginModal({ setPage }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const login = async () => {
+    if (!email || !password) {
+      alert("Enter email and password");
+      return;
+    }
+
+    setLoading(true);
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -13,6 +22,7 @@ export default function LoginModal({ setPage }) {
 
     if (error) {
       alert(error.message);
+      setLoading(false);
       return;
     }
 
@@ -25,50 +35,100 @@ export default function LoginModal({ setPage }) {
 
     if (!userData?.is_admin) {
       alert("You do not have admin access");
+      setLoading(false);
       return;
     }
 
-    // ✅ SUCCESS
     setPage("dashboard");
+    setLoading(false);
   };
 
   return (
-    <div style={{ padding: 40, textAlign: "center" }}>
-      <h2>Admin Login</h2>
+    <div style={container}>
 
-      <input
-        placeholder="Email"
-        onChange={(e) => setEmail(e.target.value)}
-        style={input}
-      />
+      <div style={card}>
 
-      <input
-        type="password"
-        placeholder="Password"
-        onChange={(e) => setPassword(e.target.value)}
-        style={input}
-      />
+        <img src={logo} alt="logo" style={logoStyle} />
 
-      <button onClick={login} style={btn}>
-        Login
-      </button>
+        <h2 style={{ marginBottom: 10 }}>Admin Login</h2>
+
+        <p style={subText}>
+          Fallon Football Admin Access
+        </p>
+
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={input}
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={input}
+        />
+
+        <button onClick={login} style={btn}>
+          {loading ? "Signing In..." : "Login"}
+        </button>
+
+      </div>
+
     </div>
   );
 }
 
+/* 🔥 STYLES */
+
+const container = {
+  height: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#f8fafc"
+};
+
+const card = {
+  width: 340,
+  background: "#fff",
+  padding: 30,
+  borderRadius: 16,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+  textAlign: "center"
+};
+
+const logoStyle = {
+  width: 60,
+  marginBottom: 15
+};
+
+const subText = {
+  fontSize: 13,
+  color: "#64748b",
+  marginBottom: 20
+};
+
 const input = {
-  display: "block",
   width: "100%",
-  maxWidth: 300,
-  margin: "10px auto",
-  padding: 10
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #e2e8f0",
+  marginBottom: 12,
+  boxSizing: "border-box"
 };
 
 const btn = {
-  padding: 10,
-  marginTop: 10,
+  width: "100%",
+  padding: 14,
+  borderRadius: 12,
+  border: "none",
   background: "#16a34a",
   color: "#fff",
-  border: "none",
-  borderRadius: 6
+  fontWeight: 600,
+  cursor: "pointer",
+  marginTop: 10
 };
