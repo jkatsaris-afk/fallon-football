@@ -21,20 +21,6 @@ export default function UserManagement() {
       .includes(search.toLowerCase())
   );
 
-  // 🔥 UPDATE FIELD
-  const updateField = async (field, value) => {
-    await supabase
-      .from("users")
-      .update({ [field]: value })
-      .eq("id", selectedUser.id);
-
-    setSelectedUser(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // 🔥 TOGGLE ROLE
   const toggleRole = async (field, value) => {
     await supabase
       .from("users")
@@ -49,7 +35,7 @@ export default function UserManagement() {
 
   const resetPassword = async () => {
     await supabase.auth.resetPasswordForEmail(selectedUser.email);
-    alert("Reset email sent");
+    alert("Password reset email sent");
   };
 
   // 🔥 DETAIL VIEW
@@ -62,27 +48,8 @@ export default function UserManagement() {
           {selectedUser.first_name} {selectedUser.last_name}
         </h2>
 
-        <Input
-          label="First Name"
-          value={selectedUser.first_name || ""}
-          onChange={(v) => updateField("first_name", v)}
-        />
-
-        <Input
-          label="Last Name"
-          value={selectedUser.last_name || ""}
-          onChange={(v) => updateField("last_name", v)}
-        />
-
-        <Input
-          label="Username"
-          value={selectedUser.username || ""}
-          onChange={(v) => updateField("username", v)}
-        />
-
-        <div style={email}>
-          {selectedUser.email}
-        </div>
+        <div style={info}>Email: {selectedUser.email}</div>
+        <div style={info}>Phone: {selectedUser.phone || "—"}</div>
 
         <h4 style={{ marginTop: 20 }}>Roles</h4>
 
@@ -140,7 +107,7 @@ export default function UserManagement() {
               {user.first_name} {user.last_name}
             </div>
 
-            <div style={{ fontSize: 12, color: "#64748b" }}>
+            <div style={sub}>
               {user.email}
             </div>
           </div>
@@ -150,20 +117,7 @@ export default function UserManagement() {
   );
 }
 
-/* COMPONENTS */
-
-function Input({ label, value, onChange }) {
-  return (
-    <div style={{ marginTop: 10 }}>
-      <div style={labelStyle}>{label}</div>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={input}
-      />
-    </div>
-  );
-}
+/* COMPONENT */
 
 function RoleCheck({ label, value, onChange }) {
   return (
@@ -196,22 +150,14 @@ const userRow = {
   boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
 };
 
-const input = {
-  width: "100%",
-  padding: 10,
-  borderRadius: 8,
-  border: "1px solid #ddd"
-};
-
-const labelStyle = {
+const sub = {
   fontSize: 12,
   color: "#64748b"
 };
 
-const email = {
-  marginTop: 10,
-  fontSize: 13,
-  color: "#64748b"
+const info = {
+  marginTop: 5,
+  fontSize: 14
 };
 
 const checkRow = {
