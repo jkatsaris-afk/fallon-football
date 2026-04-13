@@ -121,6 +121,8 @@ export default function RefTime() {
   };
 
   const totalPay = checkins.reduce((sum, c) => sum + (c.pay || 0), 0);
+  const gamesReffed = checkins.length;
+  const assignedGames = Object.values(grouped).flat().length;
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
@@ -128,9 +130,24 @@ export default function RefTime() {
     <div style={container}>
       <h2>Ref Time</h2>
 
-      {/* 💰 PAY */}
-      <div style={payBox}>
-        Total Earnings: <strong>${totalPay}</strong>
+      {/* 🔥 DASHBOARD TILES */}
+      <div style={tileGrid}>
+
+        <div style={tileBox}>
+          <div style={tileLabel}>Earnings</div>
+          <div style={tileValue}>${totalPay}</div>
+        </div>
+
+        <div style={tileBox}>
+          <div style={tileLabel}>Games Reffed</div>
+          <div style={tileValue}>{gamesReffed}</div>
+        </div>
+
+        <div style={tileBox}>
+          <div style={tileLabel}>Assigned</div>
+          <div style={tileValue}>{assignedGames}</div>
+        </div>
+
       </div>
 
       {/* 📅 DATES */}
@@ -141,7 +158,6 @@ export default function RefTime() {
           return (
             <div key={date} style={{ marginBottom: 15 }}>
 
-              {/* DATE HEADER */}
               <div style={dateHeader} onClick={() => toggleDate(date)}>
                 {date}
                 <span style={{ float: "right" }}>
@@ -149,7 +165,6 @@ export default function RefTime() {
                 </span>
               </div>
 
-              {/* GAMES */}
               {isOpen &&
                 grouped[date].map((game) => {
                   const checked = checkins.find(
@@ -159,47 +174,37 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
-                      {/* TEAMS */}
                       <div style={teamsRow}>
 
-                        {/* HOME */}
                         <div style={teamSide}>
                           <div style={label}>HOME</div>
-
                           {getLogo(game.team) && (
                             <img src={getLogo(game.team)} style={logo} />
                           )}
-
                           <div>{game.team}</div>
                         </div>
 
                         <div style={vs}>vs</div>
 
-                        {/* AWAY */}
                         <div style={teamSide}>
                           <div style={label}>AWAY</div>
-
                           {getLogo(game.opponent) && (
                             <img src={getLogo(game.opponent)} style={logo} />
                           )}
-
                           <div>{game.opponent}</div>
                         </div>
 
                       </div>
 
-                      {/* 🔥 TIME CENTERED */}
                       <div style={timeStyle}>
                         {game.event_time}
                       </div>
 
-                      {/* 🔥 DIVISION + FIELD */}
                       <div style={metaRow}>
                         <div>Division: {game.division}</div>
                         <div>Field: {game.field}</div>
                       </div>
 
-                      {/* 🔥 CHECK IN CENTERED */}
                       <div style={checkInWrap}>
                         {checked ? (
                           <span style={checkedBadge}>
@@ -227,6 +232,31 @@ export default function RefTime() {
 
 const container = { padding: 20 };
 
+const tileGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 10,
+  marginTop: 10
+};
+
+const tileBox = {
+  background: "#fff",
+  padding: 12,
+  borderRadius: 12,
+  textAlign: "center",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
+};
+
+const tileLabel = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+const tileValue = {
+  fontSize: 18,
+  fontWeight: 700
+};
+
 const card = {
   background: "#fff",
   padding: 15,
@@ -237,7 +267,6 @@ const card = {
 
 const dateHeader = {
   fontWeight: 700,
-  fontSize: 16,
   padding: 10,
   background: "#f1f5f9",
   borderRadius: 10,
@@ -260,8 +289,7 @@ const teamSide = {
 const logo = {
   width: 40,
   height: 40,
-  objectFit: "contain",
-  marginBottom: 4
+  objectFit: "contain"
 };
 
 const label = {
@@ -277,8 +305,7 @@ const timeStyle = {
   textAlign: "center",
   fontSize: 18,
   fontWeight: 700,
-  marginTop: 10,
-  marginBottom: 6
+  marginTop: 10
 };
 
 const metaRow = {
@@ -299,19 +326,10 @@ const btn = {
   borderRadius: 8,
   border: "none",
   background: "#16a34a",
-  color: "#fff",
-  cursor: "pointer"
+  color: "#fff"
 };
 
 const checkedBadge = {
   color: "#16a34a",
   fontWeight: 600
-};
-
-const payBox = {
-  background: "#f0fdf4",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #bbf7d0",
-  color: "#166534"
 };
