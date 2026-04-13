@@ -43,10 +43,7 @@ export default function RefSignUpPage({ setPage }) {
       .from("ref-avatars")
       .upload(filePath, file);
 
-    if (error) {
-      console.error(error);
-      return null;
-    }
+    if (error) return null;
 
     const { data } = supabase.storage
       .from("ref-avatars")
@@ -73,7 +70,6 @@ export default function RefSignUpPage({ setPage }) {
 
     setLoading(true);
 
-    // 🔥 CREATE USER
     const { data: authData, error: authError } =
       await supabase.auth.signUp({
         email: form.email,
@@ -88,11 +84,9 @@ export default function RefSignUpPage({ setPage }) {
 
     const userId = authData.user.id;
 
-    // 🔥 UPLOAD IMAGE
     const imageUrl = await uploadImage(image, userId);
 
-    // 🔥 SAVE REF PROFILE
-    const { error } = await supabase.from("referees").insert([
+    await supabase.from("referees").insert([
       {
         first_name: form.firstName,
         last_name: form.lastName,
@@ -108,17 +102,7 @@ export default function RefSignUpPage({ setPage }) {
       }
     ]);
 
-    if (error) {
-      console.error(error);
-      alert("Error saving referee");
-      setLoading(false);
-      return;
-    }
-
-    alert("Account created! You are now logged in.");
-
     setPage("refDashboard");
-
     setLoading(false);
   };
 
@@ -137,43 +121,45 @@ export default function RefSignUpPage({ setPage }) {
         <>
           <h2>Referee Registration</h2>
 
-          {/* 🔥 AVATAR */}
-          <div style={avatarWrapper}>
-            <div
-              style={avatarContainer}
-              onClick={() => fileRef.current.click()}
-            >
-              <img
-                src={
-                  image
-                    ? URL.createObjectURL(image)
-                    : "/default-avatar.png"
-                }
-                alt="avatar"
-                style={avatarImg}
-              />
-              <div style={avatarOverlay}>Change</div>
-            </div>
-
-            <div style={avatarLabel}>Profile Photo (required)</div>
-          </div>
-
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={(e) => setImage(e.target.files[0])}
-          />
-
           <Card>
             <Section title="Basic Info">
+
+              {/* 🔥 PROFILE IMAGE (CLEAN VERSION) */}
+              <div style={avatarSection}>
+                <img
+                  src={
+                    image
+                      ? URL.createObjectURL(image)
+                      : "/default-avatar.png"
+                  }
+                  alt="avatar"
+                  style={avatarImg}
+                />
+
+                <button
+                  type="button"
+                  style={uploadBtn}
+                  onClick={() => fileRef.current.click()}
+                >
+                  Upload Photo
+                </button>
+
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => setImage(e.target.files[0])}
+                />
+              </div>
+
               <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
               <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
               <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
               <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
               <Input type="password" placeholder="Create Password" onChange={(v)=>setForm({...form, password:v})}/>
               <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
+
             </Section>
           </Card>
 
@@ -252,8 +238,7 @@ const inputStyle = {
   padding: 12,
   borderRadius: 10,
   border: "1px solid #e2e8f0",
-  boxSizing: "border-box",
-  fontSize: 14
+  boxSizing: "border-box"
 };
 
 const textareaStyle = {
@@ -263,8 +248,7 @@ const textareaStyle = {
   borderRadius: 10,
   border: "1px solid #e2e8f0",
   boxSizing: "border-box",
-  resize: "vertical",
-  fontSize: 14
+  resize: "vertical"
 };
 
 const submitBtn = {
@@ -278,42 +262,29 @@ const submitBtn = {
   marginTop: 10
 };
 
-const avatarWrapper = {
+/* 🔥 CLEAN AVATAR */
+
+const avatarSection = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  marginBottom: 20
-};
-
-const avatarContainer = {
-  width: 110,
-  height: 110,
-  borderRadius: "50%",
-  overflow: "hidden",
-  cursor: "pointer",
-  position: "relative",
-  border: "2px solid #e2e8f0"
+  marginBottom: 10
 };
 
 const avatarImg = {
-  width: "100%",
-  height: "100%",
-  objectFit: "cover"
+  width: 90,
+  height: 90,
+  borderRadius: "50%",
+  objectFit: "cover",
+  border: "2px solid #e5e7eb"
 };
 
-const avatarOverlay = {
-  position: "absolute",
-  bottom: 0,
-  width: "100%",
-  background: "rgba(0,0,0,0.5)",
-  color: "#fff",
-  fontSize: 12,
-  textAlign: "center",
-  padding: 4
-};
-
-const avatarLabel = {
+const uploadBtn = {
   marginTop: 8,
-  fontSize: 12,
-  color: "#64748b"
+  padding: "6px 12px",
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  background: "#f8fafc",
+  cursor: "pointer",
+  fontSize: 13
 };
