@@ -6,6 +6,7 @@ export default function RefDashboard() {
   const [ref, setRef] = useState(null);
   const [games, setGames] = useState([]);
   const [headRef, setHeadRef] = useState(null);
+  const [earnings, setEarnings] = useState(0); // 🔥 NEW
 
   useEffect(() => {
     load();
@@ -29,6 +30,19 @@ export default function RefDashboard() {
     setRef(refData);
 
     if (!refData) return;
+
+    // 🔥 LOAD EARNINGS
+    const { data: checkins } = await supabase
+      .from("ref_checkins")
+      .select("pay")
+      .eq("ref_id", refData.id);
+
+    const total = (checkins || []).reduce(
+      (sum, c) => sum + (c.pay || 0),
+      0
+    );
+
+    setEarnings(total);
 
     // 🔥 LOAD ASSIGNED GAMES
     const { data: gamesData } = await supabase
@@ -72,10 +86,22 @@ export default function RefDashboard() {
 
   return (
     <div style={container}>
-
       <h2 style={{ marginBottom: 20 }}>Ref Dashboard</h2>
 
       <div style={grid}>
+
+        {/* 🔥 TOTAL EARNINGS TILE */}
+        <Tile>
+          <div style={tileTitle}>Total Earnings</div>
+
+          <div style={earningsStyle}>
+            ${earnings}
+          </div>
+
+          <div style={subText}>
+            Based on completed check-ins
+          </div>
+        </Tile>
 
         {/* 🔥 STATUS TILE */}
         <Tile>
@@ -147,11 +173,7 @@ export default function RefDashboard() {
 /* 🔥 TILE COMPONENT */
 
 function Tile({ children }) {
-  return (
-    <div style={tile}>
-      {children}
-    </div>
-  );
+  return <div style={tile}>{children}</div>;
 }
 
 /* 🔥 STYLES */
@@ -181,6 +203,12 @@ const tileTitle = {
 const subText = {
   fontSize: 13,
   color: "#64748b"
+};
+
+const earningsStyle = {
+  fontSize: 28,
+  fontWeight: 700,
+  color: "#16a34a"
 };
 
 const statusStyle = (status) => ({
