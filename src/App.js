@@ -38,19 +38,19 @@ export default function App() {
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
 
-    // 🔥 ADMIN ROUTE (LOCKED FIRST)
+    // 🔥 ADMIN ROUTE (PROTECTED)
     if (path.includes("/admin")) {
       checkAdmin();
-      return; // 🚨 STOP OTHER ROUTES
+      return;
     }
 
-    // 🔥 REF ROUTE
+    // 🔥 REF ROUTE (PROTECTED)
     if (
       (path === "/ref" || path.startsWith("/ref")) &&
       !path.includes("ref-signup") &&
       !path.includes("ref-login")
     ) {
-      setPage("refDashboard");
+      checkRef(); // ✅ NEW
       return;
     }
 
@@ -102,6 +102,47 @@ export default function App() {
 
     setPage("dashboard");
   };
+
+  // 🔥 REF CHECK (NEW)
+  const checkRef = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+
+    if (!user) {
+      setPage("refLogin");
+      return;
+    }
+
+    setPage("refDashboard");
+  };
+
+  // 🔥 AUTH LISTENER (CRITICAL)
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+
+        if (!session) {
+
+          // ADMIN → force login
+          if (page === "dashboard") {
+            setPage("adminLogin");
+            return;
+          }
+
+          // REF → force login
+          if (page.startsWith("ref")) {
+            setPage("refLogin");
+            return;
+          }
+        }
+
+      }
+    );
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [page]);
 
   // 🔥 URL SYNC
   useEffect(() => {
