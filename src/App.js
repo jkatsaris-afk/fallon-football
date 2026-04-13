@@ -48,7 +48,7 @@ export default function App() {
 
     if (path.includes("/login")) setPage("loginSelect");
 
-    // 🔥 FIXED REF ROUTING
+    // 🔥 SAFE REF ROUTING
     if (
       (path === "/ref" || path.startsWith("/ref")) &&
       !path.includes("ref-signup") &&
@@ -58,6 +58,21 @@ export default function App() {
     }
 
   }, []);
+
+  // 🔥 NEW: SYNC URL WITH PAGE STATE
+  useEffect(() => {
+    if (page === "home") window.history.pushState({}, "", "/");
+    if (page === "signupSelect") window.history.pushState({}, "", "/signup");
+    if (page === "coachSignup") window.history.pushState({}, "", "/coach-signup");
+    if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
+    if (page === "loginSelect") window.history.pushState({}, "", "/login");
+
+    if (page === "refDashboard") window.history.pushState({}, "", "/ref");
+    if (page === "refSchedule") window.history.pushState({}, "", "/ref/schedule");
+    if (page === "refTime") window.history.pushState({}, "", "/ref/time");
+    if (page === "refProfile") window.history.pushState({}, "", "/ref/profile");
+
+  }, [page]);
 
   const checkAdmin = async () => {
     const { data } = await supabase.auth.getUser();
@@ -90,7 +105,7 @@ export default function App() {
       {/* 🔥 REF APP */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
-        page !== "refSignup" && ( // 🔥 IMPORTANT FIX
+        page !== "refSignup" && (
         <RefLayout page={page} setPage={setPage}>
 
           {page === "refDashboard" && <RefDashboard />}
@@ -106,7 +121,7 @@ export default function App() {
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
           page === "refLogin" ||
-          page === "refSignup") && ( // 🔥 IMPORTANT FIX
+          page === "refSignup") && (
         <PublicLayout page={page} setPage={setPage}>
 
           {page === "home" && <HomePage setPage={setPage} />}
