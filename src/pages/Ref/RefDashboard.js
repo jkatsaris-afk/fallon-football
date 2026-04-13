@@ -5,6 +5,7 @@ export default function RefDashboard() {
   const [user, setUser] = useState(null);
   const [ref, setRef] = useState(null);
   const [games, setGames] = useState([]);
+  const [headRef, setHeadRef] = useState(null);
 
   useEffect(() => {
     load();
@@ -46,6 +47,25 @@ export default function RefDashboard() {
       .eq("ref_id", refData.id);
 
     setGames(gamesData || []);
+
+    // 🔥 LOAD HEAD REF
+    const { data: headData } = await supabase
+      .from("ref_head_assignment")
+      .select(`
+        *,
+        referees (
+          first_name,
+          last_name,
+          phone,
+          email
+        )
+      `)
+      .eq("season_id", refData.season_id)
+      .maybeSingle();
+
+    if (headData?.referees) {
+      setHeadRef(headData.referees);
+    }
   };
 
   if (!ref) return <div style={{ padding: 20 }}>Loading...</div>;
@@ -69,6 +89,26 @@ export default function RefDashboard() {
             <div style={subText}>
               Awaiting league approval
             </div>
+          )}
+        </Tile>
+
+        {/* 🔥 HEAD REF TILE */}
+        <Tile>
+          <div style={tileTitle}>Head Ref</div>
+
+          {!headRef && (
+            <div style={subText}>Not assigned yet</div>
+          )}
+
+          {headRef && (
+            <>
+              <div style={{ fontWeight: 600 }}>
+                {headRef.first_name} {headRef.last_name}
+              </div>
+
+              <div style={subText}>{headRef.phone}</div>
+              <div style={subText}>{headRef.email}</div>
+            </>
           )}
         </Tile>
 
