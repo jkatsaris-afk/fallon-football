@@ -2,9 +2,35 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 /* ================= LOGOS ================= */
-import {
-  teamLogos
-} from "../../pages/Admin/TeamsPage"; // adjust if needed
+import bills from "../../resources/Buffalo Bills.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
+import broncos from "../../resources/Denver Broncos.png";
+import lions from "../../resources/Detroit Lions.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
+import raiders from "../../resources/Las Vegas Raiders.png";
+import rams from "../../resources/Los Angeles Rams.png";
+import jets from "../../resources/New York Jets.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
+import steelers from "../../resources/Pittsburgh Steelers.png";
+import niners from "../../resources/San Francisco 49ers.png";
+import ravens from "../../resources/Baltimore Ravens.png";
+
+const teamLogos = {
+  bills,
+  bengals,
+  broncos,
+  lions,
+  colts,
+  chiefs,
+  raiders,
+  rams,
+  jets,
+  eagles,
+  steelers,
+  "49ers": niners,
+  ravens
+};
 
 export default function RefTime() {
   const [grouped, setGrouped] = useState({});
@@ -44,9 +70,7 @@ export default function RefTime() {
       .order("event_time", { ascending: true });
 
     const groupedData = (gamesData || []).reduce((acc, game) => {
-      if (!acc[game.event_date]) {
-        acc[game.event_date] = [];
-      }
+      if (!acc[game.event_date]) acc[game.event_date] = [];
       acc[game.event_date].push(game);
       return acc;
     }, {});
@@ -103,12 +127,7 @@ export default function RefTime() {
     loadData();
   };
 
-  /* ================= TOTAL PAY ================= */
-
-  const totalPay = checkins.reduce(
-    (sum, c) => sum + (c.pay || 0),
-    0
-  );
+  const totalPay = checkins.reduce((sum, c) => sum + (c.pay || 0), 0);
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
@@ -127,10 +146,7 @@ export default function RefTime() {
           return (
             <div key={date} style={{ marginBottom: 15 }}>
 
-              <div
-                style={dateHeader}
-                onClick={() => toggleDate(date)}
-              >
+              <div style={dateHeader} onClick={() => toggleDate(date)}>
                 {date}
                 <span style={{ float: "right" }}>
                   {isOpen ? "▲" : "▼"}
@@ -146,21 +162,14 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
-                      {/* 🔥 TEAMS WITH LOGOS */}
                       <div style={teamsRow}>
 
                         {/* HOME */}
                         <div style={teamSide}>
                           <div style={label}>HOME</div>
-
                           {getLogo(game.home_team) && (
-                            <img
-                              src={getLogo(game.home_team)}
-                              alt=""
-                              style={logo}
-                            />
+                            <img src={getLogo(game.home_team)} style={logo} />
                           )}
-
                           <div>{game.home_team}</div>
                         </div>
 
@@ -169,36 +178,23 @@ export default function RefTime() {
                         {/* AWAY */}
                         <div style={teamSide}>
                           <div style={label}>AWAY</div>
-
                           {getLogo(game.away_team) && (
-                            <img
-                              src={getLogo(game.away_team)}
-                              alt=""
-                              style={logo}
-                            />
+                            <img src={getLogo(game.away_team)} style={logo} />
                           )}
-
                           <div>{game.away_team}</div>
                         </div>
 
                       </div>
 
-                      {/* META */}
                       <div style={gameMeta}>
                         {game.event_time} • Field {game.field}
                       </div>
 
-                      {/* CHECK IN */}
                       <div style={{ marginTop: 10 }}>
                         {checked ? (
-                          <span style={checkedBadge}>
-                            ✅ Checked In
-                          </span>
+                          <span style={checkedBadge}>✅ Checked In</span>
                         ) : (
-                          <button
-                            style={btn}
-                            onClick={() => checkIn(game)}
-                          >
+                          <button style={btn} onClick={() => checkIn(game)}>
                             Check In
                           </button>
                         )}
@@ -218,78 +214,24 @@ export default function RefTime() {
 /* ================= STYLES ================= */
 
 const container = { padding: 20 };
+const card = { background:"#fff", padding:15, borderRadius:12, marginTop:8 };
+const dateHeader = { fontWeight:700, padding:10, background:"#f1f5f9", borderRadius:10, cursor:"pointer" };
 
-const card = {
-  background: "#fff",
-  padding: 15,
-  borderRadius: 12,
-  marginTop: 8,
-  boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
-};
+const teamsRow = { display:"flex", justifyContent:"space-between", alignItems:"center" };
+const teamSide = { display:"flex", flexDirection:"column", alignItems:"center", width:"40%" };
+const logo = { width:40, height:40, objectFit:"contain" };
+const label = { fontSize:10, color:"#64748b" };
+const vs = { fontWeight:700 };
 
-const dateHeader = {
-  fontWeight: 700,
-  fontSize: 16,
-  padding: 10,
-  background: "#f1f5f9",
-  borderRadius: 10,
-  cursor: "pointer"
-};
+const gameMeta = { fontSize:12, color:"#64748b" };
 
-const teamsRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 6
-};
-
-const teamSide = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  width: "40%"
-};
-
-const logo = {
-  width: 40,
-  height: 40,
-  objectFit: "contain",
-  marginBottom: 4
-};
-
-const label = {
-  fontSize: 10,
-  color: "#64748b",
-  marginBottom: 2
-};
-
-const vs = {
-  fontWeight: 700
-};
-
-const gameMeta = {
-  fontSize: 12,
-  color: "#64748b"
-};
-
-const btn = {
-  padding: "6px 10px",
-  borderRadius: 8,
-  border: "none",
-  background: "#16a34a",
-  color: "#fff",
-  cursor: "pointer"
-};
-
-const checkedBadge = {
-  color: "#16a34a",
-  fontWeight: 600
-};
+const btn = { padding:"6px 10px", borderRadius:8, background:"#16a34a", color:"#fff", border:"none" };
+const checkedBadge = { color:"#16a34a", fontWeight:600 };
 
 const payBox = {
-  background: "#f0fdf4",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #bbf7d0",
-  color: "#166534"
+  background:"#f0fdf4",
+  padding:12,
+  borderRadius:10,
+  border:"1px solid #bbf7d0",
+  color:"#166534"
 };
