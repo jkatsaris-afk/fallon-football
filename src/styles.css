@@ -543,3 +543,29 @@ body {
   padding: 20px;
   overflow-y: auto;
 }
+
+const moreGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginTop: 20
+};
+
+function MoreBtn({ label, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: 20,
+        background: "#fff",
+        borderRadius: 12,
+        textAlign: "center",
+        fontWeight: 600,
+        cursor: "pointer",
+        boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
+      }}
+    >
+      {label}
+    </div>
+  );
+}
