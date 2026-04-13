@@ -1,50 +1,64 @@
+import logo from "../resources/logo.png";
+import { Home, Calendar, Trophy, UserPlus } from "lucide-react";
+
 export default function PublicLayout({ children, page, setPage }) {
   return (
-    <div className="app">
+    <div className="app-container">
 
       {/* HEADER */}
       <div className="header">
-        <img src="/logo.png" className="logo" alt="logo" />
+        <img src={logo} className="logo" alt="logo" />
       </div>
 
-      {/* PAGE CONTENT */}
-      <div className="page-content">
+      {/* CONTENT */}
+      <div className="content">
         {children}
       </div>
 
-      {/* BOTTOM NAV */}
-      <div className="bottom-nav">
+      {/* NAV */}
+      <div className="nav">
 
-        <button
-          className={`nav-btn ${page === "home" ? "active" : ""}`}
+        <NavItem
+          icon={<Home size={22} />}
+          label="Home"
+          active={page === "home"}
           onClick={() => setPage("home")}
-        >
-          Home
-        </button>
+        />
 
-        <button
-          className={`nav-btn ${page === "schedule" ? "active" : ""}`}
+        <NavItem
+          icon={<Calendar size={22} />}
+          label="Schedule"
+          active={page === "schedule"}
           onClick={() => setPage("schedule")}
-        >
-          Schedule
-        </button>
+        />
 
-        <button
-          className={`nav-btn ${page === "scoreboard" ? "active" : ""}`}
+        <NavItem
+          icon={<Trophy size={22} />}
+          label="Scores"
+          active={page === "scoreboard"}
           onClick={() => setPage("scoreboard")}
-        >
-          Scores
-        </button>
+        />
 
-        <button
-          className={`nav-btn ${page === "signupSelect" ? "active" : ""}`}
+        <NavItem
+          icon={<UserPlus size={22} />}
+          label="Sign Up"
+          active={page === "signupSelect"}
           onClick={() => setPage("signupSelect")}
-        >
-          Sign Up
-        </button>
+        />
 
       </div>
+    </div>
+  );
+}
 
+function NavItem({ icon, label, active, onClick }) {
+  return (
+    <div
+      className={`nav-item ${active ? "active" : ""}`}
+      onClick={onClick}
+    >
+      {icon}
+      <span>{label}</span>
     </div>
   );
 }
