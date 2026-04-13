@@ -3,6 +3,7 @@ import { supabase } from "../../supabase";
 
 export default function RefTime() {
   const [games, setGames] = useState([]);
+  const [grouped, setGrouped] = useState({});
   const [checkins, setCheckins] = useState([]);
   const [ref, setRef] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,18 +29,31 @@ export default function RefTime() {
 
     setRef(refData);
 
-    // 🔥 get today's games
     const today = new Date().toISOString().split("T")[0];
 
+    // 🔥 LOAD FUTURE GAMES ONLY
     const { data: gamesData } = await supabase
       .from("schedule_master")
       .select("*")
-      .eq("event_date", today)
-      .ilike("event_type", "%game%");
+      .gte("event_date", today)
+      .ilike("event_type", "%game%")
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true });
 
     setGames(gamesData || []);
 
-    // 🔥 get existing checkins
+    // 🔥 GROUP BY DATE
+    const groupedData = (gamesData || []).reduce((acc, game) => {
+      if (!acc[game.event_date]) {
+        acc[game.event_date] = [];
+      }
+      acc[game.event_date].push(game);
+      return acc;
+    }, {});
+
+    setGrouped(groupedData);
+
+    // 🔥 LOAD CHECKINS
     const { data: checkinData } = await supabase
       .from("ref_checkins")
       .select("*")
@@ -53,7 +67,6 @@ export default function RefTime() {
   /* ================= CHECK IN ================= */
 
   const checkIn = async (game) => {
-    // prevent double check-in
     const exists = checkins.find(
       (c) => c.game_id === game.id
     );
@@ -77,7 +90,10 @@ export default function RefTime() {
 
   /* ================= TOTAL PAY ================= */
 
-  const totalPay = checkins.reduce((sum, c) => sum + (c.pay || 0), 0);
+  const totalPay = checkins.reduce(
+    (sum, c) => sum + (c.pay || 0),
+    0
+  );
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
@@ -90,40 +106,58 @@ export default function RefTime() {
         Total Earnings: <strong>${totalPay}</strong>
       </div>
 
-      {/* 🏈 GAMES */}
+      {/* 📅 GROUPED GAMES */}
       <div style={{ marginTop: 20 }}>
-        {games.map((game) => {
-          const checked = checkins.find(
-            (c) => c.game_id === game.id
-          );
+        {Object.keys(grouped).length === 0 && (
+          <div>No upcoming games</div>
+        )}
 
-          return (
-            <div key={game.id} style={card}>
-              <div style={{ fontWeight: 600 }}>
-                {game.event_time}
-              </div>
+        {Object.keys(grouped).map((date) => (
+          <div key={date} style={{ marginBottom: 20 }}>
 
-              <div>
-                Field: {game.field}
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                {checked ? (
-                  <span style={checkedBadge}>
-                    ✅ Checked In
-                  </span>
-                ) : (
-                  <button
-                    style={btn}
-                    onClick={() => checkIn(game)}
-                  >
-                    Check In
-                  </button>
-                )}
-              </div>
+            {/* DATE HEADER */}
+            <div style={dateHeader}>
+              {date}
             </div>
-          );
-        })}
+
+            {/* GAMES */}
+            {grouped[date].map((game) => {
+              const checked = checkins.find(
+                (c) => c.game_id === game.id
+              );
+
+              return (
+                <div key={game.id} style={card}>
+
+                  <div style={{ fontWeight: 600 }}>
+                    {game.home_team} vs {game.away_team}
+                  </div>
+
+                  <div style={gameMeta}>
+                    {game.event_time} • Field {game.field}
+                  </div>
+
+                  <div style={{ marginTop: 10 }}>
+                    {checked ? (
+                      <span style={checkedBadge}>
+                        ✅ Checked In
+                      </span>
+                    ) : (
+                      <button
+                        style={btn}
+                        onClick={() => checkIn(game)}
+                      >
+                        Check In
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+              );
+            })}
+
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -139,7 +173,7 @@ const card = {
   background: "#fff",
   padding: 15,
   borderRadius: 12,
-  marginBottom: 12,
+  marginBottom: 10,
   boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
 };
 
@@ -163,4 +197,15 @@ const payBox = {
   borderRadius: 10,
   border: "1px solid #bbf7d0",
   color: "#166534"
+};
+
+const dateHeader = {
+  fontWeight: 700,
+  fontSize: 16,
+  marginBottom: 10
+};
+
+const gameMeta = {
+  fontSize: 12,
+  color: "#64748b"
 };
