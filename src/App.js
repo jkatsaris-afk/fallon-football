@@ -10,13 +10,13 @@ import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 
-// 🔥 LOGIN PAGES
+// LOGIN
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
 import CoachLoginPage from "./pages/Public/CoachLoginPage";
 import RefLoginPage from "./pages/Ref/RefLogin";
 import ParentLoginPage from "./pages/Public/ParentLoginPage";
 
-// 🔥 REF APP
+// REF APP
 import RefLayout from "./layouts/RefLayout";
 import RefDashboard from "./pages/Ref/RefDashboard";
 import RefSchedule from "./pages/Ref/RefSchedule";
@@ -37,30 +37,50 @@ export default function App() {
 
   const [accessDenied, setAccessDenied] = useState(false);
 
-  // 🔥 NEW: INSTALL PROMPT STATE
+  // 🔥 INSTALL STATES
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showIOSInstall, setShowIOSInstall] = useState(false);
 
-  // 🔥 CAPTURE INSTALL EVENT
+  /* ================= INSTALL SETUP ================= */
+
   useEffect(() => {
+    // ANDROID INSTALL
     const handler = (e) => {
       e.preventDefault();
+      console.log("🔥 Install prompt captured");
       setDeferredPrompt(e);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    // iPHONE DETECTION
+    const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    const isStandalone = window.navigator.standalone;
+
+    if (isIOS && !isStandalone) {
+      setShowIOSInstall(true);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+    };
   }, []);
 
-  // 🔥 INSTALL FUNCTION
   const installApp = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      alert("Install not available yet");
+      return;
+    }
 
     deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
+    const choice = await deferredPrompt.userChoice;
+
+    console.log("User choice:", choice);
 
     setDeferredPrompt(null);
   };
+
+  /* ================= ROUTING ================= */
 
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
@@ -79,41 +99,23 @@ export default function App() {
       return;
     }
 
-    if (path.includes("/signup")) {
-      setPage("signupSelect");
-      return;
-    }
-
-    if (path.includes("/coach-signup")) {
-      setPage("coachSignup");
-      return;
-    }
-
-    if (path.includes("/ref-signup")) {
-      setPage("refSignup");
-      return;
-    }
-
-    if (path.includes("/login")) {
-      setPage("loginSelect");
-      return;
-    }
+    if (path.includes("/signup")) return setPage("signupSelect");
+    if (path.includes("/coach-signup")) return setPage("coachSignup");
+    if (path.includes("/ref-signup")) return setPage("refSignup");
+    if (path.includes("/login")) return setPage("loginSelect");
 
   }, []);
 
-  const checkAdmin = async () => {
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData?.user;
+  /* ================= AUTH ================= */
 
-    if (!user) {
-      setPage("adminLogin");
-      return;
-    }
+  const checkAdmin = async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return setPage("adminLogin");
 
     const { data: userData } = await supabase
       .from("users")
       .select("is_admin")
-      .eq("auth_id", user.id)
+      .eq("auth_id", data.user.id)
       .maybeSingle();
 
     if (!userData?.is_admin) {
@@ -126,41 +128,28 @@ export default function App() {
   };
 
   const checkRef = async () => {
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData?.user;
-
-    if (!user) {
-      setPage("refLogin");
-      return;
-    }
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return setPage("refLogin");
 
     setPage("refDashboard");
   };
 
+  /* ================= AUTH LISTENER ================= */
+
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-
+      (_, session) => {
         if (!session) {
-
-          if (page === "dashboard") {
-            setPage("adminLogin");
-            return;
-          }
-
-          if (page.startsWith("ref")) {
-            setPage("refLogin");
-            return;
-          }
+          if (page === "dashboard") setPage("adminLogin");
+          if (page.startsWith("ref")) setPage("refLogin");
         }
-
       }
     );
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    return () => listener.subscription.unsubscribe();
   }, [page]);
+
+  /* ================= URL SYNC ================= */
 
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
@@ -178,35 +167,37 @@ export default function App() {
 
   }, [page]);
 
+  /* ================= UI ================= */
+
   return (
     <>
-      {/* 🚫 ACCESS DENIED */}
+      {/* 🔥 ANDROID INSTALL BUTTON */}
+      {deferredPrompt && (
+        <button style={installBtn} onClick={installApp}>
+          Install App
+        </button>
+      )}
+
+      {/* 🔥 iPHONE POPUP */}
+      {showIOSInstall && (
+        <IOSInstallModal onClose={() => setShowIOSInstall(false)} />
+      )}
+
+      {/* ACCESS DENIED */}
       {accessDenied && (
         <AccessDeniedModal onClose={() => setAccessDenied(false)} />
       )}
 
-      {/* 🔥 INSTALL BUTTON */}
-      {deferredPrompt && (
-        <button style={installBtn} onClick={installApp}>
-          Add to Home Screen
-        </button>
-      )}
-
+      {/* ADMIN */}
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
       {page === "dashboard" && (
-        <AdminLayout
-          adminPage={adminPage}
-          setAdminPage={setAdminPage}
-          setPage={setPage}
-        >
-          <Dashboard
-            adminPage={adminPage}
-            setAdminPage={setAdminPage}
-          />
+        <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
+          <Dashboard adminPage={adminPage} setAdminPage={setAdminPage} />
         </AdminLayout>
       )}
 
+      {/* REF */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -218,13 +209,13 @@ export default function App() {
         </RefLayout>
       )}
 
+      {/* PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
           page === "refLogin" ||
           page === "refSignup") && (
         <PublicLayout page={page} setPage={setPage}>
-
           {page === "home" && <HomePage setPage={setPage} />}
           {page === "schedule" && <SchedulePage setPage={setPage} />}
           {page === "scoreboard" && <ScoreboardPage />}
@@ -239,26 +230,38 @@ export default function App() {
           {page === "signup" && <SignUpPage />}
           {page === "coachSignup" && <CoachSignUpPage />}
           {page === "refSignup" && <RefSignUpPage />}
-
         </PublicLayout>
       )}
     </>
   );
 }
 
-/* 🔥 MODAL + STYLES */
+/* ================= MODALS ================= */
+
+function IOSInstallModal({ onClose }) {
+  return (
+    <div style={overlay}>
+      <div style={modal}>
+        <h2>Install App</h2>
+        <p>Tap Share → Add to Home Screen</p>
+        <button style={btn} onClick={onClose}>Got it</button>
+      </div>
+    </div>
+  );
+}
 
 function AccessDeniedModal({ onClose }) {
   return (
     <div style={overlay}>
       <div style={modal}>
         <h2>Access Denied</h2>
-        <p>You do not have access to this area.</p>
         <button style={btn} onClick={onClose}>OK</button>
       </div>
     </div>
   );
 }
+
+/* ================= STYLES ================= */
 
 const installBtn = {
   position: "fixed",
@@ -266,28 +269,23 @@ const installBtn = {
   right: 20,
   padding: 12,
   borderRadius: 10,
-  border: "none",
   background: "#16a34a",
   color: "#fff",
-  fontWeight: 600,
-  zIndex: 999
+  border: "none"
 };
 
 const overlay = {
   position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
+  inset: 0,
   background: "rgba(0,0,0,0.4)",
   display: "flex",
-  alignItems: "center",
-  justifyContent: "center"
+  justifyContent: "center",
+  alignItems: "center"
 };
 
 const modal = {
   background: "#fff",
-  padding: 24,
+  padding: 20,
   borderRadius: 12
 };
 
