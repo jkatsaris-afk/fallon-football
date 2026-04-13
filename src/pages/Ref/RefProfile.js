@@ -1,8 +1,42 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+/* ================= 🔥 IMAGE COMPRESS ================= */
+const compressImage = (file) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.readAsDataURL(file);
+
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+
+      const MAX_WIDTH = 800;
+      const scale = MAX_WIDTH / img.width;
+
+      canvas.width = MAX_WIDTH;
+      canvas.height = img.height * scale;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(
+        (blob) => {
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.7
+      );
+    };
+  });
+};
+
 export default function RefProfile() {
-  const [user, setUser] = useState(null);
   const [ref, setRef] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -18,19 +52,17 @@ export default function RefProfile() {
     setLoading(true);
 
     const { data: authData } = await supabase.auth.getUser();
-    const currentUser = authData?.user;
+    const user = authData?.user;
 
-    if (!currentUser) {
+    if (!user) {
       setLoading(false);
       return;
     }
 
-    setUser(currentUser);
-
     const { data } = await supabase
       .from("referees")
       .select("*")
-      .eq("auth_id", currentUser.id)
+      .eq("auth_id", user.id)
       .maybeSingle();
 
     setRef(data);
@@ -43,13 +75,17 @@ export default function RefProfile() {
 
     let filePath = ref.profile_image;
 
-    // 🔥 Upload new image if selected
+    // 🔥 COMPRESS + UPLOAD IMAGE
     if (file) {
-      filePath = `${Date.now()}-${file.name}`;
+      filePath = `${Date.now()}.jpg`;
+
+      const compressedFile = await compressImage(file);
 
       const { error: uploadError } = await supabase.storage
         .from("profile-images")
-        .upload(filePath, file);
+        .upload(filePath, compressedFile, {
+          contentType: "image/jpeg"
+        });
 
       if (uploadError) {
         console.error(uploadError);
@@ -80,7 +116,7 @@ export default function RefProfile() {
     loadProfile();
   };
 
-  // 🔥 CORRECT IMAGE URL BUILDER
+  /* ================= 🔥 IMAGE URL ================= */
   const getImageUrl = () => {
     if (!ref?.profile_image) return "/default-profile.png";
 
@@ -91,30 +127,20 @@ export default function RefProfile() {
     return data.publicUrl;
   };
 
-  /* ================= SAFE RENDER ================= */
-
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
-
-  if (!ref || !ref.id) {
-    return <div style={{ padding: 20 }}>No profile found</div>;
-  }
+  if (!ref) return <div style={{ padding: 20 }}>No profile found</div>;
 
   return (
     <div style={container}>
       <h2 style={{ marginBottom: 20 }}>My Profile</h2>
 
       <div style={card}>
-
-        {/* PROFILE IMAGE */}
+        {/* IMAGE */}
         <div style={imageWrap}>
-          <img
-            src={getImageUrl()}
-            alt="profile"
-            style={profileImg}
-          />
+          <img src={getImageUrl()} alt="profile" style={profileImg} />
         </div>
 
-        {/* UPLOAD BUTTON */}
+        {/* UPLOAD */}
         {editing && (
           <div style={{ textAlign: "center", marginBottom: 15 }}>
             <label style={uploadBtn}>
@@ -127,28 +153,12 @@ export default function RefProfile() {
               />
             </label>
 
-            {file && (
-              <div style={fileName}>
-                {file.name}
-              </div>
-            )}
+            {file && <div style={fileName}>{file.name}</div>}
           </div>
         )}
 
         {/* NAME */}
-        <h3>
-          {ref.first_name} {ref.last_name}
-        </h3>
-
-        {/* STATUS */}
-        <div style={status(ref.status)}>
-          {ref.status || "pending"}
-        </div>
-
-        {/* ROLE */}
-        <div style={{ marginBottom: 10 }}>
-          {ref.role || "Assistant Ref"}
-        </div>
+        <h3>{ref.first_name} {ref.last_name}</h3>
 
         {/* EMAIL */}
         <div style={label}>Email</div>
@@ -182,34 +192,6 @@ export default function RefProfile() {
           <div>{ref.experience || "-"}</div>
         )}
 
-        {/* AVAILABILITY */}
-        <div style={label}>Availability</div>
-        {editing ? (
-          <textarea
-            value={form.availability || ""}
-            onChange={(e) =>
-              setForm({ ...form, availability: e.target.value })
-            }
-            style={textarea}
-          />
-        ) : (
-          <div>{ref.availability || "-"}</div>
-        )}
-
-        {/* NOTES */}
-        <div style={label}>Notes</div>
-        {editing ? (
-          <textarea
-            value={form.notes || ""}
-            onChange={(e) =>
-              setForm({ ...form, notes: e.target.value })
-            }
-            style={textarea}
-          />
-        ) : (
-          <div>{ref.notes || "-"}</div>
-        )}
-
         {/* BUTTONS */}
         <div style={{ marginTop: 20 }}>
           {!editing ? (
@@ -233,7 +215,6 @@ export default function RefProfile() {
             </>
           )}
         </div>
-
       </div>
     </div>
   );
@@ -311,8 +292,7 @@ const uploadBtn = {
   borderRadius: 10,
   background: "#16a34a",
   color: "#fff",
-  cursor: "pointer",
-  fontSize: 14
+  cursor: "pointer"
 };
 
 const fileName = {
@@ -320,14 +300,3 @@ const fileName = {
   fontSize: 12,
   color: "#64748b"
 };
-
-const status = (s) => ({
-  color:
-    s === "approved"
-      ? "#16a34a"
-      : s === "denied"
-      ? "#dc2626"
-      : "#f59e0b",
-  fontWeight: "600",
-  marginBottom: 10
-});
