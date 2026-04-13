@@ -48,8 +48,12 @@ export default function App() {
 
     if (path.includes("/login")) setPage("loginSelect");
 
-    // 🔥 DIRECT REF LINK
-    if (path === "/ref" || path.startsWith("/ref")) {
+    // 🔥 FIXED REF ROUTING
+    if (
+      (path === "/ref" || path.startsWith("/ref")) &&
+      !path.includes("ref-signup") &&
+      !path.includes("ref-login")
+    ) {
       setPage("refDashboard");
     }
 
@@ -84,7 +88,9 @@ export default function App() {
       )}
 
       {/* 🔥 REF APP */}
-      {page.startsWith("ref") && page !== "refLogin" && (
+      {page.startsWith("ref") &&
+        page !== "refLogin" &&
+        page !== "refSignup" && ( // 🔥 IMPORTANT FIX
         <RefLayout page={page} setPage={setPage}>
 
           {page === "refDashboard" && <RefDashboard />}
@@ -98,7 +104,9 @@ export default function App() {
       {/* 🌐 PUBLIC APP */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
-        ( !page.startsWith("ref") || page === "refLogin" ) && (  // 🔥 FIXED HERE
+        (!page.startsWith("ref") ||
+          page === "refLogin" ||
+          page === "refSignup") && ( // 🔥 IMPORTANT FIX
         <PublicLayout page={page} setPage={setPage}>
 
           {page === "home" && <HomePage setPage={setPage} />}
