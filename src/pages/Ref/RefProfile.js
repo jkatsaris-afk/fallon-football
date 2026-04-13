@@ -8,6 +8,7 @@ export default function RefProfile() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
+  const [file, setFile] = useState(null); // 🔥 NEW
 
   useEffect(() => {
     loadProfile();
@@ -35,13 +36,30 @@ export default function RefProfile() {
   };
 
   const saveProfile = async () => {
+    let fileName = ref.profile_image;
+
+    // 🔥 UPLOAD NEW IMAGE IF SELECTED
+    if (file) {
+      fileName = `${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        alert("Image upload failed");
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("referees")
       .update({
         phone: form.phone,
         experience: form.experience,
         availability: form.availability,
-        notes: form.notes
+        notes: form.notes,
+        profile_image: fileName // 🔥 SAVE IMAGE
       })
       .eq("id", ref.id);
 
@@ -51,7 +69,14 @@ export default function RefProfile() {
     }
 
     setEditing(false);
+    setFile(null);
     loadProfile();
+  };
+
+  const getImageUrl = () => {
+    if (!ref.profile_image) return "/default-profile.png";
+
+    return `${process.env.REACT_APP_SUPABASE_URL}/storage/v1/object/public/profile-images/${ref.profile_image}`;
   };
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
@@ -61,17 +86,37 @@ export default function RefProfile() {
     <div style={container}>
       <h2 style={{ marginBottom: 20 }}>My Profile</h2>
 
-      {/* PROFILE CARD */}
       <div style={card}>
 
-        {/* PROFILE IMAGE */}
+        {/* 🔥 PROFILE IMAGE */}
         <div style={imageWrap}>
           <img
-            src={ref.profile_image || "/default-profile.png"}
+            src={getImageUrl()}
             alt="profile"
             style={profileImg}
           />
         </div>
+
+        {/* 🔥 UPLOAD BUTTON (ONLY WHEN EDITING) */}
+        {editing && (
+          <div style={{ textAlign: "center", marginBottom: 15 }}>
+            <label style={uploadBtn}>
+              Change Profile Picture
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFile(e.target.files[0])}
+                hidden
+              />
+            </label>
+
+            {file && (
+              <div style={fileName}>
+                {file.name}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* NAME */}
         <h3>
@@ -161,7 +206,10 @@ export default function RefProfile() {
               </button>
               <button
                 style={cancelBtn}
-                onClick={() => setEditing(false)}
+                onClick={() => {
+                  setEditing(false);
+                  setFile(null);
+                }}
               >
                 Cancel
               </button>
@@ -176,79 +224,18 @@ export default function RefProfile() {
 
 /* ================= STYLES ================= */
 
-const container = {
-  padding: 20
-};
-
-const card = {
-  background: "#fff",
-  borderRadius: 16,
-  padding: 20,
-  boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
-  maxWidth: 500,
-  margin: "auto"
-};
-
-const imageWrap = {
-  display: "flex",
-  justifyContent: "center",
-  marginBottom: 15
-};
-
-const profileImg = {
-  width: 100,
-  height: 100,
-  borderRadius: "50%",
-  objectFit: "cover"
-};
-
-const label = {
-  fontSize: 12,
-  color: "#64748b",
-  marginTop: 12
-};
-
-const input = {
-  width: "100%",
-  padding: 10,
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  fontSize: 16
-};
-
-const textarea = {
-  width: "100%",
-  minHeight: 80,
-  padding: 10,
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  fontSize: 16
-};
-
-const btn = {
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: "none",
+const uploadBtn = {
+  display: "inline-block",
+  padding: "8px 14px",
+  borderRadius: 10,
   background: "#16a34a",
   color: "#fff",
-  marginRight: 10
+  cursor: "pointer",
+  fontSize: 14
 };
 
-const cancelBtn = {
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: "none",
-  background: "#64748b",
-  color: "#fff"
+const fileName = {
+  marginTop: 6,
+  fontSize: 12,
+  color: "#64748b"
 };
-
-const status = (s) => ({
-  color:
-    s === "approved"
-      ? "#16a34a"
-      : s === "denied"
-      ? "#dc2626"
-      : "#f59e0b",
-  fontWeight: "600",
-  marginBottom: 10
-});
