@@ -56,7 +56,9 @@ export default function App() {
     window.addEventListener("beforeinstallprompt", handler);
 
     const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-    const isStandalone = window.navigator.standalone;
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone;
 
     if (isIOS && !isStandalone && window.location.pathname === "/") {
       setTimeout(() => {
@@ -104,30 +106,45 @@ export default function App() {
   /* ================= ROUTING ================= */
 
   useEffect(() => {
-    const path = window.location.pathname.toLowerCase();
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone;
 
-    // 🔥 FIRST: PUBLIC ROUTES (FIX)
+    let path = window.location.pathname.toLowerCase();
+
+    // 🔥 PWA FIX (prevents white screen)
+    if (isStandalone && (!path || path === "" || path === "/index.html")) {
+      path = "/";
+      window.history.replaceState({}, "", "/");
+    }
+
+    /* ===== PUBLIC ROUTES FIRST ===== */
+
     if (path === "/") return setPage("home");
 
-    if (path.includes("/signup") && !path.includes("coach") && !path.includes("ref"))
-      return setPage("signup");
+    if (path === "/signup") return setPage("signup");
+    if (path === "/coach-signup") return setPage("coachSignup");
+    if (path === "/ref-signup") return setPage("refSignup");
 
-    if (path.includes("/coach-signup")) return setPage("coachSignup");
-    if (path.includes("/ref-signup")) return setPage("refSignup");
+    if (path === "/login") return setPage("loginSelect");
 
-    if (path.includes("/login")) return setPage("loginSelect");
+    /* ===== ADMIN ===== */
 
-    // 🔥 ADMIN
-    if (path.includes("/admin")) {
+    if (path.startsWith("/admin")) {
       checkAdmin();
       return;
     }
 
-    // 🔥 REF PROTECTED ROUTES ONLY
+    /* ===== REF PORTAL (PROTECTED ONLY) ===== */
+
     if (path === "/ref" || path.startsWith("/ref/")) {
       checkRef();
       return;
     }
+
+    /* ===== FALLBACK ===== */
+
+    setPage("home");
 
   }, []);
 
@@ -233,6 +250,7 @@ export default function App() {
         </AdminLayout>
       )}
 
+      {/* 🔥 REF PORTAL ONLY */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -244,6 +262,7 @@ export default function App() {
         </RefLayout>
       )}
 
+      {/* 🔥 PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
