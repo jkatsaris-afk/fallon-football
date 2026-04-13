@@ -21,7 +21,7 @@ export default function RefProfile() {
     const currentUser = authData?.user;
 
     if (!currentUser) {
-      setLoading(false); // 🔥 FIX: prevents blank screen
+      setLoading(false);
       return;
     }
 
@@ -41,17 +41,18 @@ export default function RefProfile() {
   const saveProfile = async () => {
     if (!ref) return;
 
-    let fileName = ref.profile_image;
+    let filePath = ref.profile_image;
 
-    // 🔥 upload new image if selected
+    // 🔥 Upload new image if selected
     if (file) {
-      fileName = `${Date.now()}-${file.name}`;
+      filePath = `${Date.now()}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("profile-images")
-        .upload(fileName, file);
+        .upload(filePath, file);
 
       if (uploadError) {
+        console.error(uploadError);
         alert("Image upload failed");
         return;
       }
@@ -64,11 +65,12 @@ export default function RefProfile() {
         experience: form.experience,
         availability: form.availability,
         notes: form.notes,
-        profile_image: fileName
+        profile_image: filePath
       })
       .eq("id", ref.id);
 
     if (error) {
+      console.error(error);
       alert("Failed to save");
       return;
     }
@@ -78,16 +80,18 @@ export default function RefProfile() {
     loadProfile();
   };
 
-  // 🔥 SAFE IMAGE BUILDER (NO ENV BREAK)
+  // 🔥 CORRECT IMAGE URL BUILDER
   const getImageUrl = () => {
     if (!ref?.profile_image) return "/default-profile.png";
 
-    const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"; // 🔥 PUT YOUR REAL URL
+    const { data } = supabase.storage
+      .from("profile-images")
+      .getPublicUrl(ref.profile_image);
 
-    return `${SUPABASE_URL}/storage/v1/object/public/profile-images/${ref.profile_image}`;
+    return data.publicUrl;
   };
 
-  /* ================= SAFE RENDERS ================= */
+  /* ================= SAFE RENDER ================= */
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
@@ -237,9 +241,7 @@ export default function RefProfile() {
 
 /* ================= STYLES ================= */
 
-const container = {
-  padding: 20
-};
+const container = { padding: 20 };
 
 const card = {
   background: "#fff",
