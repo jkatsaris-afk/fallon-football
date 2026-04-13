@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import fallonLogo from "../resources/logo.png";
 
 export default function AdminLayout({
@@ -15,53 +15,45 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // 🔥 DEBUG (you can remove later)
+  console.log("Current Page:", adminPage);
+
   return (
     <div style={container}>
 
       {/* DESKTOP SIDEBAR */}
       {!isMobile && (
         <div style={sidebar}>
+
           <img src={fallonLogo} alt="logo" style={{ width: 36, marginBottom: 20 }} />
 
-          <Section title="LEAGUE">
-            <NavBtn label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
-            <NavBtn label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
-            <NavBtn label="Players" active={adminPage === "players"} onClick={() => setAdminPage("players")} />
-          </Section>
+          <NavBtn label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
+          <NavBtn label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
+          <NavBtn label="Players" active={adminPage === "players"} onClick={() => setAdminPage("players")} />
+          <NavBtn label="Matchups" active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} />
+          <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
+          <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
+          <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
+          <NavBtn label="Coaches" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
+          <NavBtn label="Referees" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
+          <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
+          <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
 
-          <Section title="GAME DAY">
-            <NavBtn label="Matchups" active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} />
-            <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
-            <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
-            <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
-          </Section>
-
-          <Section title="STAFF">
-            <NavBtn label="Coaches" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
-            <NavBtn label="Referees" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
-          </Section>
-
-          <Section title="SYSTEM">
-            <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
-            <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
-          </Section>
         </div>
       )}
 
       {/* MAIN */}
       <div style={main}>
 
-        {/* TOP BAR (mobile + desktop) */}
         <div style={topBar}>
           Fallon Football Admin
         </div>
 
-        {/* CONTENT */}
         <div style={content}>
           {children}
         </div>
 
-        {/* MOBILE NAV (like your public app) */}
+        {/* MOBILE NAV */}
         {isMobile && (
           <div style={mobileNav}>
             <NavIcon label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
@@ -78,25 +70,19 @@ export default function AdminLayout({
 
 /* COMPONENTS */
 
-function Section({ title, children }) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={section}>{title}</div>
-      {children}
-    </div>
-  );
-}
-
 function NavBtn({ label, active, onClick }) {
   return (
-    <div onClick={onClick} style={{
-      padding: "10px 12px",
-      borderRadius: 8,
-      cursor: "pointer",
-      background: active ? "#16a34a" : "transparent",
-      color: active ? "#fff" : "#374151",
-      marginBottom: 4
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        padding: "10px 12px",
+        borderRadius: 8,
+        cursor: "pointer",
+        background: active ? "#16a34a" : "transparent",
+        color: active ? "#fff" : "#374151",
+        marginBottom: 4
+      }}
+    >
       {label}
     </div>
   );
@@ -104,12 +90,16 @@ function NavBtn({ label, active, onClick }) {
 
 function NavIcon({ label, active, onClick }) {
   return (
-    <div onClick={onClick} style={{
-      flex: 1,
-      textAlign: "center",
-      fontSize: 12,
-      color: active ? "#16a34a" : "#777"
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        flex: 1,
+        textAlign: "center",
+        fontSize: 12,
+        color: active ? "#16a34a" : "#777",
+        cursor: "pointer"
+      }}
+    >
       {label}
     </div>
   );
@@ -163,10 +153,4 @@ const mobileNav = {
   borderTop: "1px solid #ddd",
   display: "flex",
   alignItems: "center"
-};
-
-const section = {
-  fontSize: 12,
-  color: "#94a3b8",
-  marginBottom: 6
 };
