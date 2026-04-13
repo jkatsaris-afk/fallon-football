@@ -34,10 +34,7 @@ export default function UserManagement() {
   };
 
   const updateEmail = async (email) => {
-    // 🔥 update auth
     await supabase.auth.updateUser({ email });
-
-    // 🔥 update table
     await updateUser("email", email);
   };
 
@@ -64,73 +61,86 @@ export default function UserManagement() {
     await updateUser("avatar_url", data.publicUrl);
   };
 
-  /* 🔥 PROFILE VIEW */
+  /* ================= PROFILE VIEW ================= */
   if (selectedUser) {
     return (
-      <div>
+      <div style={page}>
 
         {/* HEADER */}
-        <div style={topBar}>
+        <div style={header}>
           <button onClick={() => setSelectedUser(null)} style={backBtn}>
-            ← Back
+            ←
           </button>
-          <div style={title}>User Profile</div>
         </div>
 
-        <div style={profile}>
+        {/* PROFILE CARD */}
+        <div style={profileCard}>
 
-          {/* AVATAR */}
           <img
             src={selectedUser.avatar_url || "/default-avatar.png"}
             style={avatar}
             alt=""
           />
 
-          <input
-            type="file"
-            onChange={(e) => uploadAvatar(e.target.files[0])}
-          />
-
-          <h2>
+          <h2 style={{ marginTop: 10 }}>
             {selectedUser.first_name} {selectedUser.last_name}
           </h2>
 
-          {/* EMAIL */}
-          <Field
-            label="Email (Username)"
-            value={selectedUser.email || ""}
-            onChange={updateEmail}
-          />
-
-          {/* PHONE */}
-          <Field
-            label="Phone"
-            value={selectedUser.phone || ""}
-            onChange={(v) => updateUser("phone", v)}
-          />
-
-          {/* ROLES */}
-          <div style={{ marginTop: 20 }}>
-            <h4>Access</h4>
-
-            <RoleToggle label="Admin" value={selectedUser.is_admin} onChange={(v)=>toggleRole("is_admin",v)} />
-            <RoleToggle label="Coach" value={selectedUser.is_coach} onChange={(v)=>toggleRole("is_coach",v)} />
-            <RoleToggle label="Parent" value={selectedUser.is_parent} onChange={(v)=>toggleRole("is_parent",v)} />
-            <RoleToggle label="Referee" value={selectedUser.is_referee} onChange={(v)=>toggleRole("is_referee",v)} />
+          <div style={email}>
+            {selectedUser.email}
           </div>
 
+          <input
+            type="file"
+            onChange={(e) => uploadAvatar(e.target.files[0])}
+            style={{ marginTop: 10 }}
+          />
+
+        </div>
+
+        {/* CONTACT */}
+        <div style={card}>
+          <Row label="Email">
+            <input
+              value={selectedUser.email || ""}
+              onChange={(e) => updateEmail(e.target.value)}
+              style={inputInline}
+            />
+          </Row>
+
+          <Row label="Phone">
+            <input
+              value={selectedUser.phone || ""}
+              onChange={(e) => updateUser("phone", e.target.value)}
+              style={inputInline}
+            />
+          </Row>
+        </div>
+
+        {/* ROLES */}
+        <div style={card}>
+          <SectionTitle title="Access" />
+
+          <RoleToggle label="Admin" value={selectedUser.is_admin} onChange={(v)=>toggleRole("is_admin",v)} />
+          <RoleToggle label="Coach" value={selectedUser.is_coach} onChange={(v)=>toggleRole("is_coach",v)} />
+          <RoleToggle label="Parent" value={selectedUser.is_parent} onChange={(v)=>toggleRole("is_parent",v)} />
+          <RoleToggle label="Referee" value={selectedUser.is_referee} onChange={(v)=>toggleRole("is_referee",v)} />
+        </div>
+
+        {/* ACTION */}
+        <div style={card}>
           <button style={resetBtn} onClick={resetPassword}>
             Send Password Reset
           </button>
-
         </div>
+
       </div>
     );
   }
 
-  /* 🔥 LIST VIEW */
+  /* ================= LIST VIEW ================= */
   return (
-    <div>
+    <div style={{ padding: 10 }}>
       <h2>User Management</h2>
 
       <input
@@ -158,17 +168,21 @@ export default function UserManagement() {
   );
 }
 
-/* 🔥 COMPONENTS */
+/* ================= COMPONENTS ================= */
 
-function Field({ label, value, onChange }) {
+function Row({ label, children }) {
   return (
-    <div style={{ marginTop: 12 }}>
-      <div style={labelStyle}>{label}</div>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={input}
-      />
+    <div style={row}>
+      <span>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function SectionTitle({ title }) {
+  return (
+    <div style={sectionTitle}>
+      {title}
     </div>
   );
 }
@@ -176,14 +190,15 @@ function Field({ label, value, onChange }) {
 function RoleToggle({ label, value, onChange }) {
   return (
     <div style={row}>
-      <div>{label}</div>
+      <span>{label}</span>
+
       <div
         onClick={() => onChange(!value)}
         style={{
           width: 50,
           height: 26,
           borderRadius: 20,
-          background: value ? "#16a34a" : "#e5e7eb",
+          background: value ? "#7c3aed" : "#e5e7eb",
           position: "relative",
           cursor: "pointer"
         }}
@@ -204,22 +219,105 @@ function RoleToggle({ label, value, onChange }) {
   );
 }
 
-/* 🔥 STYLES */
+/* ================= STYLES ================= */
 
-const topBar = { display:"flex",alignItems:"center",marginBottom:15 };
-const backBtn = { padding:"6px 10px",borderRadius:8,border:"none",background:"#e5e7eb",cursor:"pointer",marginRight:10 };
-const title = { fontWeight:600,fontSize:18 };
+const page = {
+  padding: 20,
+  background: "#f3f4f6",
+  minHeight: "100vh"
+};
 
-const profile = { textAlign:"center" };
-const avatar = { width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:10 };
+const header = {
+  marginBottom: 10
+};
 
-const searchBox = { width:"100%",padding:12,borderRadius:10,border:"1px solid #ddd" };
-const userRow = { background:"#fff",padding:12,borderRadius:10,marginBottom:8,cursor:"pointer",boxShadow:"0 4px 10px rgba(0,0,0,0.05)" };
-const sub = { fontSize:12,color:"#64748b" };
+const backBtn = {
+  background: "#fff",
+  border: "none",
+  borderRadius: 10,
+  padding: "8px 12px",
+  cursor: "pointer",
+  boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+};
 
-const input = { width:"100%",padding:10,borderRadius:8,border:"1px solid #ddd" };
-const labelStyle = { fontSize:12,color:"#64748b" };
+const profileCard = {
+  background: "#fff",
+  borderRadius: 20,
+  padding: 20,
+  textAlign: "center",
+  marginBottom: 15,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
+};
 
-const row = { display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10 };
+const avatar = {
+  width: 90,
+  height: 90,
+  borderRadius: "50%",
+  objectFit: "cover"
+};
 
-const resetBtn = { marginTop:20,padding:12,borderRadius:10,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer" };
+const email = {
+  fontSize: 13,
+  color: "#6b7280"
+};
+
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 15,
+  marginBottom: 12,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)"
+};
+
+const row = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "10px 0",
+  borderBottom: "1px solid #f1f5f9"
+};
+
+const inputInline = {
+  border: "none",
+  borderBottom: "1px solid #ddd",
+  outline: "none",
+  textAlign: "right"
+};
+
+const sectionTitle = {
+  fontSize: 12,
+  color: "#9ca3af",
+  marginBottom: 8
+};
+
+const searchBox = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #ddd"
+};
+
+const userRow = {
+  background: "#fff",
+  padding: 12,
+  borderRadius: 10,
+  marginBottom: 8,
+  cursor: "pointer",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
+};
+
+const sub = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+const resetBtn = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 10,
+  background: "#7c3aed",
+  color: "#fff",
+  border: "none",
+  fontWeight: 600,
+  cursor: "pointer"
+};
