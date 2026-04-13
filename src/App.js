@@ -35,19 +35,41 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [adminPage, setAdminPage] = useState("dashboard");
 
-  // 🔥 NEW: ACCESS DENIED STATE
   const [accessDenied, setAccessDenied] = useState(false);
+
+  // 🔥 NEW: INSTALL PROMPT STATE
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  // 🔥 CAPTURE INSTALL EVENT
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  // 🔥 INSTALL FUNCTION
+  const installApp = async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+
+    setDeferredPrompt(null);
+  };
 
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
 
-    // 🔥 ADMIN ROUTE
     if (path.includes("/admin")) {
       checkAdmin();
       return;
     }
 
-    // 🔥 REF ROUTE
     if (
       (path === "/ref" || path.startsWith("/ref")) &&
       !path.includes("ref-signup") &&
@@ -57,7 +79,6 @@ export default function App() {
       return;
     }
 
-    // 🔥 SIGNUPS
     if (path.includes("/signup")) {
       setPage("signupSelect");
       return;
@@ -73,7 +94,6 @@ export default function App() {
       return;
     }
 
-    // 🔥 LOGIN
     if (path.includes("/login")) {
       setPage("loginSelect");
       return;
@@ -81,7 +101,6 @@ export default function App() {
 
   }, []);
 
-  // 🔥 ADMIN CHECK
   const checkAdmin = async () => {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -98,7 +117,7 @@ export default function App() {
       .maybeSingle();
 
     if (!userData?.is_admin) {
-      setAccessDenied(true); // 🔥 NEW
+      setAccessDenied(true);
       setPage("home");
       return;
     }
@@ -106,7 +125,6 @@ export default function App() {
     setPage("dashboard");
   };
 
-  // 🔥 REF CHECK
   const checkRef = async () => {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -119,7 +137,6 @@ export default function App() {
     setPage("refDashboard");
   };
 
-  // 🔥 AUTH LISTENER
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -145,7 +162,6 @@ export default function App() {
     };
   }, [page]);
 
-  // 🔥 URL SYNC
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
     if (page === "signupSelect") window.history.pushState({}, "", "/signup");
@@ -164,17 +180,20 @@ export default function App() {
 
   return (
     <>
-      {/* 🚫 ACCESS DENIED MODAL */}
+      {/* 🚫 ACCESS DENIED */}
       {accessDenied && (
         <AccessDeniedModal onClose={() => setAccessDenied(false)} />
       )}
 
-      {/* 🔐 ADMIN LOGIN */}
-      {page === "adminLogin" && (
-        <LoginModal setPage={setPage} />
+      {/* 🔥 INSTALL BUTTON */}
+      {deferredPrompt && (
+        <button style={installBtn} onClick={installApp}>
+          Add to Home Screen
+        </button>
       )}
 
-      {/* 🛠 ADMIN DASHBOARD */}
+      {page === "adminLogin" && <LoginModal setPage={setPage} />}
+
       {page === "dashboard" && (
         <AdminLayout
           adminPage={adminPage}
@@ -188,7 +207,6 @@ export default function App() {
         </AdminLayout>
       )}
 
-      {/* 🔥 REF APP */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -200,7 +218,6 @@ export default function App() {
         </RefLayout>
       )}
 
-      {/* 🌐 PUBLIC APP */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
@@ -229,27 +246,32 @@ export default function App() {
   );
 }
 
-/* 🔥 ACCESS DENIED MODAL */
+/* 🔥 MODAL + STYLES */
 
 function AccessDeniedModal({ onClose }) {
   return (
     <div style={overlay}>
       <div style={modal}>
-        <h2 style={{ marginBottom: 10 }}>Access Denied</h2>
-
-        <p style={{ color: "#64748b", marginBottom: 20 }}>
-          You do not have access to this area.
-        </p>
-
-        <button style={btn} onClick={onClose}>
-          OK
-        </button>
+        <h2>Access Denied</h2>
+        <p>You do not have access to this area.</p>
+        <button style={btn} onClick={onClose}>OK</button>
       </div>
     </div>
   );
 }
 
-/* 🔥 STYLES */
+const installBtn = {
+  position: "fixed",
+  bottom: 20,
+  right: 20,
+  padding: 12,
+  borderRadius: 10,
+  border: "none",
+  background: "#16a34a",
+  color: "#fff",
+  fontWeight: 600,
+  zIndex: 999
+};
 
 const overlay = {
   position: "fixed",
@@ -260,24 +282,19 @@ const overlay = {
   background: "rgba(0,0,0,0.4)",
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  zIndex: 1000
+  justifyContent: "center"
 };
 
 const modal = {
   background: "#fff",
   padding: 24,
-  borderRadius: 12,
-  width: 320,
-  textAlign: "center",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
+  borderRadius: 12
 };
 
 const btn = {
-  padding: "10px 16px",
-  borderRadius: 8,
-  border: "none",
+  padding: 10,
   background: "#16a34a",
   color: "#fff",
-  cursor: "pointer"
+  border: "none",
+  borderRadius: 8
 };
