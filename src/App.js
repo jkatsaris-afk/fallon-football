@@ -10,11 +10,17 @@ import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 
+// 🔥 NEW LOGIN PAGES
+import LoginSelectPage from "./pages/Public/LoginSelectPage";
+import CoachLoginPage from "./pages/Public/CoachLoginPage";
+import RefLoginPage from "./pages/Public/RefLoginPage";
+import ParentLoginPage from "./pages/Public/ParentLoginPage";
+
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
 
 import PublicLayout from "./layouts/PublicLayout";
-import AdminLayout from "./layouts/AdminLayout"; // ✅ keep
+import AdminLayout from "./layouts/AdminLayout";
 
 import { supabase } from "./supabase";
 
@@ -32,6 +38,10 @@ export default function App() {
     if (path.includes("/signup")) setPage("signupSelect");
     if (path.includes("/coach-signup")) setPage("coachSignup");
     if (path.includes("/ref-signup")) setPage("refSignup");
+
+    // 🔥 OPTIONAL: allow /login URL
+    if (path.includes("/login")) setPage("loginSelect");
+
   }, []);
 
   const checkAdmin = async () => {
@@ -52,8 +62,8 @@ export default function App() {
       {/* 🛠 ADMIN DASHBOARD */}
       {page === "dashboard" && (
         <AdminLayout
-          adminPage={adminPage}          // ✅ FIX
-          setAdminPage={setAdminPage}    // ✅ FIX
+          adminPage={adminPage}
+          setAdminPage={setAdminPage}
         >
           <Dashboard
             adminPage={adminPage}
@@ -78,14 +88,22 @@ export default function App() {
             <TeamSchedulesPage setPage={setPage} />
           )}
 
+          {/* 🔥 LOGIN FLOW */}
+          {page === "loginSelect" && (
+            <LoginSelectPage setPage={setPage} />
+          )}
+
+          {page === "coachLogin" && <CoachLoginPage />}
+          {page === "refLogin" && <RefLoginPage />}
+          {page === "parentLogin" && <ParentLoginPage />}
+
+          {/* SIGNUPS */}
           {page === "signupSelect" && (
             <SignUpSelectPage setPage={setPage} />
           )}
 
           {page === "signup" && <SignUpPage />}
-
           {page === "coachSignup" && <CoachSignUpPage />}
-
           {page === "refSignup" && <RefSignUpPage />}
 
         </PublicLayout>
