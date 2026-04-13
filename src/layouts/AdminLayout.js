@@ -38,7 +38,14 @@ export default function AdminLayout({
           <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
           <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
           <NavBtn label="Coaches" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
-          <NavBtn label="Referees" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
+
+          {/* 🔥 FIXED LABEL */}
+          <NavBtn
+            label="Referee Manager"
+            active={adminPage === "referees"}
+            onClick={() => setAdminPage("referees")}
+          />
+
           <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
           <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
         </div>
