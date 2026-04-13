@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../supabase";
 
 export default function RefSignUpPage({ setPage }) {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState(null);
+
+  const fileRef = useRef();
 
   const [form, setForm] = useState({
     firstName: "",
@@ -58,7 +60,7 @@ export default function RefSignUpPage({ setPage }) {
   const handleSubmit = async () => {
     if (!settings) return alert("Settings not loaded");
 
-    // 🔥 REQUIRED CHECK
+    // 🔥 REQUIRED FIELDS
     if (
       !form.firstName ||
       !form.lastName ||
@@ -90,8 +92,8 @@ export default function RefSignUpPage({ setPage }) {
     // 🔥 UPLOAD IMAGE
     const imageUrl = await uploadImage(image, userId);
 
-    // 🔥 SAVE REF
-    await supabase.from("referees").insert([
+    // 🔥 SAVE REF PROFILE
+    const { error } = await supabase.from("referees").insert([
       {
         first_name: form.firstName,
         last_name: form.lastName,
@@ -107,8 +109,19 @@ export default function RefSignUpPage({ setPage }) {
       }
     ]);
 
-    // 🔥 REDIRECT
+    if (error) {
+      console.error(error);
+      alert("Error saving referee");
+      setLoading(false);
+      return;
+    }
+
+    alert("Account created! You are now logged in.");
+
+    // 🔥 GO TO REF DASHBOARD
     setPage("refDashboard");
+
+    setLoading(false);
   };
 
   if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
@@ -126,23 +139,43 @@ export default function RefSignUpPage({ setPage }) {
         <>
           <h2>Referee Registration</h2>
 
+          {/* 🔥 PROFILE IMAGE */}
+          <div style={avatarContainer} onClick={() => fileRef.current.click()}>
+            <img
+              src={
+                image
+                  ? URL.createObjectURL(image)
+                  : "/default-avatar.png"
+              }
+              alt="avatar"
+              style={avatarImg}
+            />
+            <div style={avatarOverlay}>Upload</div>
+          </div>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => setImage(e.target.files[0])}
+          />
+
           <Card>
             <Section title="Basic Info">
-
-              <Input required placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
-              <Input required placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
-              <Input required placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
-              <Input required placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
-              <Input required type="password" placeholder="Password" onChange={(v)=>setForm({...form, password:v})}/>
-              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
-
-              {/* 🔥 PROFILE IMAGE */}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImage(e.target.files[0])}
+              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+              
+              {/* 🔥 PASSWORD */}
+              <Input
+                type="password"
+                placeholder="Create Password"
+                onChange={(v)=>setForm({...form, password:v})}
               />
 
+              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
             </Section>
           </Card>
 
@@ -167,7 +200,7 @@ export default function RefSignUpPage({ setPage }) {
           </Card>
 
           <button onClick={handleSubmit} style={submitBtn}>
-            {loading ? "Creating Account..." : "Register & Login"}
+            {loading ? "Creating Account..." : "Register"}
           </button>
         </>
       )}
@@ -239,4 +272,31 @@ const submitBtn = {
   color: "#fff",
   fontWeight: 600,
   marginTop: 10
+};
+
+const avatarContainer = {
+  width: 100,
+  height: 100,
+  borderRadius: "50%",
+  overflow: "hidden",
+  cursor: "pointer",
+  margin: "10px auto",
+  position: "relative"
+};
+
+const avatarImg = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover"
+};
+
+const avatarOverlay = {
+  position: "absolute",
+  bottom: 0,
+  width: "100%",
+  background: "rgba(0,0,0,0.5)",
+  color: "#fff",
+  fontSize: 12,
+  textAlign: "center",
+  padding: 4
 };
