@@ -8,15 +8,15 @@ import SignUpPage from "./pages/Public/SignUpPage";
 import CoachSignUpPage from "./pages/Public/CoachSignUpPage";
 import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
-
-// ✅ NEW IMPORT
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
 
+import PublicLayout from "./layouts/PublicLayout";
+import AdminLayout from "./layouts/AdminLayout"; // ✅ ADDED
+
 import { supabase } from "./supabase";
-import logo from "./resources/logo.png";
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -47,88 +47,45 @@ export default function App() {
   return (
     <>
       {/* 🔐 ADMIN LOGIN */}
-      {page === "adminLogin" && (
-        <LoginModal />
-      )}
+      {page === "adminLogin" && <LoginModal />}
 
       {/* 🛠 ADMIN DASHBOARD */}
       {page === "dashboard" && (
-        <div
-          style={{
-            width: "100vw",
-            height: "100vh",
-            background: "#f8fafc",
-          }}
-        >
+        <AdminLayout> {/* ✅ CHANGED */}
           <Dashboard
             adminPage={adminPage}
             setAdminPage={setAdminPage}
           />
-        </div>
+        </AdminLayout>
       )}
 
       {/* 🌐 PUBLIC APP */}
       {page !== "dashboard" && page !== "adminLogin" && (
-        <div className="app">
+        <PublicLayout page={page} setPage={setPage}>
 
-          {/* HEADER */}
-          <div className="header">
-            <img src={logo} className="logo" alt="logo" />
-          </div>
-
-          {/* PUBLIC PAGES */}
           {page === "home" && <HomePage setPage={setPage} />}
 
-          {/* ✅ FIXED */}
-          {page === "schedule" && <SchedulePage setPage={setPage} />}
+          {page === "schedule" && (
+            <SchedulePage setPage={setPage} />
+          )}
 
           {page === "scoreboard" && <ScoreboardPage />}
 
-          {/* ✅ NEW PAGE */}
           {page === "teamSchedules" && (
             <TeamSchedulesPage setPage={setPage} />
           )}
 
-          {/* SIGNUPS */}
-          {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />}
+          {page === "signupSelect" && (
+            <SignUpSelectPage setPage={setPage} />
+          )}
+
           {page === "signup" && <SignUpPage />}
+
           {page === "coachSignup" && <CoachSignUpPage />}
+
           {page === "refSignup" && <RefSignUpPage />}
 
-          {/* NAV */}
-          <div className="bottom-nav">
-
-            <button
-              className={`nav-btn ${page === "home" ? "active" : ""}`}
-              onClick={() => setPage("home")}
-            >
-              Home
-            </button>
-
-            <button
-              className={`nav-btn ${page === "schedule" ? "active" : ""}`}
-              onClick={() => setPage("schedule")}
-            >
-              Schedule
-            </button>
-
-            <button
-              className={`nav-btn ${page === "scoreboard" ? "active" : ""}`}
-              onClick={() => setPage("scoreboard")}
-            >
-              Scores
-            </button>
-
-            <button
-              className={`nav-btn ${page === "signupSelect" ? "active" : ""}`}
-              onClick={() => setPage("signupSelect")}
-            >
-              Sign Up
-            </button>
-
-          </div>
-
-        </div>
+        </PublicLayout>
       )}
     </>
   );
