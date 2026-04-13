@@ -1,118 +1,74 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
-import logo from "../resources/logo.png";
 
-export default function LoginModal({ onClose }) {
+export default function LoginModal({ setPage }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setLoading(true);
-    setError("");
-
-    const { error } = await supabase.auth.signInWithPassword({
+  const login = async () => {
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
 
     if (error) {
-      setError("Invalid login");
-      setLoading(false);
+      alert(error.message);
       return;
     }
 
-    // ✅ redirect to admin
-    window.location.href = "/admin";
+    // 🔥 CHECK ADMIN ACCESS
+    const { data: userData } = await supabase
+      .from("users")
+      .select("is_admin")
+      .eq("auth_id", data.user.id)
+      .maybeSingle();
+
+    if (!userData?.is_admin) {
+      alert("You do not have admin access");
+      return;
+    }
+
+    // ✅ SUCCESS
+    setPage("dashboard");
   };
 
   return (
-    <div style={page}>
+    <div style={{ padding: 40, textAlign: "center" }}>
+      <h2>Admin Login</h2>
 
-      <div style={card}>
+      <input
+        placeholder="Email"
+        onChange={(e) => setEmail(e.target.value)}
+        style={input}
+      />
 
-        <img src={logo} alt="logo" style={logoStyle} />
+      <input
+        type="password"
+        placeholder="Password"
+        onChange={(e) => setPassword(e.target.value)}
+        style={input}
+      />
 
-        <h2 style={{ marginBottom: 10 }}>Admin Login</h2>
-
-        <input
-          style={input}
-          placeholder="Email"
-          value={email}
-          onChange={(e)=>setEmail(e.target.value)}
-        />
-
-        <input
-          style={input}
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e)=>setPassword(e.target.value)}
-        />
-
-        {error && <div style={errorStyle}>{error}</div>}
-
-        <button
-          style={button}
-          onClick={handleLogin}
-          disabled={loading}
-        >
-          {loading ? "Signing in..." : "Login"}
-        </button>
-
-      </div>
-
+      <button onClick={login} style={btn}>
+        Login
+      </button>
     </div>
   );
 }
 
-/* ================= STYLES ================= */
-
-const page = {
-  height: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "#f1f5f9"
-};
-
-const card = {
-  background: "#fff",
-  padding: 30,
-  borderRadius: 16,
-  width: 320,
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.1)"
-};
-
-const logoStyle = {
-  width: 80,
-  alignSelf: "center",
-  marginBottom: 10
-};
-
 const input = {
+  display: "block",
+  width: "100%",
+  maxWidth: 300,
+  margin: "10px auto",
+  padding: 10
+};
+
+const btn = {
   padding: 10,
-  borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  fontSize: 14
-};
-
-const button = {
-  padding: 12,
-  borderRadius: 10,
-  border: "none",
-  background: "#2f6ea6",
+  marginTop: 10,
+  background: "#16a34a",
   color: "#fff",
-  fontWeight: "600",
-  cursor: "pointer",
-  marginTop: 10
-};
-
-const errorStyle = {
-  color: "#dc2626",
-  fontSize: 13
+  border: "none",
+  borderRadius: 6
 };
