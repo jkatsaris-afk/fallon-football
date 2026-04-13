@@ -494,3 +494,52 @@ body {
   color: #16a34a;
   transform: translateY(-2px);
 }
+
+/* ADMIN LAYOUT */
+.admin-container {
+  display: flex;
+  height: 100vh;
+  background: #f8fafc;
+}
+
+/* SIDEBAR */
+.admin-sidebar {
+  width: 220px;
+  background: #111827;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+/* LOGO */
+.admin-logo {
+  height: 40px;
+  margin-bottom: 20px;
+}
+
+/* SIDEBAR ITEM */
+.admin-item {
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  color: #9ca3af;
+}
+
+.admin-item:hover {
+  background: #1f2937;
+}
+
+/* ACTIVE */
+.admin-item.active {
+  background: #16a34a;
+  color: white;
+}
+
+/* CONTENT */
+.admin-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
