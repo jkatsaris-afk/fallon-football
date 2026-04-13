@@ -35,50 +35,7 @@ import { supabase } from "./supabase";
 export default function App() {
   const [page, setPage] = useState("home");
   const [adminPage, setAdminPage] = useState("dashboard");
-
   const [accessDenied, setAccessDenied] = useState(false);
-
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showIOSInstall, setShowIOSInstall] = useState(false);
-
-  const isHomePage = page === "home";
-
-  /* ================= INSTALL ================= */
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (window.location.pathname !== "/") return;
-
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
-    window.addEventListener("beforeinstallprompt", handler);
-
-    const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      window.navigator.standalone;
-
-    if (isIOS && !isStandalone && window.location.pathname === "/") {
-      setTimeout(() => {
-        setShowIOSInstall(true);
-      }, 1000);
-    }
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handler);
-    };
-  }, []);
-
-  const installApp = async () => {
-    if (!deferredPrompt) return;
-
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-
-    setDeferredPrompt(null);
-  };
 
   /* ================= SESSION RESTORE ================= */
 
@@ -106,19 +63,15 @@ export default function App() {
   /* ================= ROUTING ================= */
 
   useEffect(() => {
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      window.navigator.standalone;
-
     let path = window.location.pathname.toLowerCase();
 
-    // 🔥 PWA FIX (prevents white screen)
-    if (isStandalone && (!path || path === "" || path === "/index.html")) {
+    // 🔥 SAFETY (prevents white screen)
+    if (!path || path === "" || path === "/index.html") {
       path = "/";
       window.history.replaceState({}, "", "/");
     }
 
-    /* ===== PUBLIC ROUTES FIRST ===== */
+    /* ===== PUBLIC ROUTES ===== */
 
     if (path === "/") return setPage("home");
 
@@ -135,7 +88,7 @@ export default function App() {
       return;
     }
 
-    /* ===== REF PORTAL (PROTECTED ONLY) ===== */
+    /* ===== REF PORTAL (PROTECTED) ===== */
 
     if (path === "/ref" || path.startsWith("/ref/")) {
       checkRef();
@@ -224,24 +177,14 @@ export default function App() {
 
   return (
     <>
-      {deferredPrompt && isHomePage && (
-        <button style={installBtn} onClick={installApp}>
-          Install App
-        </button>
-      )}
-
-      {showIOSInstall && isHomePage &&
-        createPortal(
-          <IOSInstallModal onClose={() => setShowIOSInstall(false)} />,
-          document.body
-        )}
-
+      {/* ACCESS DENIED */}
       {accessDenied &&
         createPortal(
           <AccessDeniedModal onClose={() => setAccessDenied(false)} />,
           document.body
         )}
 
+      {/* ADMIN */}
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
       {page === "dashboard" && (
@@ -250,7 +193,7 @@ export default function App() {
         </AdminLayout>
       )}
 
-      {/* 🔥 REF PORTAL ONLY */}
+      {/* REF */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -262,7 +205,7 @@ export default function App() {
         </RefLayout>
       )}
 
-      {/* 🔥 PUBLIC */}
+      {/* PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
