@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom"; // 🔥 IMPORTANT
+import { createPortal } from "react-dom";
 import "./styles.css";
 
 import HomePage from "./pages/Public/HomePage";
@@ -72,6 +72,29 @@ export default function App() {
     setDeferredPrompt(null);
   };
 
+  /* ================= 🔥 SESSION RESTORE (NEW) ================= */
+
+  useEffect(() => {
+    const restoreSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      const session = data?.session;
+
+      if (session?.user) {
+        const path = window.location.pathname.toLowerCase();
+
+        if (path.startsWith("/ref")) {
+          setPage("refDashboard");
+        }
+
+        if (path.startsWith("/admin")) {
+          setPage("dashboard");
+        }
+      }
+    };
+
+    restoreSession();
+  }, []);
+
   /* ================= ROUTING ================= */
 
   useEffect(() => {
@@ -128,20 +151,29 @@ export default function App() {
     setPage("refDashboard");
   };
 
-  /* ================= AUTH LISTENER ================= */
+  /* ================= 🔥 FIXED AUTH LISTENER ================= */
 
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_, session) => {
+
         if (!session) {
-          if (page === "dashboard") setPage("adminLogin");
-          if (page.startsWith("ref")) setPage("refLogin");
+          const path = window.location.pathname.toLowerCase();
+
+          if (path.startsWith("/admin")) {
+            setPage("adminLogin");
+          }
+
+          if (path.startsWith("/ref")) {
+            setPage("refLogin");
+          }
         }
+
       }
     );
 
     return () => listener.subscription.unsubscribe();
-  }, [page]);
+  }, []);
 
   /* ================= URL SYNC ================= */
 
@@ -165,28 +197,28 @@ export default function App() {
 
   return (
     <>
-      {/* 🔥 ANDROID INSTALL */}
+      {/* ANDROID INSTALL */}
       {deferredPrompt && (
         <button style={installBtn} onClick={installApp}>
           Install App
         </button>
       )}
 
-      {/* 🔥 iPHONE INSTALL (PORTAL FIX) */}
+      {/* iPHONE INSTALL */}
       {showIOSInstall &&
         createPortal(
           <IOSInstallModal onClose={() => setShowIOSInstall(false)} />,
           document.body
         )}
 
-      {/* 🔥 ACCESS DENIED (PORTAL FIX) */}
+      {/* ACCESS DENIED */}
       {accessDenied &&
         createPortal(
           <AccessDeniedModal onClose={() => setAccessDenied(false)} />,
           document.body
         )}
 
-      {/* 🔐 ADMIN */}
+      {/* ADMIN */}
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
       {page === "dashboard" && (
@@ -195,7 +227,7 @@ export default function App() {
         </AdminLayout>
       )}
 
-      {/* 🏈 REF */}
+      {/* REF */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -207,7 +239,7 @@ export default function App() {
         </RefLayout>
       )}
 
-      {/* 🌐 PUBLIC */}
+      {/* PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
@@ -269,8 +301,7 @@ const installBtn = {
   borderRadius: 10,
   background: "#16a34a",
   color: "#fff",
-  border: "none",
-  zIndex: 10
+  border: "none"
 };
 
 const overlay = {
@@ -284,10 +315,8 @@ const overlay = {
 
 const modal = {
   background: "#fff",
-  padding: 24,
-  borderRadius: 14,
-  width: 320,
-  textAlign: "center"
+  padding: 20,
+  borderRadius: 12
 };
 
 const btn = {
