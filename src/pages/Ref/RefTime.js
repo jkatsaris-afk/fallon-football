@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+/* ================= LOGOS ================= */
+import {
+  teamLogos
+} from "../../pages/Admin/TeamsPage"; // adjust if needed
+
 export default function RefTime() {
   const [grouped, setGrouped] = useState({});
   const [checkins, setCheckins] = useState([]);
@@ -38,7 +43,6 @@ export default function RefTime() {
       .order("event_date", { ascending: true })
       .order("event_time", { ascending: true });
 
-    // 🔥 GROUP BY DATE
     const groupedData = (gamesData || []).reduce((acc, game) => {
       if (!acc[game.event_date]) {
         acc[game.event_date] = [];
@@ -57,6 +61,16 @@ export default function RefTime() {
     setCheckins(checkinData || []);
 
     setLoading(false);
+  };
+
+  /* ================= LOGO HELPER ================= */
+
+  const getLogo = (team) => {
+    if (!team) return null;
+
+    const key = team.toLowerCase();
+
+    return teamLogos[key] || teamLogos[team] || null;
   };
 
   /* ================= TOGGLE ================= */
@@ -102,12 +116,10 @@ export default function RefTime() {
     <div style={container}>
       <h2>Ref Time</h2>
 
-      {/* 💰 PAY */}
       <div style={payBox}>
         Total Earnings: <strong>${totalPay}</strong>
       </div>
 
-      {/* 📅 DATES */}
       <div style={{ marginTop: 20 }}>
         {Object.keys(grouped).map((date) => {
           const isOpen = openDates[date];
@@ -115,7 +127,6 @@ export default function RefTime() {
           return (
             <div key={date} style={{ marginBottom: 15 }}>
 
-              {/* 🔥 DATE HEADER (CLICKABLE) */}
               <div
                 style={dateHeader}
                 onClick={() => toggleDate(date)}
@@ -126,7 +137,6 @@ export default function RefTime() {
                 </span>
               </div>
 
-              {/* 🔥 DROPDOWN CONTENT */}
               {isOpen &&
                 grouped[date].map((game) => {
                   const checked = checkins.find(
@@ -136,9 +146,41 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
-                      {/* TEAMS */}
-                      <div style={teams}>
-                        {game.home_team} vs {game.away_team}
+                      {/* 🔥 TEAMS WITH LOGOS */}
+                      <div style={teamsRow}>
+
+                        {/* HOME */}
+                        <div style={teamSide}>
+                          <div style={label}>HOME</div>
+
+                          {getLogo(game.home_team) && (
+                            <img
+                              src={getLogo(game.home_team)}
+                              alt=""
+                              style={logo}
+                            />
+                          )}
+
+                          <div>{game.home_team}</div>
+                        </div>
+
+                        <div style={vs}>vs</div>
+
+                        {/* AWAY */}
+                        <div style={teamSide}>
+                          <div style={label}>AWAY</div>
+
+                          {getLogo(game.away_team) && (
+                            <img
+                              src={getLogo(game.away_team)}
+                              alt=""
+                              style={logo}
+                            />
+                          )}
+
+                          <div>{game.away_team}</div>
+                        </div>
+
                       </div>
 
                       {/* META */}
@@ -175,9 +217,7 @@ export default function RefTime() {
 
 /* ================= STYLES ================= */
 
-const container = {
-  padding: 20
-};
+const container = { padding: 20 };
 
 const card = {
   background: "#fff",
@@ -196,9 +236,35 @@ const dateHeader = {
   cursor: "pointer"
 };
 
-const teams = {
-  fontWeight: 600,
+const teamsRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 6
+};
+
+const teamSide = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  width: "40%"
+};
+
+const logo = {
+  width: 40,
+  height: 40,
+  objectFit: "contain",
   marginBottom: 4
+};
+
+const label = {
+  fontSize: 10,
+  color: "#64748b",
+  marginBottom: 2
+};
+
+const vs = {
+  fontWeight: 700
 };
 
 const gameMeta = {
