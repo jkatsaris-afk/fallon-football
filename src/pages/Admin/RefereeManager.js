@@ -4,17 +4,10 @@ import { supabase } from "../../supabase";
 export default function RefereeManager() {
   const [refs, setRefs] = useState([]);
   const [view, setView] = useState("dashboard");
-  const [checkins, setCheckins] = useState([]);
 
   useEffect(() => {
     loadRefs();
   }, []);
-
-  useEffect(() => {
-    if (view === "time") {
-      loadCheckins();
-    }
-  }, [view]);
 
   /* ================= LOAD ================= */
 
@@ -27,73 +20,55 @@ export default function RefereeManager() {
     setRefs(data || []);
   };
 
-  const loadCheckins = async () => {
-    const { data } = await supabase
-      .from("ref_checkins")
-      .select(`
-        *,
-        referees (
-          id,
-          first_name,
-          last_name
-        ),
-        schedule_master (
-          event_date,
-          event_time,
-          field,
-          division
-        )
-      `)
-      .order("check_in_time", { ascending: false });
-
-    setCheckins(data || []);
-  };
-
   /* ================= HELPERS ================= */
 
   const getName = (r) =>
     `${r.first_name || ""} ${r.last_name || ""}`.trim();
 
-  const groupedByRef = checkins.reduce((acc, row) => {
-    const refId = row.referees?.id;
+  const getStatus = (r) => r.status || "pending";
 
-    if (!acc[refId]) {
-      acc[refId] = {
-        ref: row.referees,
-        games: [],
-        total: 0
-      };
-    }
+  const getRole = (r) => {
+    if (!r.role) return "assistant";
+    return r.role.toLowerCase().includes("head") ? "head" : "assistant";
+  };
 
-    acc[refId].games.push(row);
+  const displayRole = (r) => {
+    if (!r.role) return "Assistant Ref";
+    return r.role.toLowerCase().includes("head")
+      ? "Head Ref"
+      : "Assistant Ref";
+  };
 
-    if (!row.paid) {
-      acc[refId].total += row.pay || 0;
-    }
+  /* ================= UPDATE ================= */
 
-    return acc;
-  }, {});
+  const updateStatus = async (id, status) => {
+    await supabase.from("referees").update({ status }).eq("id", id);
+    loadRefs();
+  };
 
-  /* ================= PAY ================= */
-
-  const markPaid = async (refId) => {
-    const unpaid = checkins.filter(
-      (c) => c.referees?.id === refId && !c.paid
-    );
-
-    const ids = unpaid.map((c) => c.id);
-
-    if (ids.length === 0) {
-      alert("Nothing to pay");
-      return;
-    }
-
+  const updateRole = async (ref, newRole) => {
     await supabase
-      .from("ref_checkins")
-      .update({ paid: true })
-      .in("id", ids);
+      .from("referees")
+      .update({
+        role: newRole === "head" ? "Head Ref" : "Assistant Ref"
+      })
+      .eq("id", ref.id);
 
-    loadCheckins();
+    loadRefs();
+  };
+
+  /* 🔥 SET HEAD REF (GLOBAL) */
+  const setHeadRef = async (refId) => {
+    // clear all
+    await supabase.from("referees").update({ is_head_ref: false });
+
+    // set selected
+    await supabase
+      .from("referees")
+      .update({ is_head_ref: true })
+      .eq("id", refId);
+
+    loadRefs();
   };
 
   /* ================= DASHBOARD ================= */
@@ -101,73 +76,179 @@ export default function RefereeManager() {
   if (view === "dashboard") {
     return (
       <div>
+
         <h1>Referee Manager</h1>
 
         <div style={grid}>
-          <Tile title="Referee Staff" onClick={() => setView("staff")} />
-          <Tile title="Schedules" onClick={() => setView("schedule")} />
-          <Tile title="Head Ref" onClick={() => setView("head")} />
-          <Tile title="Time Sheets" onClick={() => setView("time")} />
+
+          <Tile
+            title="Referee Staff"
+            desc="View & approve referees"
+            onClick={() => setView("staff")}
+          />
+
+          <Tile
+            title="Schedules"
+            desc="View referee assignments"
+            onClick={() => setView("schedule")}
+          />
+
+          <Tile
+            title="Head Ref"
+            desc="League head referee"
+            onClick={() => setView("head")}
+          />
+
+          <Tile
+            title="Time Sheets"
+            desc="Track referee hours"
+            onClick={() => setView("time")}
+          />
+
         </div>
+
       </div>
     );
   }
 
-  /* ================= TIME SHEETS ================= */
+  /* ================= STAFF ================= */
 
-  if (view === "time") {
+  if (view === "staff") {
     return (
       <div>
 
         <BackBtn onClick={() => setView("dashboard")} />
 
-        <h1>Ref Time Sheets</h1>
+        <h1>Referee Staff</h1>
 
-        {Object.values(groupedByRef).map((group) => {
-          const name = getName(group.ref);
+        <div style={table}>
 
-          return (
-            <div key={group.ref.id} style={timeCard}>
+          <div style={rowHeader}>
+            <div>Name</div>
+            <div>Email</div>
+            <div>Phone</div>
+            <div>Status</div>
+            <div>Role</div>
+            <div>Actions</div>
+          </div>
 
-              <div style={timeHeader}>
-                <div style={{ fontWeight: 600 }}>{name}</div>
-                <div>Total: ${group.total}</div>
-              </div>
+          {refs.map(ref => {
+            const role = getRole(ref);
 
-              {group.games.map((g) => (
-                <div key={g.id} style={timeRow}>
+            return (
+              <div key={ref.id} style={row}>
 
-                  <div>
-                    {g.schedule_master?.event_date} • {g.schedule_master?.event_time}
-                  </div>
+                <div>{getName(ref)}</div>
+                <div>{ref.email || "-"}</div>
+                <div>{ref.phone || "-"}</div>
 
-                  <div>Field {g.schedule_master?.field}</div>
-
-                  <div>{g.schedule_master?.division}</div>
-
-                  <div>
-                    {g.paid ? "✅ Paid" : "$" + g.pay}
-                  </div>
-
+                <div style={statusStyle(getStatus(ref))}>
+                  {getStatus(ref)}
                 </div>
-              ))}
 
-              <div style={{ marginTop: 10 }}>
-                <button
-                  style={payBtn}
-                  onClick={() => markPaid(group.ref.id)}
-                >
-                  Pay Ref
-                </button>
+                <div>
+                  <select
+                    value={role}
+                    onChange={(e) =>
+                      updateRole(ref, e.target.value)
+                    }
+                  >
+                    <option value="assistant">Assistant Ref</option>
+                    <option value="head">Head Ref</option>
+                  </select>
+
+                  <div style={roleText}>
+                    {displayRole(ref)}
+                  </div>
+                </div>
+
+                <div style={actions}>
+                  <button
+                    style={approveBtn}
+                    onClick={() => updateStatus(ref.id, "approved")}
+                  >
+                    Approve
+                  </button>
+
+                  <button
+                    style={denyBtn}
+                    onClick={() => updateStatus(ref.id, "denied")}
+                  >
+                    Deny
+                  </button>
+                </div>
+
               </div>
+            );
+          })}
+
+        </div>
+      </div>
+    );
+  }
+
+  /* ================= HEAD REF ================= */
+
+  if (view === "head") {
+    const headRef = refs.find(r => r.is_head_ref);
+
+    return (
+      <div>
+
+        <BackBtn onClick={() => setView("dashboard")} />
+
+        <h1>Head Referee</h1>
+
+        {/* CURRENT HEAD REF */}
+        {headRef ? (
+          <div style={profileCard}>
+
+            <h2>{getName(headRef)}</h2>
+
+            <div style={info}>Email: {headRef.email || "-"}</div>
+            <div style={info}>Phone: {headRef.phone || "-"}</div>
+
+            <div style={statusStyle(getStatus(headRef))}>
+              {getStatus(headRef)}
+            </div>
+
+          </div>
+        ) : (
+          <div style={{ marginTop: 20 }}>
+            No Head Ref Assigned
+          </div>
+        )}
+
+        {/* ASSIGN */}
+        <div style={{ marginTop: 30 }}>
+          <h3>Assign Head Ref</h3>
+
+          {refs.map(ref => (
+            <div key={ref.id} style={assignRow}>
+
+              <div>{getName(ref)}</div>
+
+              <button
+                style={
+                  headRef?.id === ref.id ? headBtn : assignBtn
+                }
+                onClick={() => setHeadRef(ref.id)}
+              >
+                {headRef?.id === ref.id
+                  ? "Current Head"
+                  : "Make Head"}
+              </button>
 
             </div>
-          );
-        })}
+          ))}
+
+        </div>
 
       </div>
     );
   }
+
+  /* ================= DEFAULT ================= */
 
   return (
     <div>
@@ -179,10 +260,11 @@ export default function RefereeManager() {
 
 /* ================= COMPONENTS ================= */
 
-function Tile({ title, onClick }) {
+function Tile({ title, desc, onClick }) {
   return (
     <div onClick={onClick} style={tile}>
       <div style={{ fontWeight: 600 }}>{title}</div>
+      <div style={tileDesc}>{desc}</div>
     </div>
   );
 }
@@ -212,6 +294,12 @@ const tile = {
   boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
 };
 
+const tileDesc = {
+  fontSize: 12,
+  color: "#64748b",
+  marginTop: 6
+};
+
 const backBtn = {
   marginBottom: 10,
   padding: "6px 12px",
@@ -220,33 +308,102 @@ const backBtn = {
   background: "#e5e7eb"
 };
 
-/* TIME SHEETS */
-
-const timeCard = {
+const profileCard = {
   background: "#fff",
-  padding: 15,
-  borderRadius: 12,
-  marginTop: 15,
-  boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
+  padding: 20,
+  borderRadius: 14,
+  marginTop: 20,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
 };
 
-const timeHeader = {
+const info = {
+  marginTop: 6,
+  color: "#374151"
+};
+
+const assignRow = {
   display: "flex",
   justifyContent: "space-between",
+  padding: 12,
+  background: "#fff",
+  borderRadius: 10,
   marginBottom: 10
 };
 
-const timeRow = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr 100px",
-  padding: 8,
-  borderTop: "1px solid #eee"
+const assignBtn = {
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  padding: "6px 12px",
+  borderRadius: 6
 };
 
-const payBtn = {
+const headBtn = {
   background: "#16a34a",
   color: "#fff",
-  padding: "6px 12px",
   border: "none",
+  padding: "6px 12px",
   borderRadius: 6
+};
+
+/* ===== TABLE ===== */
+
+const table = {
+  marginTop: 20,
+  background: "#fff",
+  borderRadius: 12,
+  overflow: "hidden"
+};
+
+const rowHeader = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr 120px 150px 200px",
+  padding: 12,
+  fontWeight: "600",
+  background: "#f1f5f9"
+};
+
+const row = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr 120px 150px 200px",
+  padding: 12,
+  borderTop: "1px solid #e5e7eb",
+  alignItems: "center"
+};
+
+const actions = {
+  display: "flex",
+  gap: 10
+};
+
+const approveBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6
+};
+
+const denyBtn = {
+  background: "#dc2626",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6
+};
+
+const statusStyle = (s) => ({
+  color:
+    s === "approved"
+      ? "#16a34a"
+      : s === "denied"
+      ? "#dc2626"
+      : "#f59e0b",
+  fontWeight: "600"
+});
+
+const roleText = {
+  fontSize: 11,
+  color: "#64748b",
+  marginTop: 4
 };
