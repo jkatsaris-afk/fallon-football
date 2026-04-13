@@ -127,6 +127,21 @@ export default function Dashboard({
         </>
       )}
 
+      {/* MORE (NEW MOBILE PAGE) */}
+      {adminPage === "more" && (
+        <>
+          <h2 style={{ marginTop: 0 }}>More</h2>
+
+          <div style={moreGrid}>
+            <MoreBtn label="Players" onClick={() => setAdminPage("players")} />
+            <MoreBtn label="Coaches" onClick={() => setAdminPage("coaches")} />
+            <MoreBtn label="Referees" onClick={() => setAdminPage("referees")} />
+            <MoreBtn label="Reports" onClick={() => setAdminPage("reports")} />
+            <MoreBtn label="Settings" onClick={() => setAdminPage("settings")} />
+          </div>
+        </>
+      )}
+
       {/* PAGES */}
       {adminPage === "teams" && <TeamsPage />}
       {adminPage === "players" && <PlayerManager />}
@@ -151,6 +166,13 @@ const grid = {
   marginTop: 25
 };
 
+const moreGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginTop: 20
+};
+
 function StatTile({ title, value, color = "#2f6ea6" }) {
   return (
     <div style={{
@@ -163,6 +185,25 @@ function StatTile({ title, value, color = "#2f6ea6" }) {
       <div style={{ fontSize: 28, fontWeight: "700", marginTop: 5, color }}>
         {value}
       </div>
+    </div>
+  );
+}
+
+function MoreBtn({ label, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: 20,
+        background: "#fff",
+        borderRadius: 12,
+        textAlign: "center",
+        fontWeight: 600,
+        cursor: "pointer",
+        boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
+      }}
+    >
+      {label}
     </div>
   );
 }
