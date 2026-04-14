@@ -16,7 +16,6 @@ export default function RefereeStaffPage({
   const [filter, setFilter] = useState("all");
   const [teams, setTeams] = useState([]);
 
-  /* SAFE FALLBACKS */
   const safeGetStatus = (r) =>
     getStatus ? getStatus(r) : r.status || "pending";
 
@@ -63,9 +62,8 @@ export default function RefereeStaffPage({
     setLoadingState(false);
   };
 
-  /* 🔥 SMOOTH UPDATE (NO RELOAD) */
+  /* ✅ FIXED: smooth + UUID storage */
   const updateCoachInfo = async (refId, updates) => {
-    // optimistic update
     setRefs((prev) =>
       prev.map((r) =>
         r.id === refId ? { ...r, ...updates } : r
@@ -82,38 +80,6 @@ export default function RefereeStaffPage({
     }
   };
 
-  const stats = useMemo(() => {
-    const approved = refs.filter((r) => safeGetStatus(r) === "approved").length;
-    const pending = refs.filter((r) => safeGetStatus(r) === "pending").length;
-    const denied = refs.filter((r) => safeGetStatus(r) === "denied").length;
-    const headRefs = refs.filter((r) => safeGetRole(r) === "head").length;
-
-    return {
-      total: refs.length,
-      approved,
-      pending,
-      denied,
-      headRefs,
-    };
-  }, [refs]);
-
-  const filteredRefs = useMemo(() => {
-    if (filter === "approved") {
-      return refs.filter((r) => safeGetStatus(r) === "approved");
-    }
-    if (filter === "pending") {
-      return refs.filter((r) => safeGetStatus(r) === "pending");
-    }
-    if (filter === "denied") {
-      return refs.filter((r) => safeGetStatus(r) === "denied");
-    }
-    if (filter === "head") {
-      return refs.filter((r) => safeGetRole(r) === "head");
-    }
-    return refs;
-  }, [refs, filter]);
-
-  /* 🔥 FIXED DIVISION + TEAM LINK */
   const divisions = useMemo(() => {
     const values = teams
       .map((t) => t.division || t.division_name || "")
@@ -128,35 +94,24 @@ export default function RefereeStaffPage({
     );
   };
 
-  const getProfileImage = (ref) => {
-    const rawImage =
-      ref.profile_image || ref.profile_image_url || ref.photo_url || "";
-
-    if (!rawImage) return DefaultProfile;
-
-    if (rawImage.startsWith("http")) return rawImage;
-
-    const { data } = supabase.storage
-      .from("profile-images")
-      .getPublicUrl(rawImage);
-
-    return data?.publicUrl || DefaultProfile;
-  };
-
   if (loadingState) {
     return <div style={{ padding: 20 }}>Loading referees...</div>;
   }
 
   return (
     <div style={{ padding: 20 }}>
-      {filteredRefs.map((ref) => {
-        const role = safeGetRole(ref);
+      {refs.map((ref) => {
         const teamsForDivision = getTeamsForDivision(ref.coach_division);
+
+        /* ✅ FIX: find selected team */
+        const selectedTeam = teams.find(
+          (t) => t.id === ref.coach_team_id
+        );
 
         return (
           <div key={ref.id} style={{ marginBottom: 20 }}>
 
-            {/* COACH SELECT */}
+            {/* COACH TOGGLE */}
             <select
               value={ref.is_coach ? "yes" : "no"}
               onChange={(e) => {
@@ -175,7 +130,7 @@ export default function RefereeStaffPage({
               <option value="yes">Is a Coach</option>
             </select>
 
-            {/* 🔥 SMOOTH EXPAND */}
+            {/* SMOOTH EXPAND */}
             <div
               style={{
                 maxHeight: ref.is_coach ? 200 : 0,
@@ -192,7 +147,7 @@ export default function RefereeStaffPage({
 
                   updateCoachInfo(ref.id, {
                     coach_division: e.target.value,
-                    coach_team_id: null, // reset team when division changes
+                    coach_team_id: null, // reset team
                   });
                 }}
               >
@@ -204,24 +159,32 @@ export default function RefereeStaffPage({
                 ))}
               </select>
 
-              {/* 🔥 TEAM (NOW WORKS) */}
+              {/* TEAM SELECT (UUID STORED, NAME SHOWN) */}
               <select
                 value={ref.coach_team_id || ""}
                 onChange={(e) => {
                   e.stopPropagation();
 
                   updateCoachInfo(ref.id, {
-                    coach_team_id: e.target.value,
+                    coach_team_id: e.target.value || null,
                   });
                 }}
               >
                 <option value="">Select Team</option>
+
                 {teamsForDivision.map((team) => (
                   <option key={team.id} value={team.id}>
-                    {team.name || team.team_name}
+                    {team.name || team.team_name || team.team}
                   </option>
                 ))}
               </select>
+
+              {/* ✅ DISPLAY SELECTED TEAM NAME */}
+              <div style={{ fontSize: 12, marginTop: 4, color: "#64748b" }}>
+                {selectedTeam
+                  ? `Team: ${selectedTeam.name || selectedTeam.team_name}`
+                  : "No team selected"}
+              </div>
 
             </div>
 
