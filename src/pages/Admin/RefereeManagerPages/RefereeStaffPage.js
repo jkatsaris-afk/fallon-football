@@ -10,16 +10,28 @@ export default function RefereeStaffPage({
   updateStatus,
   updateRole,
 }) {
-  /* ✅ FIX: local refs state instead of props */
   const [refs, setRefs] = useState([]);
   const [loadingState, setLoadingState] = useState(true);
 
   const [filter, setFilter] = useState("all");
   const [teams, setTeams] = useState([]);
 
+  /* ✅ SAFE FALLBACKS (THIS FIXES BLANK SCREEN) */
+  const safeGetStatus = (r) =>
+    getStatus ? getStatus(r) : r.status || "pending";
+
+  const safeGetRole = (r) =>
+    getRole ? getRole(r) : r.role || "assistant";
+
+  const safeGetName = (r) =>
+    getName
+      ? getName(r)
+      : `${r.first_name || ""} ${r.last_name || ""}`.trim() ||
+        "Unnamed Referee";
+
   useEffect(() => {
     loadTeams();
-    loadRefs(); // ✅ FIX: load refs
+    loadRefs();
   }, []);
 
   const loadTeams = async () => {
@@ -34,7 +46,6 @@ export default function RefereeStaffPage({
     setTeams(data || []);
   };
 
-  /* ✅ FIX: fetch referees directly */
   const loadRefs = async () => {
     setLoadingState(true);
 
@@ -67,10 +78,10 @@ export default function RefereeStaffPage({
   };
 
   const stats = useMemo(() => {
-    const approved = refs.filter((r) => getStatus(r) === "approved").length;
-    const pending = refs.filter((r) => getStatus(r) === "pending").length;
-    const denied = refs.filter((r) => getStatus(r) === "denied").length;
-    const headRefs = refs.filter((r) => getRole(r) === "head").length;
+    const approved = refs.filter((r) => safeGetStatus(r) === "approved").length;
+    const pending = refs.filter((r) => safeGetStatus(r) === "pending").length;
+    const denied = refs.filter((r) => safeGetStatus(r) === "denied").length;
+    const headRefs = refs.filter((r) => safeGetRole(r) === "head").length;
 
     return {
       total: refs.length,
@@ -79,27 +90,27 @@ export default function RefereeStaffPage({
       denied,
       headRefs,
     };
-  }, [refs, getStatus, getRole]);
+  }, [refs]);
 
   const filteredRefs = useMemo(() => {
     if (filter === "approved") {
-      return refs.filter((r) => getStatus(r) === "approved");
+      return refs.filter((r) => safeGetStatus(r) === "approved");
     }
 
     if (filter === "pending") {
-      return refs.filter((r) => getStatus(r) === "pending");
+      return refs.filter((r) => safeGetStatus(r) === "pending");
     }
 
     if (filter === "denied") {
-      return refs.filter((r) => getStatus(r) === "denied");
+      return refs.filter((r) => safeGetStatus(r) === "denied");
     }
 
     if (filter === "head") {
-      return refs.filter((r) => getRole(r) === "head");
+      return refs.filter((r) => safeGetRole(r) === "head");
     }
 
     return refs;
-  }, [refs, filter, getStatus, getRole]);
+  }, [refs, filter]);
 
   const divisions = useMemo(() => {
     const values = teams
@@ -144,7 +155,6 @@ export default function RefereeStaffPage({
     return "All Referees";
   };
 
-  /* ✅ FIX: use loadingState instead */
   if (loadingState) {
     return (
       <div style={pageWrap}>
@@ -186,8 +196,8 @@ export default function RefereeStaffPage({
         ) : (
           <div style={listWrap}>
             {filteredRefs.map((ref) => {
-              const status = getStatus(ref);
-              const role = getRole(ref);
+              const status = safeGetStatus(ref);
+              const role = safeGetRole(ref);
               const teamOptions = getTeamsForDivision(ref.coach_division);
 
               return (
@@ -196,7 +206,7 @@ export default function RefereeStaffPage({
                     <div style={leftSide}>
                       <img
                         src={getProfileImage(ref)}
-                        alt={getName(ref) || "Referee"}
+                        alt={safeGetName(ref)}
                         style={profileImage}
                         onError={(e) => {
                           e.currentTarget.src = DefaultProfile;
@@ -204,7 +214,7 @@ export default function RefereeStaffPage({
                       />
 
                       <div style={nameBlock}>
-                        <div style={refName}>{getName(ref) || "Unnamed Referee"}</div>
+                        <div style={refName}>{safeGetName(ref)}</div>
                         <div style={contactRow}>
                           <span style={contactItem}>{ref.email || "No email"}</span>
                           <span style={dot}>•</span>
