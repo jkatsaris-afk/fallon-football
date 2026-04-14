@@ -49,9 +49,17 @@ export default function RefereeTimeSheetsPage() {
     return map;
   }, [checkins]);
 
-  /* 🔥 SEASON TOTALS */
+  /* 🔥 TOTALS */
   const totalGames = schedule.length;
   const totalPayout = totalGames * 40;
+
+  const paidTotal = checkins
+    .filter(c => c.paid)
+    .reduce((sum, c) => sum + (c.pay || 40), 0);
+
+  const unpaidTotal = checkins
+    .filter(c => !c.paid)
+    .reduce((sum, c) => sum + (c.pay || 40), 0);
 
   /* 🔥 PAY DAY */
   const markDatePaid = async (refId, date) => {
@@ -82,6 +90,8 @@ export default function RefereeTimeSheetsPage() {
       <div style={statsGrid}>
         <StatTile label="Total Games" value={totalGames} />
         <StatTile label="Game Payout" value={`$${totalPayout}`} />
+        <StatTile label="Paid" value={`$${paidTotal}`} />
+        <StatTile label="Unpaid" value={`$${unpaidTotal}`} />
       </div>
 
       <h2 style={title}>Referee Pay Manager</h2>
@@ -124,7 +134,7 @@ export default function RefereeTimeSheetsPage() {
                 const unpaid = games.filter(g => !g.paid);
                 const isPaid = unpaid.length === 0;
 
-                const unpaidTotal =
+                const unpaidDayTotal =
                   unpaid.length * 40 +
                   (ref.is_head_ref && unpaid.length ? 20 : 0);
 
@@ -162,7 +172,7 @@ export default function RefereeTimeSheetsPage() {
                         style={payBtn}
                         onClick={() => markDatePaid(refId, date)}
                       >
-                        Pay Day (${unpaidTotal})
+                        Pay Day (${unpaidDayTotal})
                       </button>
                     )}
 
@@ -243,8 +253,7 @@ const dayCard = {
   background:"#f8fafc",
   borderRadius:12,
   padding:12,
-  border:"1px solid #e5e7eb",
-  position:"relative"
+  border:"1px solid #e5e7eb"
 };
 
 const dayHeader = {
