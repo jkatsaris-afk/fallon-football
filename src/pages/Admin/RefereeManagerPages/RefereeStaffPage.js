@@ -1,4 +1,5 @@
 import React from "react";
+import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
@@ -19,10 +20,25 @@ export default function RefereeStaffPage({
       "";
 
     if (!raw) return DefaultProfile;
-
     if (raw.startsWith("http")) return raw;
 
     return DefaultProfile;
+  };
+
+  /* 🔥 NEW: coach toggle update */
+  const updateCoach = async (ref, isCoach) => {
+    const { error } = await supabase
+      .from("referees")
+      .update({ is_coach: isCoach })
+      .eq("id", ref.id);
+
+    if (error) {
+      console.error("Error updating coach:", error);
+      return;
+    }
+
+    // 🔥 update UI locally (no reload)
+    ref.is_coach = isCoach;
   };
 
   if (loading) {
@@ -84,6 +100,20 @@ export default function RefereeStaffPage({
 
                     <div style={helperText}>
                       {displayRole(ref)}
+                    </div>
+
+                    {/* 🔥 NEW COACH TOGGLE */}
+                    <div style={{ marginTop: 10 }}>
+                      <select
+                        value={ref.is_coach ? "yes" : "no"}
+                        onChange={(e) =>
+                          updateCoach(ref, e.target.value === "yes")
+                        }
+                        style={selectSpacing}
+                      >
+                        <option value="no">Not a Coach</option>
+                        <option value="yes">Is a Coach</option>
+                      </select>
                     </div>
                   </div>
 
