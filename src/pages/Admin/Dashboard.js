@@ -104,16 +104,10 @@ export default function Dashboard({
       {/* HOME */}
       {adminPage === "dashboard" && (
         <>
-          {/* 🔥 NEW HEADER */}
-          <div style={headerWrap}>
-            <img src="/icon-192.png" alt="Logo" style={headerLogo} />
-            <div>
-              <div style={headerTitle}>League Manager</div>
-              <div style={headerSub}>
-                League overview and quick actions
-              </div>
-            </div>
-          </div>
+          <h1 style={{ marginTop: 0 }}>Home</h1>
+          <p style={{ color: "#64748b" }}>
+            League overview and quick actions
+          </p>
 
           <div style={grid}>
             <StatTile title="Players" value={stats.players} />
@@ -165,31 +159,6 @@ export default function Dashboard({
 }
 
 /* STYLES */
-
-const headerWrap = {
-  display: "flex",
-  alignItems: "center",
-  gap: 18,
-  marginBottom: 20,
-};
-
-const headerLogo = {
-  width: 90,
-  height: 90,
-  objectFit: "contain",
-};
-
-const headerTitle = {
-  fontSize: 26,
-  fontWeight: "700",
-  color: "#111",
-};
-
-const headerSub = {
-  fontSize: 14,
-  color: "#64748b",
-  marginTop: 4,
-};
 
 const grid = {
   display: "grid",
