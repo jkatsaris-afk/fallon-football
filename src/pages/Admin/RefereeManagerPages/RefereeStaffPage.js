@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../../supabase";
+import { supabase } from "../../supabase";
 
 import RefereeStaffPage from "./RefereeManagerPages/RefereeStaffPage";
 import RefereeSchedulePage from "./RefereeManagerPages/RefereeSchedulePage";
@@ -31,6 +31,7 @@ export default function RefereeManager() {
     }
 
     console.log("REFEREES LOADED:", data);
+
     setRefs(data || []);
     setLoading(false);
   };
