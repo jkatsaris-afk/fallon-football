@@ -32,6 +32,7 @@ const TEAM_LOGOS = {
 export default function RefereeSchedulePage() {
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [selectedRefs, setSelectedRefs] = useState({});
   const [filter, setFilter] = useState("all");
@@ -48,7 +49,7 @@ export default function RefereeSchedulePage() {
     setLoading(true);
     setMessage("");
 
-    const [gamesRes, refsRes, assignmentsRes] = await Promise.all([
+    const [gamesRes, refsRes, assignmentsRes, teamsRes] = await Promise.all([
       supabase
         .from("schedule_master_auto")
         .select("*")
@@ -66,6 +67,10 @@ export default function RefereeSchedulePage() {
       supabase
         .from("ref_assignments")
         .select("*, referees(*)"),
+
+      supabase
+        .from("teams")
+        .select("id, name"),
     ]);
 
     if (gamesRes.error) console.error("Error loading games:", gamesRes.error);
@@ -73,10 +78,14 @@ export default function RefereeSchedulePage() {
     if (assignmentsRes.error) {
       console.error("Error loading assignments:", assignmentsRes.error);
     }
+    if (teamsRes.error) {
+      console.error("Error loading teams:", teamsRes.error);
+    }
 
     setGames(gamesRes.data || []);
     setRefs(refsRes.data || []);
     setAssignments(assignmentsRes.data || []);
+    setTeams(teamsRes.data || []);
     setLoading(false);
   };
 
@@ -162,9 +171,78 @@ export default function RefereeSchedulePage() {
     return "open";
   };
 
-  const isRefBusyAtGameTime = (refId, game, excludeAssignmentId = null) => {
-    return assignments.some((a) => {
-      if (a.referee_id !== refId) return false;
+  const getCoachTeam = (ref) => {
+    if (!ref?.coach_team_id) return null;
+    return teams.find((t) => String(t.id) === String(ref.coach_team_id)) || null;
+  };
+
+  const getCoachTeamName = (ref) => {
+    return getCoachTeam(ref)?.name || "-";
+  };
+
+  const parseTimeValue = (timeStr) => {
+    if (!timeStr) return null;
+
+    const match = String(timeStr).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+
+    let hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2], 10);
+    const ampm = match[3].toUpperCase();
+
+    if (ampm === "PM" && hour !== 12) hour += 12;
+    if (ampm === "AM" && hour === 12) hour = 0;
+
+    return hour * 60 + minute;
+  };
+
+  const getCoachGameForDate = (ref, eventDate) => {
+    if (!ref?.is_coach || !ref?.coach_team_id) return null;
+
+    const coachTeam = getCoachTeam(ref);
+    if (!coachTeam) return null;
+
+    return games.find((g) => {
+      if (g.event_date !== eventDate) return false;
+
+      return (
+        String(g.team || "").trim().toLowerCase() ===
+          String(coachTeam.name || "").trim().toLowerCase() ||
+        String(g.opponent || "").trim().toLowerCase() ===
+          String(coachTeam.name || "").trim().toLowerCase()
+      );
+    });
+  };
+
+  const isOwnGameConflict = (ref, game) => {
+    const coachGame = getCoachGameForDate(ref, game.event_date);
+    if (!coachGame) return false;
+    return String(coachGame.id) === String(game.id);
+  };
+
+  const isGameBeforeOwnGameConflict = (ref, game) => {
+    const coachGame = getCoachGameForDate(ref, game.event_date);
+    if (!coachGame) return false;
+
+    const coachTime = parseTimeValue(coachGame.time);
+    const gameTime = parseTimeValue(game.time);
+
+    if (coachTime === null || gameTime === null) return false;
+
+    return coachTime - gameTime === 60;
+  };
+
+  const getRefConflictReason = (ref, game, excludeAssignmentId = null) => {
+    if (isOwnGameConflict(ref, game)) {
+      return "Own game";
+    }
+
+    if (isGameBeforeOwnGameConflict(ref, game)) {
+      return "Game before own game";
+    }
+
+    const sameTimeBusy = assignments.some((a) => {
+      if (a.referee_id !== ref.id) return false;
       if (excludeAssignmentId && a.id === excludeAssignmentId) return false;
 
       const assignedGame = games.find((g) => g.id === a.schedule_id);
@@ -175,6 +253,12 @@ export default function RefereeSchedulePage() {
         assignedGame.time === game.time
       );
     });
+
+    if (sameTimeBusy) {
+      return "Already assigned same time";
+    }
+
+    return null;
   };
 
   const getAvailableRefsForGame = (game, slotIndex) => {
@@ -187,11 +271,13 @@ export default function RefereeSchedulePage() {
     return refs.filter((ref) => {
       if (assignedRefIds.includes(ref.id)) return false;
 
-      return !isRefBusyAtGameTime(
-        ref.id,
+      const reason = getRefConflictReason(
+        ref,
         game,
         currentSlotAssignment ? currentSlotAssignment.id : null
       );
+
+      return !reason;
     });
   };
 
@@ -202,20 +288,23 @@ export default function RefereeSchedulePage() {
 
     const currentAssignments = getAssignmentsForGame(game.id);
     const currentAssignment = currentAssignments[slotIndex] || null;
+    const selectedRef = refs.find((r) => String(r.id) === String(refereeId));
 
     setSavingKey(selectedKey);
     setMessage("");
 
-    const busy = isRefBusyAtGameTime(
-      refereeId,
-      game,
-      currentAssignment ? currentAssignment.id : null
-    );
+    if (selectedRef) {
+      const reason = getRefConflictReason(
+        selectedRef,
+        game,
+        currentAssignment ? currentAssignment.id : null
+      );
 
-    if (busy) {
-      setMessage("That referee is already assigned to another game at that time.");
-      setSavingKey(null);
-      return;
+      if (reason) {
+        setMessage(`That referee is blocked: ${reason}.`);
+        setSavingKey(null);
+        return;
+      }
     }
 
     const duplicateOnSameGame = currentAssignments.some(
@@ -278,17 +367,8 @@ export default function RefereeSchedulePage() {
         const availableRef = refs.find((ref) => {
           if (alreadyAssignedIds.includes(ref.id)) return false;
 
-          return !workingAssignments.some((a) => {
-            if (a.referee_id !== ref.id) return false;
-
-            const assignedGame = games.find((g) => g.id === a.schedule_id);
-            if (!assignedGame) return false;
-
-            return (
-              assignedGame.event_date === game.event_date &&
-              assignedGame.time === game.time
-            );
-          });
+          const reason = getRefConflictReason(ref, game);
+          return !reason;
         });
 
         if (!availableRef) break;
@@ -501,6 +581,31 @@ export default function RefereeSchedulePage() {
                               : "No referee assigned"}
                           </div>
 
+                          {assignedRef ? (
+                            <div style={coachInfoWrap}>
+                              <div style={coachInfoRow}>
+                                <span style={coachInfoLabel}>Coach:</span>
+                                <span style={coachInfoValue}>
+                                  {assignedRef.is_coach ? "Yes" : "No"}
+                                </span>
+                              </div>
+
+                              <div style={coachInfoRow}>
+                                <span style={coachInfoLabel}>Team ID:</span>
+                                <span style={coachInfoValue}>
+                                  {assignedRef.coach_team_id || "-"}
+                                </span>
+                              </div>
+
+                              <div style={coachInfoRow}>
+                                <span style={coachInfoLabel}>Team:</span>
+                                <span style={coachInfoValue}>
+                                  {getCoachTeamName(assignedRef)}
+                                </span>
+                              </div>
+                            </div>
+                          ) : null}
+
                           <select
                             value={selectedRefs[selectedKey] || ""}
                             onChange={(e) =>
@@ -520,7 +625,8 @@ export default function RefereeSchedulePage() {
                           </select>
 
                           <div style={helperText}>
-                            Approved referees only. Same-time conflicts are blocked.
+                            Approved refs only. Blocks own game, game before own
+                            game, and same-time conflicts.
                           </div>
 
                           <button
@@ -861,6 +967,33 @@ const assignedName = {
   fontWeight: 700,
   color: "#0f172a",
   marginBottom: 10,
+};
+
+const coachInfoWrap = {
+  marginBottom: 10,
+  padding: "10px 12px",
+  borderRadius: 12,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
+const coachInfoRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  marginBottom: 4,
+};
+
+const coachInfoLabel = {
+  fontSize: "12px",
+  fontWeight: 700,
+  color: "#64748b",
+};
+
+const coachInfoValue = {
+  fontSize: "12px",
+  fontWeight: 600,
+  color: "#0f172a",
 };
 
 const select = {
