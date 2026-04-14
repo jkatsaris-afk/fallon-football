@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import DefaultProfile from "../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
   refs,
@@ -10,6 +11,8 @@ export default function RefereeStaffPage({
   updateStatus,
   updateRole,
 }) {
+  const [filter, setFilter] = useState("all");
+
   const stats = useMemo(() => {
     const approved = refs.filter((r) => getStatus(r) === "approved").length;
     const pending = refs.filter((r) => getStatus(r) === "pending").length;
@@ -25,6 +28,38 @@ export default function RefereeStaffPage({
     };
   }, [refs, getStatus, getRole]);
 
+  const filteredRefs = useMemo(() => {
+    if (filter === "approved") {
+      return refs.filter((r) => getStatus(r) === "approved");
+    }
+
+    if (filter === "pending") {
+      return refs.filter((r) => getStatus(r) === "pending");
+    }
+
+    if (filter === "denied") {
+      return refs.filter((r) => getStatus(r) === "denied");
+    }
+
+    if (filter === "head") {
+      return refs.filter((r) => getRole(r) === "head");
+    }
+
+    return refs;
+  }, [refs, filter, getStatus, getRole]);
+
+  const getProfileImage = (ref) => {
+    return ref.profile_image || ref.profile_image_url || ref.photo_url || DefaultProfile;
+  };
+
+  const getFilterLabel = () => {
+    if (filter === "approved") return "Approved Referees";
+    if (filter === "pending") return "Pending Referees";
+    if (filter === "denied") return "Denied Referees";
+    if (filter === "head") return "Head Ref Roles";
+    return "All Referees";
+  };
+
   if (loading) {
     return (
       <div style={pageWrap}>
@@ -39,11 +74,40 @@ export default function RefereeStaffPage({
   return (
     <div style={pageWrap}>
       <div style={statsGrid}>
-        <StatTile label="Total Refs" value={stats.total} />
-        <StatTile label="Approved" value={stats.approved} />
-        <StatTile label="Pending" value={stats.pending} />
-        <StatTile label="Denied" value={stats.denied} />
-        <StatTile label="Head Ref Roles" value={stats.headRefs} />
+        <FilterTile
+          label="All Refs"
+          value={stats.total}
+          active={filter === "all"}
+          onClick={() => setFilter("all")}
+        />
+
+        <FilterTile
+          label="Approved"
+          value={stats.approved}
+          active={filter === "approved"}
+          onClick={() => setFilter("approved")}
+        />
+
+        <FilterTile
+          label="Pending"
+          value={stats.pending}
+          active={filter === "pending"}
+          onClick={() => setFilter("pending")}
+        />
+
+        <FilterTile
+          label="Denied"
+          value={stats.denied}
+          active={filter === "denied"}
+          onClick={() => setFilter("denied")}
+        />
+
+        <FilterTile
+          label="Head Ref"
+          value={stats.headRefs}
+          active={filter === "head"}
+          onClick={() => setFilter("head")}
+        />
       </div>
 
       <div style={sectionCard}>
@@ -51,33 +115,42 @@ export default function RefereeStaffPage({
           <div>
             <h2 style={heading}>Referee Staff</h2>
             <div style={subheading}>
-              Approve referees, update roles, and manage staff status.
+              {getFilterLabel()} • Approve referees, update roles, and manage staff status.
             </div>
           </div>
         </div>
 
-        {refs.length === 0 ? (
+        {filteredRefs.length === 0 ? (
           <div style={emptyState}>
             <div style={emptyTitle}>No referees found</div>
             <div style={muted}>
-              Once referee signups come in, they will show here.
+              There are no referees in this filter yet.
             </div>
           </div>
         ) : (
           <div style={listWrap}>
-            {refs.map((ref) => {
+            {filteredRefs.map((ref) => {
               const status = getStatus(ref);
               const role = getRole(ref);
 
               return (
                 <div key={ref.id} style={refCard}>
                   <div style={refTopRow}>
-                    <div style={nameBlock}>
-                      <div style={refName}>{getName(ref) || "Unnamed Referee"}</div>
-                      <div style={contactRow}>
-                        <span style={contactItem}>{ref.email || "No email"}</span>
-                        <span style={dot}>•</span>
-                        <span style={contactItem}>{ref.phone || "No phone"}</span>
+                    <div style={leftSide}>
+                      <img
+                        src={getProfileImage(ref)}
+                        alt={getName(ref) || "Referee"}
+                        style={profileImage}
+                      />
+
+                      <div style={nameBlock}>
+                        <div style={refName}>{getName(ref) || "Unnamed Referee"}</div>
+
+                        <div style={contactRow}>
+                          <span style={contactItem}>{ref.email || "No email"}</span>
+                          <span style={dot}>•</span>
+                          <span style={contactItem}>{ref.phone || "No phone"}</span>
+                        </div>
                       </div>
                     </div>
 
@@ -146,12 +219,19 @@ export default function RefereeStaffPage({
   );
 }
 
-function StatTile({ label, value }) {
+function FilterTile({ label, value, active, onClick }) {
   return (
-    <div style={statTile}>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...statTile,
+        ...(active ? activeStatTile : {}),
+      }}
+    >
       <div style={statValue}>{value}</div>
       <div style={statLabel}>{label}</div>
-    </div>
+    </button>
   );
 }
 
@@ -193,6 +273,14 @@ const statTile = {
   borderRadius: 18,
   padding: 18,
   boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  border: "none",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const activeStatTile = {
+  outline: "2px solid #16a34a",
+  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
 };
 
 const statValue = {
@@ -273,6 +361,22 @@ const refTopRow = {
   alignItems: "flex-start",
   gap: 12,
   flexWrap: "wrap",
+};
+
+const leftSide = {
+  display: "flex",
+  gap: 14,
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const profileImage = {
+  width: 64,
+  height: 64,
+  borderRadius: "50%",
+  objectFit: "cover",
+  border: "3px solid #e2e8f0",
+  background: "#ffffff",
 };
 
 const nameBlock = {
