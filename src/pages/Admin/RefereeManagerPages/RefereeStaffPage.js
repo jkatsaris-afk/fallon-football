@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
+import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
@@ -11,55 +12,78 @@ export default function RefereeStaffPage({
   updateStatus,
   updateRole,
 }) {
+  const [filter, setFilter] = useState("all");
+
+  /* 🔥 FIX PROFILE IMAGES */
   const getProfileImage = (ref) => {
     const raw = ref?.profile_image || "";
+
     if (!raw) return DefaultProfile;
-    return raw.startsWith("http") ? raw : DefaultProfile;
+
+    if (raw.startsWith("http")) return raw;
+
+    const { data } = supabase.storage
+      .from("profile-images")
+      .getPublicUrl(raw);
+
+    return data?.publicUrl || DefaultProfile;
   };
 
-  const getNameSafe = (r) =>
-    `${r.first_name || ""} ${r.last_name || ""}`.trim() || "Unnamed Ref";
+  const safeStatus = (r) => getStatus ? getStatus(r) : r.status || "pending";
+  const safeRole = (r) => getRole ? getRole(r) : r.role || "assistant";
+
+  /* 🔥 FILTER COUNTS */
+  const stats = useMemo(() => ({
+    total: refs.length,
+    approved: refs.filter(r => safeStatus(r) === "approved").length,
+    pending: refs.filter(r => safeStatus(r) === "pending").length,
+    denied: refs.filter(r => safeStatus(r) === "denied").length,
+    head: refs.filter(r => safeRole(r) === "head").length,
+  }), [refs]);
+
+  const filteredRefs = useMemo(() => {
+    if (filter === "approved") return refs.filter(r => safeStatus(r) === "approved");
+    if (filter === "pending") return refs.filter(r => safeStatus(r) === "pending");
+    if (filter === "denied") return refs.filter(r => safeStatus(r) === "denied");
+    if (filter === "head") return refs.filter(r => safeRole(r) === "head");
+    return refs;
+  }, [refs, filter]);
 
   if (loading) {
-    return (
-      <div style={pageWrap}>
-        <div style={sectionCard}>
-          <h2 style={heading}>Referee Staff</h2>
-          <div style={muted}>Loading referees...</div>
-        </div>
-      </div>
-    );
+    return <div style={{ padding: 20 }}>Loading...</div>;
   }
 
   return (
     <div style={pageWrap}>
+
+      {/* 🔥 FILTER TILES BACK */}
+      <div style={statsGrid}>
+        <FilterTile label="All" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
+        <FilterTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
+        <FilterTile label="Pending" value={stats.pending} active={filter==="pending"} onClick={()=>setFilter("pending")} />
+        <FilterTile label="Denied" value={stats.denied} active={filter==="denied"} onClick={()=>setFilter("denied")} />
+        <FilterTile label="Head" value={stats.head} active={filter==="head"} onClick={()=>setFilter("head")} />
+      </div>
+
       <div style={sectionCard}>
-        <div style={headerRow}>
-          <div>
-            <h2 style={heading}>Referee Staff</h2>
-            <div style={subheading}>
-              Manage referee roles and approvals
-            </div>
-          </div>
-        </div>
+        <h2 style={heading}>Referee Staff</h2>
 
         <div style={listWrap}>
-          {refs.map((ref) => {
-            const role = getRole(ref);
+          {filteredRefs.map((ref) => {
+            const role = safeRole(ref);
 
             return (
               <div key={ref.id} style={card}>
 
-                {/* 🔥 TOP ROW */}
+                {/* 🔥 HEADER */}
                 <div style={topRow}>
                   <div style={left}>
                     <img src={getProfileImage(ref)} style={avatar} />
 
                     <div>
                       <div style={name}>
-                        {getName ? getName(ref) : getNameSafe(ref)}
+                        {getName ? getName(ref) : `${ref.first_name} ${ref.last_name}`}
                       </div>
-
                       <div style={email}>{ref.email}</div>
                     </div>
                   </div>
@@ -67,29 +91,26 @@ export default function RefereeStaffPage({
                   <span
                     style={{
                       ...statusBadge,
-                      ...(getStatus(ref) === "approved"
+                      ...(safeStatus(ref) === "approved"
                         ? approved
-                        : getStatus(ref) === "denied"
+                        : safeStatus(ref) === "denied"
                         ? denied
                         : pending),
                     }}
                   >
-                    {getStatus(ref)}
+                    {safeStatus(ref)}
                   </span>
                 </div>
 
                 {/* 🔥 DETAILS */}
                 <div style={grid}>
 
-                  {/* ROLE */}
                   <div style={tile}>
                     <div style={label}>Role</div>
 
                     <select
                       value={role}
-                      onChange={(e) =>
-                        updateRole(ref, e.target.value)
-                      }
+                      onChange={(e) => updateRole(ref, e.target.value)}
                       style={select}
                     >
                       <option value="assistant">Assistant Ref</option>
@@ -101,31 +122,13 @@ export default function RefereeStaffPage({
                     </div>
                   </div>
 
-                  {/* STATUS */}
                   <div style={tile}>
                     <div style={label}>Status</div>
 
                     <div style={btnRow}>
-                      <button
-                        style={approveBtn}
-                        onClick={() => updateStatus(ref.id, "approved")}
-                      >
-                        Approve
-                      </button>
-
-                      <button
-                        style={pendingBtn}
-                        onClick={() => updateStatus(ref.id, "pending")}
-                      >
-                        Pending
-                      </button>
-
-                      <button
-                        style={denyBtn}
-                        onClick={() => updateStatus(ref.id, "denied")}
-                      >
-                        Deny
-                      </button>
+                      <button style={approveBtn} onClick={() => updateStatus(ref.id, "approved")}>Approve</button>
+                      <button style={pendingBtn} onClick={() => updateStatus(ref.id, "pending")}>Pending</button>
+                      <button style={denyBtn} onClick={() => updateStatus(ref.id, "denied")}>Deny</button>
                     </div>
                   </div>
 
@@ -139,42 +142,55 @@ export default function RefereeStaffPage({
   );
 }
 
-/* 🔥 STYLE MATCHES SCHEDULE */
+/* 🔥 FILTER TILE */
+function FilterTile({ label, value, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      ...tileBtn,
+      ...(active ? activeTileBtn : {})
+    }}>
+      <div style={tileValue}>{value}</div>
+      <div style={tileLabel}>{label}</div>
+    </button>
+  );
+}
 
-const pageWrap = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 18,
+/* 🔥 STYLES */
+
+const pageWrap = { display: "flex", flexDirection: "column", gap: 18 };
+
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: 12,
 };
+
+const tileBtn = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 14,
+  border: "none",
+  cursor: "pointer",
+  boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
+};
+
+const activeTileBtn = {
+  outline: "2px solid #16a34a",
+};
+
+const tileValue = { fontSize: 22, fontWeight: 800 };
+const tileLabel = { fontSize: 12, color: "#64748b" };
 
 const sectionCard = {
-  background: "#ffffff",
+  background: "#fff",
   borderRadius: 18,
   padding: 20,
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
 };
 
-const headerRow = {
-  marginBottom: 18,
-};
+const heading = { fontSize: 24, fontWeight: 700 };
 
-const heading = {
-  fontSize: "24px",
-  fontWeight: 700,
-  margin: 0,
-};
-
-const subheading = {
-  marginTop: 6,
-  fontSize: "14px",
-  color: "#64748b",
-};
-
-const listWrap = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 14,
-};
+const listWrap = { display: "flex", flexDirection: "column", gap: 14 };
 
 const card = {
   border: "1px solid #e5e7eb",
@@ -186,15 +202,10 @@ const card = {
 const topRow = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
   marginBottom: 14,
 };
 
-const left = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-};
+const left = { display: "flex", gap: 12, alignItems: "center" };
 
 const avatar = {
   width: 46,
@@ -203,15 +214,8 @@ const avatar = {
   objectFit: "cover",
 };
 
-const name = {
-  fontSize: "16px",
-  fontWeight: 700,
-};
-
-const email = {
-  fontSize: "13px",
-  color: "#64748b",
-};
+const name = { fontWeight: 700 };
+const email = { fontSize: 13, color: "#64748b" };
 
 const grid = {
   display: "grid",
@@ -220,86 +224,24 @@ const grid = {
 };
 
 const tile = {
-  background: "#ffffff",
+  background: "#fff",
   borderRadius: 16,
   padding: 16,
-  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
 };
 
-const label = {
-  fontSize: "13px",
-  fontWeight: 700,
-  color: "#475569",
-  marginBottom: 10,
-};
+const label = { fontWeight: 700, marginBottom: 8 };
 
-const select = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #cbd5e1",
-};
+const select = { width: "100%", padding: 10, borderRadius: 12 };
 
-const helper = {
-  marginTop: 8,
-  fontSize: "12px",
-  color: "#64748b",
-};
+const helper = { fontSize: 12, marginTop: 6 };
 
-const btnRow = {
-  display: "flex",
-  gap: 8,
-};
+const btnRow = { display: "flex", gap: 8 };
 
-const approveBtn = {
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  padding: "10px 12px",
-  borderRadius: 12,
-  fontWeight: 600,
-};
+const approveBtn = { background: "#16a34a", color: "#fff", border: "none", padding: 10, borderRadius: 12 };
+const pendingBtn = { background: "#f59e0b", color: "#fff", border: "none", padding: 10, borderRadius: 12 };
+const denyBtn = { background: "#dc2626", color: "#fff", border: "none", padding: 10, borderRadius: 12 };
 
-const pendingBtn = {
-  background: "#f59e0b",
-  color: "#fff",
-  border: "none",
-  padding: "10px 12px",
-  borderRadius: 12,
-  fontWeight: 600,
-};
-
-const denyBtn = {
-  background: "#dc2626",
-  color: "#fff",
-  border: "none",
-  padding: "10px 12px",
-  borderRadius: 12,
-  fontWeight: 600,
-};
-
-const statusBadge = {
-  padding: "6px 12px",
-  borderRadius: 999,
-  fontSize: "12px",
-  fontWeight: 700,
-};
-
-const approved = {
-  background: "#dcfce7",
-  color: "#166534",
-};
-
-const pending = {
-  background: "#fef3c7",
-  color: "#92400e",
-};
-
-const denied = {
-  background: "#fee2e2",
-  color: "#991b1b",
-};
-
-const muted = {
-  color: "#64748b",
-};
+const statusBadge = { padding: "6px 12px", borderRadius: 999, fontWeight: 700 };
+const approved = { background: "#dcfce7", color: "#166534" };
+const pending = { background: "#fef3c7", color: "#92400e" };
+const denied = { background: "#fee2e2", color: "#991b1b" };
