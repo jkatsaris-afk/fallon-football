@@ -64,7 +64,7 @@ export default function RefereeStaffPage({
 
                 <div style={detailsGrid}>
 
-                  {/* ROLE TILE */}
+                  {/* 🔥 ROLE TILE */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Role</div>
 
@@ -84,7 +84,7 @@ export default function RefereeStaffPage({
                     </div>
                   </div>
 
-                  {/* STATUS TILE */}
+                  {/* 🔥 STATUS TILE */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Status</div>
 
