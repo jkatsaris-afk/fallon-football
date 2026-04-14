@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
@@ -12,33 +12,41 @@ export default function RefereeStaffPage({
   updateStatus,
   updateRole,
 }) {
-  const getProfileImage = (ref) => {
-    const raw =
-      ref.profile_image ||
-      ref.profile_image_url ||
-      ref.photo_url ||
-      "";
+  const [teams, setTeams] = useState([]);
 
-    if (!raw) return DefaultProfile;
-    if (raw.startsWith("http")) return raw;
+  /* 🔥 ONLY LOAD TEAMS */
+  useEffect(() => {
+    const loadTeams = async () => {
+      const { data, error } = await supabase.from("teams").select("*");
+      if (error) {
+        console.error("Error loading teams:", error);
+        setTeams([]);
+        return;
+      }
+      setTeams(data || []);
+    };
 
-    return DefaultProfile;
-  };
+    loadTeams();
+  }, []);
 
-  /* 🔥 SIMPLE COACH TOGGLE */
-  const updateCoach = async (ref, isCoach) => {
+  const divisions = useMemo(() => {
+    const values = teams
+      .map((t) => t.division || t.division_name || "")
+      .filter(Boolean);
+
+    return [...new Set(values)];
+  }, [teams]);
+
+  /* 🔥 NO STATE UPDATE HERE */
+  const updateCoachInfo = async (ref, updates) => {
     const { error } = await supabase
       .from("referees")
-      .update({ is_coach: isCoach })
+      .update(updates)
       .eq("id", ref.id);
 
     if (error) {
-      console.error("Error updating coach:", error);
-      return;
+      console.error("Error updating coach info:", error);
     }
-
-    // local update (no reload)
-    ref.is_coach = isCoach;
   };
 
   if (loading) {
@@ -63,89 +71,78 @@ export default function RefereeStaffPage({
 
         <div style={listWrap}>
           {refs.map((ref) => {
-            const role = getRole(ref);
+            const teamOptions = teams.filter(
+              (t) =>
+                (t.division || t.division_name) === ref.coach_division
+            );
 
             return (
               <div key={ref.id} style={refCard}>
-                <div style={refTopRow}>
-                  <div style={leftSide}>
-                    <img
-                      src={getProfileImage(ref)}
-                      alt={getName(ref)}
-                      style={profileImage}
-                    />
-                    <div style={nameBlock}>
-                      <div style={refName}>{getName(ref)}</div>
-                      <div style={contactRow}>{ref.email}</div>
-                    </div>
-                  </div>
-                </div>
-
                 <div style={detailsGrid}>
-
-                  {/* ROLE TILE */}
+                  
+                  {/* 🔥 COACH TILE (CLEAN + STABLE) */}
                   <div style={detailTile}>
-                    <div style={detailLabel}>Role</div>
+                    <div style={detailLabel}>Coach Info</div>
 
                     <select
-                      value={role}
-                      onChange={(e) =>
-                        updateRole(ref, e.target.value)
-                      }
+                      value={ref.is_coach ? "yes" : "no"}
+                      onChange={(e) => {
+                        const isCoach = e.target.value === "yes";
+
+                        updateCoachInfo(ref, {
+                          is_coach: isCoach,
+                          coach_division: isCoach ? ref.coach_division || null : null,
+                          coach_team_id: isCoach ? ref.coach_team_id || null : null,
+                        });
+                      }}
                       style={select}
                     >
-                      <option value="assistant">Assistant Ref</option>
-                      <option value="head">Head Ref</option>
+                      <option value="no">Not a Coach</option>
+                      <option value="yes">Is a Coach</option>
                     </select>
 
-                    <div style={helperText}>
-                      {displayRole(ref)}
-                    </div>
+                    {ref.is_coach && (
+                      <>
+                        <select
+                          value={ref.coach_division || ""}
+                          onChange={(e) => {
+                            updateCoachInfo(ref, {
+                              coach_division: e.target.value,
+                              coach_team_id: null,
+                            });
+                          }}
+                          style={selectSpacing}
+                        >
+                          <option value="">Select Division</option>
+                          {divisions.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
 
-                    {/* 🔥 COACH TOGGLE (NEW CLEAN VERSION) */}
-                    <div style={{ marginTop: 10 }}>
-                      <select
-                        value={ref.is_coach ? "yes" : "no"}
-                        onChange={(e) =>
-                          updateCoach(ref, e.target.value === "yes")
-                        }
-                        style={selectSpacing}
-                      >
-                        <option value="no">Not a Coach</option>
-                        <option value="yes">Is a Coach</option>
-                      </select>
-                    </div>
-                  </div>
+                        <select
+                          value={ref.coach_team_id || ""}
+                          onChange={(e) => {
+                            updateCoachInfo(ref, {
+                              coach_team_id: e.target.value,
+                            });
+                          }}
+                          style={selectSpacing}
+                        >
+                          <option value="">Select Team</option>
 
-                  {/* STATUS TILE */}
-                  <div style={detailTile}>
-                    <div style={detailLabel}>Status</div>
-
-                    <div style={buttonRow}>
-                      <button
-                        type="button"
-                        style={approveBtn}
-                        onClick={() => updateStatus(ref.id, "approved")}
-                      >
-                        Approve
-                      </button>
-
-                      <button
-                        type="button"
-                        style={pendingBtn}
-                        onClick={() => updateStatus(ref.id, "pending")}
-                      >
-                        Pending
-                      </button>
-
-                      <button
-                        type="button"
-                        style={denyBtn}
-                        onClick={() => updateStatus(ref.id, "denied")}
-                      >
-                        Deny
-                      </button>
-                    </div>
+                          {teamOptions.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.team_name ||
+                                team.name ||
+                                team.team ||
+                                "Unnamed Team"}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                   </div>
 
                 </div>
