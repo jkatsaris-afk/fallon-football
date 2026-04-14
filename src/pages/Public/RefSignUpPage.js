@@ -44,13 +44,7 @@ export default function RefSignUpPage() {
     setLoading(true);
 
     try {
-      const fileName = `${Date.now()}-${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("profile-images")
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
+      /* ================= 1. SIGN UP ================= */
 
       const { data: authData, error: authError } =
         await supabase.auth.signUp({
@@ -60,32 +54,84 @@ export default function RefSignUpPage() {
 
       if (authError) throw authError;
 
-      /* ✅ FIX: ensure we actually get the user */
-      const user = authData.user || authData.session?.user;
+      /* ================= 2. FORCE SESSION ================= */
 
+      let user = authData.user || authData.session?.user;
+
+      // 🔥 CRITICAL FIX: force login if no session yet
       if (!user) {
-        throw new Error("User not authenticated after signup");
+        const { data: loginData, error: loginError } =
+          await supabase.auth.signInWithPassword({
+            email: form.email,
+            password: form.password
+          });
+
+        if (loginError) throw loginError;
+
+        user = loginData.user;
       }
 
-      await supabase.from("referees").insert([
-        {
-          auth_id: user.id,
-          first_name: form.firstName,
-          last_name: form.lastName,
-          phone: form.phone,
-          email: form.email,
-          age: Number(form.age),
-          experience: form.experience,
-          availability: form.availability,
-          notes: form.notes,
-          profile_image: fileName
-        }
-      ]);
+      if (!user) {
+        throw new Error("User authentication failed");
+      }
+
+      /* ================= 3. ENSURE PROFILE ================= */
+
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert([
+            {
+              id: user.id,
+              role: "referee"
+            }
+          ]);
+
+        if (profileError) throw profileError;
+      }
+
+      /* ================= 4. UPLOAD IMAGE ================= */
+
+      const fileName = `${user.id}-${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      /* ================= 5. INSERT REFEREE ================= */
+
+      const { error: insertError } = await supabase
+        .from("referees")
+        .insert([
+          {
+            auth_id: user.id,
+            first_name: form.firstName,
+            last_name: form.lastName,
+            phone: form.phone,
+            email: form.email,
+            age: Number(form.age),
+            experience: form.experience,
+            availability: form.availability,
+            notes: form.notes,
+            profile_image: fileName,
+            status: "pending" // 🔥 future proof for approval system
+          }
+        ]);
+
+      if (insertError) throw insertError;
 
       alert("Account Created!");
 
     } catch (err) {
-      console.error(err);
+      console.error("FULL ERROR:", err);
       alert(err.message);
     }
 
@@ -99,7 +145,6 @@ export default function RefSignUpPage() {
 
       <h2 style={{ marginBottom: 20 }}>Referee Registration</h2>
 
-      {/* 🔥 PAY INFO */}
       <Card>
         <div style={payBox}>
           Referees are paid <strong>$20 per game</strong>.
@@ -114,7 +159,6 @@ export default function RefSignUpPage() {
 
       {settings.ref_signups_open && (
         <>
-          {/* BASIC INFO */}
           <Card>
             <Section title="Basic Info">
 
@@ -125,7 +169,6 @@ export default function RefSignUpPage() {
               <Input placeholder="Password" type="password" onChange={(v)=>setForm({...form, password:v})}/>
               <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
 
-              {/* 🔥 PROFILE IMAGE */}
               <div style={uploadWrap}>
                 <label style={uploadBtn}>
                   Upload Profile Picture (Required)
@@ -137,15 +180,12 @@ export default function RefSignUpPage() {
                   />
                 </label>
 
-                {file && (
-                  <div style={fileName}>{file.name}</div>
-                )}
+                {file && <div style={fileNameStyle}>{file.name}</div>}
               </div>
 
             </Section>
           </Card>
 
-          {/* EXPERIENCE */}
           <Card>
             <Section title="Experience">
               <textarea
@@ -156,7 +196,6 @@ export default function RefSignUpPage() {
             </Section>
           </Card>
 
-          {/* AVAILABILITY */}
           <Card>
             <Section title="Availability">
               <textarea
@@ -167,7 +206,6 @@ export default function RefSignUpPage() {
             </Section>
           </Card>
 
-          {/* NOTES */}
           <Card>
             <textarea
               placeholder="Additional notes"
@@ -267,7 +305,7 @@ const uploadBtn = {
   fontSize: 14
 };
 
-const fileName = {
+const fileNameStyle = {
   marginTop: 6,
   fontSize: 12,
   color: "#64748b"
