@@ -25,26 +25,6 @@ export default function RefereeStaffPage({
     return DefaultProfile;
   };
 
-  /* 🔥 FIXED COACH TOGGLE (NO UI CHANGE) */
-  const updateCoach = async (ref, isCoach) => {
-    const { error } = await supabase
-      .from("referees")
-      .update({
-        is_coach: isCoach,
-        coach_team_id: isCoach ? ref.coach_team_id : null,
-        coach_division: isCoach ? ref.coach_division : null,
-        coach_notes: isCoach ? ref.coach_notes : null,
-      })
-      .eq("id", ref.id);
-
-    if (error) {
-      console.error("Error updating coach:", error);
-      return;
-    }
-
-    // 🚫 DO NOT mutate ref (this was causing refresh loop)
-  };
-
   if (loading) {
     return (
       <div style={pageWrap}>
@@ -87,7 +67,7 @@ export default function RefereeStaffPage({
 
                 <div style={detailsGrid}>
 
-                  {/* ROLE TILE (UNCHANGED UI) */}
+                  {/* ROLE TILE (CLEAN — NO COACH) */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Role</div>
 
@@ -103,22 +83,7 @@ export default function RefereeStaffPage({
                     </select>
 
                     <div style={helperText}>
-                      {displayRole(ref)}{" "}
-                      {ref.is_coach === true && "• Coach"}
-                    </div>
-
-                    {/* 🔥 COACH TOGGLE (SAME LOOK, FIXED LOGIC) */}
-                    <div style={{ marginTop: 10 }}>
-                      <select
-                        value={ref.is_coach === true ? "yes" : "no"}
-                        onChange={(e) =>
-                          updateCoach(ref, e.target.value === "yes")
-                        }
-                        style={selectSpacing}
-                      >
-                        <option value="no">Not a Coach</option>
-                        <option value="yes">Is a Coach</option>
-                      </select>
+                      {displayRole(ref)}
                     </div>
                   </div>
 
