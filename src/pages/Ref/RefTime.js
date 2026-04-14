@@ -1,6 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+/* LOGOS */
+import bills from "../../resources/Buffalo Bills.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
+import broncos from "../../resources/Denver Broncos.png";
+import lions from "../../resources/Detroit Lions.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
+import raiders from "../../resources/Las Vegas Raiders.png";
+import rams from "../../resources/Los Angeles Rams.png";
+import jets from "../../resources/New York Jets.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
+import steelers from "../../resources/Pittsburgh Steelers.png";
+import niners from "../../resources/San Francisco 49ers.png";
+import ravens from "../../resources/Baltimore Ravens.png";
+
+const teamLogos = {
+  bills, bengals, broncos, lions, colts,
+  chiefs, raiders, rams, jets, eagles,
+  steelers, "49ers": niners, ravens
+};
+
 export default function RefTime() {
   const [grouped, setGrouped] = useState({});
   const [checkins, setCheckins] = useState([]);
@@ -40,7 +61,6 @@ export default function RefTime() {
 
     const groupedData = (gamesData || []).reduce((acc, game) => {
       if (!game?.event_date) return acc;
-
       if (!acc[game.event_date]) acc[game.event_date] = [];
       acc[game.event_date].push(game);
       return acc;
@@ -77,16 +97,15 @@ export default function RefTime() {
   const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
   const gamesReffed = checkins.length;
 
-  /* SAFE DATE FORMAT */
+  /* SAFE DATE */
   const formatDate = (dateStr) => {
     if (!dateStr) return { day: "", date: "" };
-
-    const [year, month, day] = dateStr.split("-");
-    const d = new Date(year, month - 1, day);
+    const [y, m, d] = dateStr.split("-");
+    const date = new Date(y, m - 1, d);
 
     return {
-      day: d.toLocaleDateString("en-US", { weekday: "long" }),
-      date: d.toLocaleDateString("en-US", {
+      day: date.toLocaleDateString("en-US", { weekday: "long" }),
+      date: date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric"
@@ -94,7 +113,6 @@ export default function RefTime() {
     };
   };
 
-  /* SAFE WEEK CALC */
   const getWeekNumber = (dateStr) => {
     const dates = Object.keys(grouped || {}).sort();
     if (!dates.length || !dateStr) return 1;
@@ -105,21 +123,22 @@ export default function RefTime() {
     const [cy, cm, cd] = dateStr.split("-");
     const current = new Date(cy, cm - 1, cd);
 
-    const diffDays = Math.floor((current - start) / (1000 * 60 * 60 * 24));
-
-    return Math.floor(diffDays / 7) + 1;
+    const diff = Math.floor((current - start) / (1000 * 60 * 60 * 24));
+    return Math.floor(diff / 7) + 1;
   };
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={wrap}>
 
-      <h2>Ref Time</h2>
-
-      <div>
-        Earnings: ${totalPay} | Games: {gamesReffed}
+      {/* TOP TILES */}
+      <div style={statsGrid}>
+        <StatTile label="Earnings" value={`$${totalPay}`} highlight />
+        <StatTile label="Games" value={gamesReffed} />
       </div>
+
+      <h2 style={title}>Ref Time</h2>
 
       {Object.keys(grouped || {}).map((date) => {
         const isOpen = openDates[date];
@@ -129,26 +148,49 @@ export default function RefTime() {
         return (
           <div key={date}>
 
-            <div onClick={() => toggleDate(date)}>
-              {day} - {formatted} (Week {week})
+            <div style={dateTile} onClick={() => toggleDate(date)}>
+              <div style={dateLeft}>
+                <div style={dayText}>{day}</div>
+                <div style={dateText}>{formatted}</div>
+                <div style={weekText}>Week {week}</div>
+              </div>
+
+              <div style={arrow}>
+                {isOpen ? "▲" : "▼"}
+              </div>
             </div>
 
             {isOpen && (
-              <div>
+              <div style={gameGrid}>
                 {(grouped[date] || []).map((game) => {
                   const checked = checkins.find(c => c.game_id === game.id);
 
                   return (
-                    <div key={game.id}>
-                      {game.team} vs {game.opponent} - {game.event_time}
+                    <div key={game.id} style={card}>
 
-                      {checked ? (
-                        <span> ✔ Checked In</span>
-                      ) : (
-                        <button onClick={() => checkIn(game)}>
-                          Check In
-                        </button>
-                      )}
+                      <div style={teamsRow}>
+                        <TeamSide team={game.team} />
+                        <div style={vs}>vs</div>
+                        <TeamSide team={game.opponent} />
+                      </div>
+
+                      <div style={time}>{game.event_time}</div>
+
+                      <div style={meta}>
+                        <span>{game.division}</span>
+                        <span>{game.field}</span>
+                      </div>
+
+                      <div style={btnWrap}>
+                        {checked ? (
+                          <span style={checkedBadge}>Checked In</span>
+                        ) : (
+                          <button style={btn} onClick={() => checkIn(game)}>
+                            Check In
+                          </button>
+                        )}
+                      </div>
+
                     </div>
                   );
                 })}
@@ -161,3 +203,112 @@ export default function RefTime() {
     </div>
   );
 }
+
+/* COMPONENTS */
+
+function StatTile({ label, value, highlight }) {
+  return (
+    <div style={statTile}>
+      <div style={{ ...statValue, ...(highlight ? greenText : {}) }}>
+        {value}
+      </div>
+      <div style={statLabel}>{label}</div>
+    </div>
+  );
+}
+
+function TeamSide({ team }) {
+  const logo = team ? teamLogos[team.toLowerCase().trim()] : null;
+
+  return (
+    <div style={teamSide}>
+      {logo && <img src={logo} style={logoStyle} />}
+      <div>{team}</div>
+    </div>
+  );
+}
+
+/* STYLES */
+
+const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
+const title = { fontSize:24, fontWeight:700 };
+
+const statsGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
+  gap:14
+};
+
+const statTile = {
+  background:"#fff",
+  borderRadius:18,
+  padding:20,
+  textAlign:"center",
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const statValue = { fontSize:26, fontWeight:800 };
+const greenText = { color:"#16a34a" };
+
+const statLabel = { fontSize:13, color:"#64748b" };
+
+const dateTile = {
+  background:"#fff",
+  borderRadius:16,
+  padding:14,
+  display:"flex",
+  justifyContent:"space-between",
+  alignItems:"center",
+  cursor:"pointer",
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const dateLeft = { display:"flex", flexDirection:"column", minWidth:0 };
+
+const dayText = { fontWeight:700 };
+const dateText = { fontSize:13, color:"#64748b" };
+const weekText = { fontSize:12, color:"#16a34a" };
+
+const arrow = { fontWeight:700 };
+
+const gameGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(220px,1fr))",
+  gap:12
+};
+
+const card = {
+  background:"#fff",
+  borderRadius:16,
+  padding:14,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const teamsRow = {
+  display:"flex",
+  justifyContent:"space-between",
+  alignItems:"center"
+};
+
+const teamSide = { display:"flex", flexDirection:"column", alignItems:"center" };
+
+const logoStyle = { width:36 };
+
+const vs = { fontWeight:700 };
+
+const time = { textAlign:"center", fontWeight:700 };
+
+const meta = { display:"flex", justifyContent:"space-between", fontSize:12 };
+
+const btnWrap = { textAlign:"center", marginTop:8 };
+
+const btn = {
+  background:"#16a34a",
+  color:"#fff",
+  padding:"8px 12px",
+  borderRadius:10,
+  border:"none",
+  cursor:"pointer"
+};
+
+const checkedBadge = { color:"#16a34a", fontWeight:700 };
