@@ -3,6 +3,8 @@ import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
+  refs,
+  loading,
   getName,
   getStatus,
   getRole,
@@ -10,40 +12,32 @@ export default function RefereeStaffPage({
   updateStatus,
   updateRole,
 }) {
-  const [refs, setRefs] = useState([]);
-  const [loadingState, setLoadingState] = useState(true);
-  const [filter, setFilter] = useState("all");
   const [teams, setTeams] = useState([]);
 
-  const safeGetStatus = (r) =>
-    getStatus ? getStatus(r) : r.status || "pending";
-
-  const safeGetRole = (r) =>
-    getRole ? getRole(r) : r.role || "assistant";
-
-  const safeGetName = (r) =>
-    getName
-      ? getName(r)
-      : `${r.first_name || ""} ${r.last_name || ""}`.trim() ||
-        "Unnamed Referee";
-
+  /* 🔥 ONLY LOAD TEAMS */
   useEffect(() => {
+    const loadTeams = async () => {
+      const { data, error } = await supabase.from("teams").select("*");
+      if (error) {
+        console.error("Error loading teams:", error);
+        setTeams([]);
+        return;
+      }
+      setTeams(data || []);
+    };
+
     loadTeams();
-    loadRefs();
   }, []);
 
-  const loadTeams = async () => {
-    const { data } = await supabase.from("teams").select("*");
-    setTeams(data || []);
-  };
+  const divisions = useMemo(() => {
+    const values = teams
+      .map((t) => t.division || t.division_name || "")
+      .filter(Boolean);
 
-  const loadRefs = async () => {
-    setLoadingState(true);
-    const { data } = await supabase.from("referees").select("*");
-    setRefs(data || []);
-    setLoadingState(false);
-  };
+    return [...new Set(values)];
+  }, [teams]);
 
+  /* 🔥 NO STATE UPDATE HERE */
   const updateCoachInfo = async (ref, updates) => {
     const { error } = await supabase
       .from("referees")
@@ -51,32 +45,29 @@ export default function RefereeStaffPage({
       .eq("id", ref.id);
 
     if (error) {
-      console.error(error);
-      return;
+      console.error("Error updating coach info:", error);
     }
-
-    setRefs((prev) =>
-      prev.map((r) =>
-        r.id === ref.id ? { ...r, ...updates } : r
-      )
-    );
   };
 
-  const divisions = useMemo(() => {
-    const values = teams
-      .map((t) => t.division || t.division_name || "")
-      .filter(Boolean);
-    return [...new Set(values)];
-  }, [teams]);
-
-  if (loadingState) {
-    return <div style={{ padding: 20 }}>Loading...</div>;
+  if (loading) {
+    return (
+      <div style={pageWrap}>
+        <div style={sectionCard}>
+          <h2 style={heading}>Referee Staff</h2>
+          <div style={muted}>Loading referees...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div style={pageWrap}>
       <div style={sectionCard}>
-        <h2 style={heading}>Referee Staff</h2>
+        <div style={headerRow}>
+          <div>
+            <h2 style={heading}>Referee Staff</h2>
+          </div>
+        </div>
 
         <div style={listWrap}>
           {refs.map((ref) => {
@@ -85,17 +76,14 @@ export default function RefereeStaffPage({
                 (t.division || t.division_name) === ref.coach_division
             );
 
-            const selectedTeam = teams.find(
-              (t) => t.id === ref.coach_team_id
-            );
-
             return (
               <div key={ref.id} style={refCard}>
                 <div style={detailsGrid}>
+                  
+                  {/* 🔥 COACH TILE (CLEAN + STABLE) */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Coach Info</div>
 
-                    {/* Coach toggle */}
                     <select
                       value={ref.is_coach ? "yes" : "no"}
                       onChange={(e) => {
@@ -103,12 +91,8 @@ export default function RefereeStaffPage({
 
                         updateCoachInfo(ref, {
                           is_coach: isCoach,
-                          coach_division: isCoach
-                            ? ref.coach_division || null
-                            : null,
-                          coach_team_id: isCoach
-                            ? ref.coach_team_id || null
-                            : null,
+                          coach_division: isCoach ? ref.coach_division || null : null,
+                          coach_team_id: isCoach ? ref.coach_team_id || null : null,
                         });
                       }}
                       style={select}
@@ -119,7 +103,6 @@ export default function RefereeStaffPage({
 
                     {ref.is_coach && (
                       <>
-                        {/* Division */}
                         <select
                           value={ref.coach_division || ""}
                           onChange={(e) => {
@@ -138,12 +121,11 @@ export default function RefereeStaffPage({
                           ))}
                         </select>
 
-                        {/* 🔥 TEAM SELECT (UUID STORED, NAME SHOWN) */}
                         <select
                           value={ref.coach_team_id || ""}
                           onChange={(e) => {
                             updateCoachInfo(ref, {
-                              coach_team_id: e.target.value || null,
+                              coach_team_id: e.target.value,
                             });
                           }}
                           style={selectSpacing}
@@ -159,19 +141,10 @@ export default function RefereeStaffPage({
                             </option>
                           ))}
                         </select>
-
-                        {/* Optional display */}
-                        <div style={helperText}>
-                          {selectedTeam
-                            ? `Team: ${
-                                selectedTeam.team_name ||
-                                selectedTeam.name
-                              }`
-                            : "No team selected"}
-                        </div>
                       </>
                     )}
                   </div>
+
                 </div>
               </div>
             );
