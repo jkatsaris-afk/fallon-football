@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import "./styles.css";
 
-import LoadingScreen from "./LoadingScreen"; // (you already added this)
+import LoadingScreen from "./LoadingScreen";
 
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
@@ -35,63 +35,46 @@ import AdminLayout from "./layouts/AdminLayout";
 import { supabase } from "./supabase";
 
 export default function App() {
-  const [page, setPage] = useState(null); // ✅ FIXED (was "home")
+  const [page, setPage] = useState(null);
   const [adminPage, setAdminPage] = useState("dashboard");
   const [accessDenied, setAccessDenied] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false); // 🔥 NEW
 
-  /* ================= SESSION RESTORE ================= */
+  /* ================= INIT (ROUTING + AUTH BLOCKING) ================= */
 
   useEffect(() => {
-    const restoreSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data?.session;
+    const init = async () => {
+      let path = window.location.pathname.toLowerCase();
 
-      if (session?.user) {
-        const path = window.location.pathname.toLowerCase();
-
-        if (path === "/ref" || path.startsWith("/ref/")) {
-          setPage("refDashboard");
-        }
-
-        if (path.startsWith("/admin")) {
-          setPage("dashboard");
-        }
+      if (!path || path === "" || path === "/index.html") {
+        path = "/";
+        window.history.replaceState({}, "", "/");
       }
+
+      if (path === "/") setPage("home");
+      else if (path === "/signup") setPage("signup");
+      else if (path === "/coach-signup") setPage("coachSignup");
+      else if (path === "/ref-signup") setPage("refSignup");
+      else if (path === "/login") setPage("loginSelect");
+
+      else if (path.startsWith("/admin")) {
+        await checkAdmin();
+        setReady(true);
+        return;
+      }
+
+      else if (path === "/ref" || path.startsWith("/ref/")) {
+        await checkRef();
+        setReady(true);
+        return;
+      }
+
+      else setPage("home");
+
+      setReady(true); // 🔥 unlock render ONLY here
     };
 
-    restoreSession();
-  }, []);
-
-  /* ================= ROUTING ================= */
-
-  useEffect(() => {
-    let path = window.location.pathname.toLowerCase();
-
-    if (!path || path === "" || path === "/index.html") {
-      path = "/";
-      window.history.replaceState({}, "", "/");
-    }
-
-    if (path === "/") setPage("home");
-    else if (path === "/signup") setPage("signup");
-    else if (path === "/coach-signup") setPage("coachSignup");
-    else if (path === "/ref-signup") setPage("refSignup");
-    else if (path === "/login") setPage("loginSelect");
-
-    else if (path.startsWith("/admin")) {
-      checkAdmin();
-      return;
-    }
-
-    else if (path === "/ref" || path.startsWith("/ref/")) {
-      checkRef();
-      return;
-    }
-
-    else setPage("home");
-
-    setLoading(false);
+    init();
   }, []);
 
   /* ================= AUTH ================= */
@@ -101,7 +84,6 @@ export default function App() {
 
     if (!data.user) {
       setPage("adminLogin");
-      setLoading(false);
       return;
     }
 
@@ -114,12 +96,10 @@ export default function App() {
     if (!userData?.is_admin) {
       setAccessDenied(true);
       setPage("home");
-      setLoading(false);
       return;
     }
 
     setPage("dashboard");
-    setLoading(false);
   };
 
   const checkRef = async () => {
@@ -127,12 +107,10 @@ export default function App() {
 
     if (!data.user) {
       setPage("refLogin");
-      setLoading(false);
       return;
     }
 
     setPage("refDashboard");
-    setLoading(false);
   };
 
   /* ================= AUTH LISTENER ================= */
@@ -174,9 +152,9 @@ export default function App() {
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
   }, [page]);
 
-  /* ================= LOADING ================= */
+  /* ================= BLOCK RENDER ================= */
 
-  if (loading || page === null) return <LoadingScreen />; // ✅ FIXED
+  if (!ready || page === null) return <LoadingScreen />;
 
   /* ================= UI ================= */
 
