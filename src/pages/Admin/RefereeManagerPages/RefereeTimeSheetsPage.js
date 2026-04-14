@@ -4,6 +4,7 @@ import { supabase } from "../../../supabase";
 export default function RefereeTimeSheetsPage() {
   const [refs, setRefs] = useState([]);
   const [checkins, setCheckins] = useState([]);
+  const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,24 +14,25 @@ export default function RefereeTimeSheetsPage() {
   const loadData = async () => {
     setLoading(true);
 
-    const { data: refData } = await supabase
-      .from("referees")
-      .select("*");
+    const { data: refData } = await supabase.from("referees").select("*");
 
     const { data: checkinData } = await supabase
       .from("ref_checkins")
-      .select(`
-        *,
-        schedule_master_auto!game_id (*)
-      `);
+      .select(`*, schedule_master_auto!game_id (*)`);
+
+    const { data: scheduleData } = await supabase
+      .from("schedule_master_auto")
+      .select("*")
+      .ilike("event_type", "%game%");
 
     setRefs(refData || []);
     setCheckins(checkinData || []);
+    setSchedule(scheduleData || []);
 
     setLoading(false);
   };
 
-  /* 🔥 GROUP BY REF + DATE */
+  /* 🔥 GROUP */
   const grouped = useMemo(() => {
     const map = {};
 
@@ -47,26 +49,11 @@ export default function RefereeTimeSheetsPage() {
     return map;
   }, [checkins]);
 
-  /* 🔥 PAY CALC */
-  const calculatePay = (ref, days) => {
-    let total = 0;
+  /* 🔥 SEASON TOTALS */
+  const totalGames = schedule.length;
+  const totalPayout = totalGames * 40;
 
-    Object.keys(days).forEach((date) => {
-      const games = days[date];
-
-      // $40 per game
-      total += games.length * 40;
-
-      // +$20 head ref per day
-      if (ref?.is_head_ref) {
-        total += 20;
-      }
-    });
-
-    return total;
-  };
-
-  /* 🔥 PAY DAY BUTTON */
+  /* 🔥 PAY DAY */
   const markDatePaid = async (refId, date) => {
     const rows = checkins.filter(
       (c) =>
@@ -91,6 +78,12 @@ export default function RefereeTimeSheetsPage() {
   return (
     <div style={wrap}>
 
+      {/* 🔥 TOP TILES */}
+      <div style={statsGrid}>
+        <StatTile label="Total Games" value={totalGames} />
+        <StatTile label="Game Payout" value={`$${totalPayout}`} />
+      </div>
+
       <h2 style={title}>Referee Pay Manager</h2>
 
       {Object.keys(grouped).map((refId) => {
@@ -98,7 +91,12 @@ export default function RefereeTimeSheetsPage() {
         const days = grouped[refId];
         if (!ref) return null;
 
-        const totalPay = calculatePay(ref, days);
+        let refTotal = 0;
+
+        Object.keys(days).forEach(date => {
+          refTotal += days[date].length * 40;
+          if (ref.is_head_ref) refTotal += 20;
+        });
 
         return (
           <div key={refId} style={card}>
@@ -115,9 +113,7 @@ export default function RefereeTimeSheetsPage() {
                 </div>
               </div>
 
-              <div style={payBox}>
-                ${totalPay}
-              </div>
+              <div style={payBox}>${refTotal}</div>
             </div>
 
             {/* DAYS */}
@@ -125,10 +121,12 @@ export default function RefereeTimeSheetsPage() {
               {Object.keys(days).map((date) => {
                 const games = days[date];
 
-                const unpaidTotal = games
-                  .filter(g => !g.paid)
-                  .reduce((sum) => sum + 40, 0) +
-                  (ref.is_head_ref ? 20 : 0);
+                const unpaid = games.filter(g => !g.paid);
+                const isPaid = unpaid.length === 0;
+
+                const unpaidTotal =
+                  unpaid.length * 40 +
+                  (ref.is_head_ref && unpaid.length ? 20 : 0);
 
                 return (
                   <div key={date} style={dayCard}>
@@ -153,8 +151,13 @@ export default function RefereeTimeSheetsPage() {
                       {ref.is_head_ref && " + $20 Head"}
                     </div>
 
+                    {/* 🔥 PAID BADGE */}
+                    {isPaid && (
+                      <div style={paidBadge}>PAID</div>
+                    )}
+
                     {/* 🔥 PAY BUTTON */}
-                    {games.some(g => !g.paid) && (
+                    {!isPaid && (
                       <button
                         style={payBtn}
                         onClick={() => markDatePaid(refId, date)}
@@ -175,9 +178,35 @@ export default function RefereeTimeSheetsPage() {
   );
 }
 
+/* TILE */
+function StatTile({ label, value }) {
+  return (
+    <div style={tile}>
+      <div style={tileValue}>{value}</div>
+      <div style={tileLabel}>{label}</div>
+    </div>
+  );
+}
+
 /* STYLES */
 
 const wrap = { display:"flex", flexDirection:"column", gap:20, padding:20 };
+
+const statsGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
+  gap:14
+};
+
+const tile = {
+  background:"#fff",
+  borderRadius:18,
+  padding:18,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const tileValue = { fontSize:22, fontWeight:800 };
+const tileLabel = { fontSize:12, color:"#64748b" };
 
 const title = { fontSize:24, fontWeight:700 };
 
@@ -192,7 +221,6 @@ const header = {
   display:"flex",
   justifyContent:"space-between",
   flexWrap:"wrap",
-  gap:10,
   marginBottom:10
 };
 
@@ -215,7 +243,8 @@ const dayCard = {
   background:"#f8fafc",
   borderRadius:12,
   padding:12,
-  border:"1px solid #e5e7eb"
+  border:"1px solid #e5e7eb",
+  position:"relative"
 };
 
 const dayHeader = {
@@ -236,6 +265,17 @@ const dayTotal = {
   fontWeight:700,
   color:"#16a34a",
   fontSize:13
+};
+
+const paidBadge = {
+  marginTop:10,
+  background:"rgba(34,197,94,0.12)",
+  color:"#166534",
+  padding:"6px 10px",
+  borderRadius:999,
+  fontSize:12,
+  fontWeight:700,
+  textAlign:"center"
 };
 
 const payBtn = {
