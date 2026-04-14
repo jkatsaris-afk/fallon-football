@@ -22,11 +22,14 @@ export default function RefereeTimeSheetsPage() {
       .from("ref_checkins")
       .select(`
         *,
-        schedule_master!game_id (*)
+        schedule_master_auto!game_id (*)
       `);
 
     setRefs(refData || []);
     setCheckins(checkinData || []);
+
+    console.log("CHECKINS:", checkinData);
+
     setLoading(false);
   };
 
@@ -36,7 +39,9 @@ export default function RefereeTimeSheetsPage() {
 
     checkins.forEach((c) => {
       const refId = c.ref_id;
-      const date = c.schedule_master?.event_date || "Unknown";
+      const date = c.schedule_master_auto?.event_date || "Unknown";
+
+      if (!refId) return;
 
       if (!map[refId]) map[refId] = {};
       if (!map[refId][date]) map[refId][date] = [];
@@ -50,17 +55,19 @@ export default function RefereeTimeSheetsPage() {
   /* 🔥 PAY CALC */
   const calculatePay = (ref, days) => {
     let gamePay = 0;
-    let headBonus = 0;
-    let unpaid = 0;
     let paid = 0;
+    let unpaid = 0;
+    let headBonus = 0;
 
     Object.keys(days).forEach((date) => {
       const games = days[date];
 
       games.forEach((g) => {
-        gamePay += g.pay || 20;
-        if (g.paid) paid += g.pay || 20;
-        else unpaid += g.pay || 20;
+        const val = g.pay || 20;
+        gamePay += val;
+
+        if (g.paid) paid += val;
+        else unpaid += val;
       });
 
       if (ref?.is_head_ref) {
@@ -85,6 +92,7 @@ export default function RefereeTimeSheetsPage() {
     checkins.forEach((c) => {
       const val = c.pay || 20;
       total += val;
+
       if (c.paid) paid += val;
       else unpaid += val;
     });
@@ -94,10 +102,11 @@ export default function RefereeTimeSheetsPage() {
 
   /* 🔥 MARK PAID */
   const markPaid = async (refId) => {
-    const refCheckins = checkins.filter(c => c.ref_id === refId && !c.paid);
+    const unpaidRows = checkins.filter(
+      (c) => c.ref_id === refId && !c.paid
+    );
 
-    const ids = refCheckins.map(c => c.id);
-
+    const ids = unpaidRows.map((c) => c.id);
     if (ids.length === 0) return;
 
     await supabase
@@ -113,7 +122,7 @@ export default function RefereeTimeSheetsPage() {
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP TILES */}
+      {/* 🔥 TOP FILTER TILES */}
       <div style={statsGrid}>
         <StatTile label="Total" value={`$${stats.total}`} active={filter==="all"} onClick={()=>setFilter("all")} />
         <StatTile label="Paid" value={`$${stats.paid}`} active={filter==="paid"} onClick={()=>setFilter("paid")} />
@@ -138,9 +147,12 @@ export default function RefereeTimeSheetsPage() {
             {/* 🔥 HEADER */}
             <div style={header}>
               <div>
-                <div style={name}>{ref.first_name} {ref.last_name}</div>
+                <div style={name}>
+                  {ref.first_name} {ref.last_name}
+                </div>
                 <div style={sub}>
-                  {(ref.email || "") + (ref.phone ? " • " + ref.phone : "")}
+                  {(ref.email || "") +
+                    (ref.phone ? " • " + ref.phone : "")}
                 </div>
               </div>
 
@@ -149,13 +161,13 @@ export default function RefereeTimeSheetsPage() {
               </div>
             </div>
 
-            {/* 🔥 PAY SUMMARY */}
+            {/* 🔥 SUMMARY */}
             <div style={summaryRow}>
               <span>Paid: ${pay.paid}</span>
               <span>Unpaid: ${pay.unpaid}</span>
             </div>
 
-            {/* 🔥 DAYS */}
+            {/* 🔥 DAY GRID */}
             <div style={dayGrid}>
               {Object.keys(days).map((date) => {
                 const games = days[date];
@@ -170,7 +182,8 @@ export default function RefereeTimeSheetsPage() {
                     {games.map((g) => (
                       <div key={g.id} style={gameRow}>
                         <span>
-                          {g.schedule_master?.team || "Team"} vs {g.schedule_master?.opponent || "Opponent"}
+                          {g.schedule_master_auto?.team || "Team"} vs{" "}
+                          {g.schedule_master_auto?.opponent || "Opponent"}
                         </span>
                         <span>${g.pay || 20}</span>
                       </div>
@@ -199,7 +212,7 @@ export default function RefereeTimeSheetsPage() {
   );
 }
 
-/* 🔥 TILE */
+/* TILE */
 function StatTile({ label, value, active, onClick }) {
   return (
     <div onClick={onClick} style={{ ...tile, ...(active ? activeTile : {}) }}>
