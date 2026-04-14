@@ -29,7 +29,6 @@ export default function RefereeStaffPage({
     setLoadingState(false);
   };
 
-  /* 🔥 FIXED UPDATES */
   const handleStatusUpdate = async (id, status) => {
     await supabase.from("referees").update({ status }).eq("id", id);
     loadRefs();
@@ -92,7 +91,6 @@ export default function RefereeStaffPage({
   return (
     <div style={wrap}>
 
-      {/* 🔥 FILTER / STATS */}
       <div style={statsGrid}>
         <StatTile label="All" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <StatTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
@@ -111,14 +109,16 @@ export default function RefereeStaffPage({
             return (
               <div key={ref.id} style={card}>
 
-                {/* HEADER */}
                 <div style={row}>
                   <div style={left}>
                     <img src={getProfileImage(ref)} style={avatar} />
                     <div>
                       <div style={name}>{safeGetName(ref)}</div>
-                      <div style={sub}>{ref.email}</div>
-                      <div style={sub}>{ref.phone || "No phone"}</div>
+
+                      {/* 🔥 EMAIL + PHONE SAME LINE */}
+                      <div style={sub}>
+                        {ref.email} • {ref.phone || "No phone"}
+                      </div>
                     </div>
                   </div>
 
@@ -131,9 +131,7 @@ export default function RefereeStaffPage({
                   </span>
                 </div>
 
-                {/* DETAILS */}
                 <div style={grid}>
-
                   <div style={tile}>
                     <div style={label}>Role</div>
                     <select
@@ -148,14 +146,12 @@ export default function RefereeStaffPage({
 
                   <div style={tile}>
                     <div style={label}>Status</div>
-
                     <div style={btnRow}>
                       <button style={btnGreen} onClick={() => handleStatusUpdate(ref.id, "approved")}>Approve</button>
                       <button style={btnYellow} onClick={() => handleStatusUpdate(ref.id, "pending")}>Pending</button>
                       <button style={btnRed} onClick={() => handleStatusUpdate(ref.id, "denied")}>Deny</button>
                     </div>
                   </div>
-
                 </div>
 
               </div>
@@ -167,135 +163,10 @@ export default function RefereeStaffPage({
   );
 }
 
-/* STAT TILE */
-function StatTile({ label, value, active, onClick }) {
-  return (
-    <div onClick={onClick} style={{ ...stat, ...(active ? statActive : {}) }}>
-      <div style={statValue}>{value}</div>
-      <div style={statLabel}>{label}</div>
-    </div>
-  );
-}
-
-/* STYLES */
-
-const wrap = { display:"flex", flexDirection:"column", gap:20 };
-
-const statsGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
-  gap:14
-};
-
-const stat = {
-  background:"#fff",
-  borderRadius:18,
-  padding:18,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  cursor:"pointer"
-};
-
-const statActive = { outline:"2px solid #16a34a" };
-
-const statValue = { fontSize:26, fontWeight:800 };
-const statLabel = { fontSize:12, color:"#64748b" };
-
-const section = {
-  background:"#fff",
-  borderRadius:18,
-  padding:20,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const title = { fontSize:24, fontWeight:700 };
-
-const list = { display:"flex", flexDirection:"column", gap:16 };
-
-const card = {
-  border:"1px solid #e5e7eb",
-  borderRadius:18,
-  padding:18,
-  background:"#f8fafc"
-};
-
-/* 🔥 MOBILE FIX */
-const row = {
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"flex-start",
-  flexWrap:"wrap",
-  gap:10,
-  marginBottom:14
-};
-
-const left = { display:"flex", gap:12, alignItems:"center" };
-
+/* 🔥 BIGGER PROFILE IMAGE */
 const avatar = {
-  width:42,
-  height:42,
+  width:56,
+  height:56,
   borderRadius:"50%",
   flexShrink:0
 };
-
-const name = { fontWeight:700 };
-const sub = { fontSize:13, color:"#64748b" };
-
-const grid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(180px,1fr))",
-  gap:12
-};
-
-const tile = {
-  background:"#fff",
-  borderRadius:16,
-  padding:16
-};
-
-const label = { fontWeight:700, marginBottom:8 };
-
-const input = { width:"100%", padding:10, borderRadius:10 };
-
-const btnRow = {
-  display:"flex",
-  gap:8,
-  flexWrap:"wrap"
-};
-
-/* SOFT BUTTONS */
-const btnGreen = {
-  background:"rgba(34,197,94,0.12)",
-  color:"#166534",
-  border:"1px solid rgba(34,197,94,0.25)",
-  padding:"10px 12px",
-  borderRadius:10,
-  fontWeight:600,
-  cursor:"pointer"
-};
-
-const btnYellow = {
-  background:"rgba(245,158,11,0.12)",
-  color:"#92400e",
-  border:"1px solid rgba(245,158,11,0.25)",
-  padding:"10px 12px",
-  borderRadius:10,
-  fontWeight:600,
-  cursor:"pointer"
-};
-
-const btnRed = {
-  background:"rgba(239,68,68,0.12)",
-  color:"#991b1b",
-  border:"1px solid rgba(239,68,68,0.25)",
-  padding:"10px 12px",
-  borderRadius:10,
-  fontWeight:600,
-  cursor:"pointer"
-};
-
-/* SOFT BADGES */
-const badge = { padding:"6px 12px", borderRadius:999, fontWeight:700 };
-
-const green = { background:"rgba(34,197,94,0.12)", color:"#166534" };
-const yellow = { background:"rgba(245,158,11,0.12)", color:"#92400e" };
-const red = { background:"rgba(239,68,68,0.12)", color:"#991b1b" };
