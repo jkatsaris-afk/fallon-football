@@ -1,374 +1,322 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-/* LOGOS */
-import bills from "../../resources/Buffalo Bills.png";
-import bengals from "../../resources/Cincinnati Bengals.png";
-import broncos from "../../resources/Denver Broncos.png";
-import lions from "../../resources/Detroit Lions.png";
-import colts from "../../resources/Indianapolis Colts.png";
-import chiefs from "../../resources/Kansas City Chiefs.png";
-import raiders from "../../resources/Las Vegas Raiders.png";
-import rams from "../../resources/Los Angeles Rams.png";
-import jets from "../../resources/New York Jets.png";
-import eagles from "../../resources/Philadelphia Eagles.png";
-import steelers from "../../resources/Pittsburgh Steelers.png";
-import niners from "../../resources/San Francisco 49ers.png";
-import ravens from "../../resources/Baltimore Ravens.png";
+/* IMAGE COMPRESS (UNCHANGED) */
+const compressImage = (file) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const reader = new FileReader();
 
-const teamLogos = {
-  bills, bengals, broncos, lions, colts,
-  chiefs, raiders, rams, jets, eagles,
-  steelers, "49ers": niners, ravens
+    reader.readAsDataURL(file);
+
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+
+      const MAX_WIDTH = 800;
+      const scale = MAX_WIDTH / img.width;
+
+      canvas.width = MAX_WIDTH;
+      canvas.height = img.height * scale;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.7);
+    };
+  });
 };
 
-export default function RefTime() {
-  const [grouped, setGrouped] = useState({});
-  const [checkins, setCheckins] = useState([]);
+export default function RefProfile() {
   const [ref, setRef] = useState(null);
-  const [openDates, setOpenDates] = useState({});
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadData(); }, []);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({});
+  const [file, setFile] = useState(null);
 
-  const loadData = async () => {
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
     setLoading(true);
 
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
-    if (!user) return;
 
-    const { data: refData } = await supabase
+    const { data } = await supabase
       .from("referees")
       .select("*")
       .eq("auth_id", user.id)
-      .single();
+      .maybeSingle();
 
-    setRef(refData);
-
-    const today = new Date().toISOString().split("T")[0];
-
-    const { data: gamesData } = await supabase
-      .from("schedule_master_auto")
-      .select("*")
-      .gte("event_date", today)
-      .ilike("event_type", "%game%")
-      .order("event_date")
-      .order("event_time");
-
-    const groupedData = (gamesData || []).reduce((acc, game) => {
-      if (!acc[game.event_date]) acc[game.event_date] = [];
-      acc[game.event_date].push(game);
-      return acc;
-    }, {});
-
-    setGrouped(groupedData);
-
-    const { data: checkinData } = await supabase
-      .from("ref_checkins")
-      .select("*")
-      .eq("ref_id", refData.id);
-
-    setCheckins(checkinData || []);
+    setRef(data);
+    setForm(data || {});
     setLoading(false);
   };
 
-  const checkIn = async (game) => {
-    const exists = checkins.find((c) => c.game_id === game.id);
-    if (exists) return;
+  const saveProfile = async () => {
+    if (!ref) return;
 
-    await supabase.from("ref_checkins").insert([
-      { ref_id: ref.id, game_id: game.id, pay: 20 }
-    ]);
+    let filePath = ref.profile_image;
 
-    loadData();
-  };
+    if (file) {
+      filePath = `${Date.now()}.jpg`;
+      const compressedFile = await compressImage(file);
 
-  const toggleDate = (date) => {
-    setOpenDates(prev => ({ ...prev, [date]: !prev[date] }));
-  };
+      await supabase.storage
+        .from("profile-images")
+        .upload(filePath, compressedFile, {
+          contentType: "image/jpeg"
+        });
+    }
 
-  const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
-  const gamesReffed = checkins.length;
-
-  /* HELPERS */
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-
-    return {
-      day: d.toLocaleDateString("en-US", { weekday: "long" }),
-      date: d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric"
+    await supabase
+      .from("referees")
+      .update({
+        phone: form.phone,
+        experience: form.experience,
+        availability: form.availability,
+        notes: form.notes,
+        profile_image: filePath
       })
-    };
+      .eq("id", ref.id);
+
+    setEditing(false);
+    setFile(null);
+    loadProfile();
   };
 
-  const getWeekNumber = (dateStr) => {
-    const firstDate = Object.keys(grouped)[0];
-    if (!firstDate) return 1;
+  const logout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
 
-    const start = new Date(firstDate);
-    const current = new Date(dateStr);
+  const getImageUrl = () => {
+    if (!ref?.profile_image) return "/default-profile.png";
 
-    const diff = Math.floor((current - start) / (1000 * 60 * 60 * 24));
-    return Math.floor(diff / 7) + 1;
+    const { data } = supabase.storage
+      .from("profile-images")
+      .getPublicUrl(ref.profile_image);
+
+    return data.publicUrl;
   };
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (!ref) return <div style={{ padding: 20 }}>No profile found</div>;
 
   return (
     <div style={wrap}>
+      <h2 style={title}>My Profile</h2>
 
-      {/* TOP TILES */}
-      <div style={statsGrid}>
-        <StatTile label="Earnings" value={`$${totalPay}`} highlight />
-        <StatTile label="Games" value={gamesReffed} />
-      </div>
+      <div style={card}>
 
-      <h2 style={title}>Ref Time</h2>
+        {/* 🔥 BIG PROFILE IMAGE */}
+        <div style={imageWrap}>
+          <img src={getImageUrl()} alt="profile" style={profileImg} />
+        </div>
 
-      {Object.keys(grouped).map((date) => {
-        const isOpen = openDates[date];
-        const { day, date: formatted } = formatDate(date);
-        const week = getWeekNumber(date);
-
-        return (
-          <div key={date}>
-
-            {/* 🔥 RESPONSIVE DATE TILE */}
-            <div style={dateTile} onClick={() => toggleDate(date)}>
-              <div style={dateLeft}>
-                <div style={dayText}>{day}</div>
-                <div style={dateText}>{formatted}</div>
-                <div style={weekText}>Week {week}</div>
-              </div>
-
-              <div style={arrow}>
-                {isOpen ? "▲" : "▼"}
-              </div>
-            </div>
-
-            {isOpen && (
-              <div style={gameGrid}>
-                {grouped[date].map((game) => {
-                  const checked = checkins.find(c => c.game_id === game.id);
-
-                  return (
-                    <div key={game.id} style={card}>
-
-                      <div style={teamsRow}>
-                        <TeamSide team={game.team} />
-                        <div style={vs}>vs</div>
-                        <TeamSide team={game.opponent} />
-                      </div>
-
-                      <div style={time}>{game.event_time}</div>
-
-                      <div style={meta}>
-                        <span>{game.division}</span>
-                        <span>{game.field}</span>
-                      </div>
-
-                      <div style={btnWrap}>
-                        {checked ? (
-                          <span style={checkedBadge}>Checked In</span>
-                        ) : (
-                          <button style={btn} onClick={() => checkIn(game)}>
-                            Check In
-                          </button>
-                        )}
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
+        {editing && (
+          <div style={uploadWrap}>
+            <label style={uploadBtn}>
+              Change Photo
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => setFile(e.target.files[0])}
+              />
+            </label>
           </div>
-        );
-      })}
-    </div>
-  );
-}
+        )}
 
-/* COMPONENTS */
+        {/* NAME */}
+        <div style={name}>
+          {ref.first_name} {ref.last_name}
+        </div>
 
-function StatTile({ label, value, highlight }) {
-  return (
-    <div style={statTile}>
-      <div style={{ ...statValue, ...(highlight ? greenText : {}) }}>
-        {value}
+        {/* EMAIL */}
+        <div style={field}>
+          <div style={label}>Email</div>
+          <div>{ref.email}</div>
+        </div>
+
+        {/* PHONE */}
+        <div style={field}>
+          <div style={label}>Phone</div>
+          {editing ? (
+            <input
+              style={input}
+              value={form.phone || ""}
+              onChange={(e) =>
+                setForm({ ...form, phone: e.target.value })
+              }
+            />
+          ) : (
+            <div>{ref.phone || "-"}</div>
+          )}
+        </div>
+
+        {/* EXPERIENCE */}
+        <div style={field}>
+          <div style={label}>Experience</div>
+          {editing ? (
+            <textarea
+              style={textarea}
+              value={form.experience || ""}
+              onChange={(e) =>
+                setForm({ ...form, experience: e.target.value })
+              }
+            />
+          ) : (
+            <div>{ref.experience || "-"}</div>
+          )}
+        </div>
+
+        {/* BUTTONS */}
+        <div style={buttonRow}>
+          {!editing ? (
+            <button style={btn} onClick={() => setEditing(true)}>
+              Edit Profile
+            </button>
+          ) : (
+            <>
+              <button style={btn} onClick={saveProfile}>
+                Save
+              </button>
+              <button style={cancelBtn} onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* 🔥 LOGOUT */}
+        <button style={logoutBtn} onClick={logout}>
+          Log Out
+        </button>
+
       </div>
-      <div style={statLabel}>{label}</div>
     </div>
   );
 }
 
-function TeamSide({ team }) {
-  const logo = team ? teamLogos[team.toLowerCase().trim()] : null;
+/* 🔥 STYLES */
 
-  return (
-    <div style={teamSide}>
-      {logo && <img src={logo} style={logoStyle} />}
-      <div>{team}</div>
-    </div>
-  );
-}
-
-/* STYLES */
-
-const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
-
-const title = { fontSize:24, fontWeight:700 };
-
-const statsGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
-  gap:14
+const wrap = {
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 20
 };
 
-const statTile = {
-  background:"#fff",
-  borderRadius:18,
-  padding:20,
-  textAlign:"center",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  minHeight:90,
-  display:"flex",
-  flexDirection:"column",
-  justifyContent:"center"
-};
-
-const statValue = { fontSize:26, fontWeight:800 };
-
-const greenText = { color:"#16a34a" };
-
-const statLabel = {
-  fontSize:13,
-  color:"#64748b",
-  marginTop:4
-};
-
-/* 🔥 FIXED RESPONSIVE TILE */
-const dateTile = {
-  background:"#fff",
-  borderRadius:16,
-  padding:14,
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center",
-  cursor:"pointer",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  gap:10,
-  overflow:"hidden"
-};
-
-const dateLeft = {
-  display:"flex",
-  flexDirection:"column",
-  gap:2,
-  minWidth:0
-};
-
-const dayText = {
-  fontSize:15,
-  fontWeight:700,
-  whiteSpace:"nowrap",
-  overflow:"hidden",
-  textOverflow:"ellipsis"
-};
-
-const dateText = {
-  fontSize:13,
-  color:"#64748b",
-  whiteSpace:"nowrap",
-  overflow:"hidden",
-  textOverflow:"ellipsis"
-};
-
-const weekText = {
-  fontSize:12,
-  color:"#16a34a",
-  fontWeight:600
-};
-
-const arrow = {
-  fontSize:16,
-  fontWeight:700,
-  flexShrink:0
-};
-
-const gameGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(220px,1fr))",
-  gap:12,
-  marginTop:10
+const title = {
+  fontSize: 24,
+  fontWeight: 700
 };
 
 const card = {
-  background:"#fff",
-  borderRadius:16,
-  padding:14,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  display:"flex",
-  flexDirection:"column",
-  gap:10
+  background: "#fff",
+  borderRadius: 18,
+  padding: 24,
+  maxWidth: 500,
+  margin: "auto",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
 };
 
-const teamsRow = {
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center",
-  flexWrap:"wrap",
-  gap:6
+const imageWrap = {
+  display: "flex",
+  justifyContent: "center",
+  marginBottom: 10
 };
 
-const teamSide = {
-  display:"flex",
-  flexDirection:"column",
-  alignItems:"center",
-  width:"45%",
-  textAlign:"center"
+const profileImg = {
+  width: 140,           // 🔥 bigger
+  height: 140,
+  borderRadius: "50%",
+  objectFit: "cover"
 };
 
-const logoStyle = { width:36, height:36 };
-
-const vs = { fontWeight:700, fontSize:14 };
-
-const time = {
-  textAlign:"center",
-  fontSize:16,
-  fontWeight:700
+const uploadWrap = {
+  textAlign: "center",
+  marginBottom: 10
 };
 
-const meta = {
-  display:"flex",
-  justifyContent:"space-between",
-  fontSize:12,
-  color:"#64748b",
-  flexWrap:"wrap"
+const name = {
+  fontSize: 20,
+  fontWeight: 700,
+  textAlign: "center",
+  marginBottom: 10
 };
 
-const btnWrap = {
-  display:"flex",
-  justifyContent:"center",
-  marginTop:8
+const field = {
+  marginTop: 14
+};
+
+const label = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+const input = {
+  width: "100%",
+  padding: 10,
+  borderRadius: 10,
+  border: "1px solid #e5e7eb"
+};
+
+const textarea = {
+  width: "100%",
+  padding: 10,
+  borderRadius: 10,
+  border: "1px solid #e5e7eb",
+  minHeight: 80
+};
+
+const buttonRow = {
+  marginTop: 20,
+  display: "flex",
+  gap: 10,
+  justifyContent: "center"
 };
 
 const btn = {
-  background:"rgba(34,197,94,0.12)",
-  color:"#166534",
-  border:"1px solid rgba(34,197,94,0.25)",
-  padding:"8px 12px",
-  borderRadius:10,
-  cursor:"pointer"
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: 10,
+  cursor: "pointer"
 };
 
-const checkedBadge = {
-  color:"#16a34a",
-  fontWeight:700,
-  fontSize:13
+const cancelBtn = {
+  background: "#64748b",
+  color: "#fff",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: 10
+};
+
+const uploadBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  padding: "8px 14px",
+  borderRadius: 10,
+  cursor: "pointer"
+};
+
+/* 🔥 SOFT RED LOGOUT */
+const logoutBtn = {
+  marginTop: 20,
+  background: "rgba(220,38,38,0.12)",
+  color: "#b91c1c",
+  border: "1px solid rgba(220,38,38,0.25)",
+  padding: "10px 16px",
+  borderRadius: 10,
+  cursor: "pointer",
+  width: "100%"
 };
