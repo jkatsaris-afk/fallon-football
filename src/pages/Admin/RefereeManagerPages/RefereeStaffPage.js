@@ -25,7 +25,7 @@ export default function RefereeStaffPage({
     return DefaultProfile;
   };
 
-  /* 🔥 FIXED COACH TOGGLE (no mutation = no refresh loop) */
+  /* 🔥 FIXED COACH TOGGLE (NO UI CHANGE) */
   const updateCoach = async (ref, isCoach) => {
     const { error } = await supabase
       .from("referees")
@@ -42,7 +42,7 @@ export default function RefereeStaffPage({
       return;
     }
 
-    // ❌ DO NOT mutate ref here (this caused your refresh issue)
+    // 🚫 DO NOT mutate ref (this was causing refresh loop)
   };
 
   if (loading) {
@@ -87,7 +87,7 @@ export default function RefereeStaffPage({
 
                 <div style={detailsGrid}>
 
-                  {/* 🔥 ROLE TILE (WITH COACH TOGGLE INSIDE) */}
+                  {/* ROLE TILE (UNCHANGED UI) */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Role</div>
 
@@ -107,7 +107,7 @@ export default function RefereeStaffPage({
                       {ref.is_coach === true && "• Coach"}
                     </div>
 
-                    {/* 🔥 COACH TOGGLE */}
+                    {/* 🔥 COACH TOGGLE (SAME LOOK, FIXED LOGIC) */}
                     <div style={{ marginTop: 10 }}>
                       <select
                         value={ref.is_coach === true ? "yes" : "no"}
@@ -122,7 +122,7 @@ export default function RefereeStaffPage({
                     </div>
                   </div>
 
-                  {/* STATUS TILE */}
+                  {/* STATUS TILE (UNCHANGED) */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Status</div>
 
