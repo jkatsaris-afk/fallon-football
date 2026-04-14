@@ -60,7 +60,12 @@ export default function RefSignUpPage() {
 
       if (authError) throw authError;
 
-      const user = authData.user;
+      /* ✅ FIX: ensure we actually get the user */
+      const user = authData.user || authData.session?.user;
+
+      if (!user) {
+        throw new Error("User not authenticated after signup");
+      }
 
       await supabase.from("referees").insert([
         {
