@@ -3,7 +3,6 @@ import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
   refs,
-  setRefs, // 🔥 IMPORTANT (must pass this from parent)
   loading,
   getName,
   getStatus,
@@ -40,7 +39,7 @@ export default function RefereeStaffPage({
     <div style={pageWrap}>
       <div style={sectionCard}>
         <div style={headerRow}>
-          <h2 style={heading}>Referee Staff (Clean)</h2>
+          <h2 style={heading}>Referee Staff</h2>
         </div>
 
         <div style={listWrap}>
@@ -65,7 +64,7 @@ export default function RefereeStaffPage({
 
                 <div style={detailsGrid}>
 
-                  {/* ✅ ROLE TILE (NO COACH ANYWHERE) */}
+                  {/* 🔥 ROLE TILE (CLEAN) */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Role</div>
 
@@ -85,7 +84,7 @@ export default function RefereeStaffPage({
                     </div>
                   </div>
 
-                  {/* ✅ STATUS TILE */}
+                  {/* 🔥 STATUS TILE */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Status</div>
 
