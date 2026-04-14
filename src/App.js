@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import "./styles.css";
 
+import LoadingScreen from "./LoadingScreen"; // ✅ ADDED
+
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
 import ScoreboardPage from "./pages/Public/ScoreboardPage";
@@ -36,6 +38,7 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [adminPage, setAdminPage] = useState("dashboard");
   const [accessDenied, setAccessDenied] = useState(false);
+  const [loading, setLoading] = useState(true); // ✅ ADDED
 
   /* ================= SESSION RESTORE ================= */
 
@@ -65,39 +68,30 @@ export default function App() {
   useEffect(() => {
     let path = window.location.pathname.toLowerCase();
 
-    // 🔥 SAFETY (prevents white screen)
     if (!path || path === "" || path === "/index.html") {
       path = "/";
       window.history.replaceState({}, "", "/");
     }
 
-    /* ===== PUBLIC ROUTES ===== */
+    if (path === "/") setPage("home");
+    else if (path === "/signup") setPage("signup");
+    else if (path === "/coach-signup") setPage("coachSignup");
+    else if (path === "/ref-signup") setPage("refSignup");
+    else if (path === "/login") setPage("loginSelect");
 
-    if (path === "/") return setPage("home");
-
-    if (path === "/signup") return setPage("signup");
-    if (path === "/coach-signup") return setPage("coachSignup");
-    if (path === "/ref-signup") return setPage("refSignup");
-
-    if (path === "/login") return setPage("loginSelect");
-
-    /* ===== ADMIN ===== */
-
-    if (path.startsWith("/admin")) {
+    else if (path.startsWith("/admin")) {
       checkAdmin();
       return;
     }
 
-    /* ===== REF PORTAL (PROTECTED) ===== */
-
-    if (path === "/ref" || path.startsWith("/ref/")) {
+    else if (path === "/ref" || path.startsWith("/ref/")) {
       checkRef();
       return;
     }
 
-    /* ===== FALLBACK ===== */
+    else setPage("home");
 
-    setPage("home");
+    setLoading(false); // ✅ ADDED (after routing finishes)
   }, []);
 
   /* ================= AUTH ================= */
@@ -105,7 +99,11 @@ export default function App() {
   const checkAdmin = async () => {
     const { data } = await supabase.auth.getUser();
 
-    if (!data.user) return setPage("adminLogin");
+    if (!data.user) {
+      setPage("adminLogin");
+      setLoading(false); // ✅ ADDED
+      return;
+    }
 
     const { data: userData } = await supabase
       .from("users")
@@ -116,18 +114,25 @@ export default function App() {
     if (!userData?.is_admin) {
       setAccessDenied(true);
       setPage("home");
+      setLoading(false); // ✅ ADDED
       return;
     }
 
     setPage("dashboard");
+    setLoading(false); // ✅ ADDED
   };
 
   const checkRef = async () => {
     const { data } = await supabase.auth.getUser();
 
-    if (!data.user) return setPage("refLogin");
+    if (!data.user) {
+      setPage("refLogin");
+      setLoading(false); // ✅ ADDED
+      return;
+    }
 
     setPage("refDashboard");
+    setLoading(false); // ✅ ADDED
   };
 
   /* ================= AUTH LISTENER ================= */
@@ -169,18 +174,20 @@ export default function App() {
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
   }, [page]);
 
+  /* ================= LOADING SCREEN ================= */
+
+  if (loading) return <LoadingScreen />; // ✅ ADDED
+
   /* ================= UI ================= */
 
   return (
     <>
-      {/* ACCESS DENIED */}
       {accessDenied &&
         createPortal(
           <AccessDeniedModal onClose={() => setAccessDenied(false)} />,
           document.body
         )}
 
-      {/* ADMIN */}
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
       {page === "dashboard" && (
@@ -189,7 +196,6 @@ export default function App() {
         </AdminLayout>
       )}
 
-      {/* REF */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -201,7 +207,6 @@ export default function App() {
           </RefLayout>
         )}
 
-      {/* PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
