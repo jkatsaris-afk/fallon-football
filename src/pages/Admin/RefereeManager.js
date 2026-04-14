@@ -51,7 +51,6 @@ export default function RefereeManager() {
       : "Assistant Ref";
   };
 
-  /* 🔥 FIXED — NO MORE loadRefs() */
   const updateStatus = async (id, status) => {
     const { error } = await supabase
       .from("referees")
@@ -63,7 +62,6 @@ export default function RefereeManager() {
       return;
     }
 
-    // ✅ update local state only
     setRefs((prev) =>
       prev.map((r) =>
         r.id === id ? { ...r, status } : r
@@ -71,7 +69,6 @@ export default function RefereeManager() {
     );
   };
 
-  /* 🔥 FIXED — NO MORE loadRefs() */
   const updateRole = async (ref, newRole) => {
     const roleValue =
       newRole === "head" ? "Head Ref" : "Assistant Ref";
@@ -88,7 +85,6 @@ export default function RefereeManager() {
       return;
     }
 
-    // ✅ update local state only
     setRefs((prev) =>
       prev.map((r) =>
         r.id === ref.id ? { ...r, role: roleValue } : r
@@ -117,54 +113,71 @@ export default function RefereeManager() {
       return;
     }
 
-    loadRefs(); // ✅ keep this one (intentional full refresh)
+    loadRefs();
   };
 
   const renderSelectedPage = () => {
-    switch (view) {
-      case "staff":
-        return (
-          <RefereeStaffPage
-            refs={refs}
-            loading={loading}
-            getName={getName}
-            getStatus={getStatus}
-            getRole={getRole}
-            displayRole={displayRole}
-            updateStatus={updateStatus}
-            updateRole={updateRole}
-          />
-        );
+    try {
+      switch (view) {
+        case "staff":
+          return (
+            <RefereeStaffPage
+              refs={refs}
+              loading={loading}
+              getName={getName}
+              getStatus={getStatus}
+              getRole={getRole}
+              displayRole={displayRole}
+              updateStatus={updateStatus}
+              updateRole={updateRole}
+            />
+          );
 
-      case "schedule":
-        return <RefereeSchedulePage />;
+        case "schedule":
+          return <RefereeSchedulePage />;
 
-      case "head":
-        return (
-          <HeadRefPage
-            refs={refs}
-            loading={loading}
-            getName={getName}
-            getStatus={getStatus}
-            setHeadRef={setHeadRef}
-          />
-        );
+        case "head":
+          return (
+            <HeadRefPage
+              refs={refs}
+              loading={loading}
+              getName={getName}
+              getStatus={getStatus}
+              setHeadRef={setHeadRef}
+            />
+          );
 
-      case "time":
-        return <RefereeTimeSheetsPage />;
+        case "time":
+          return <RefereeTimeSheetsPage />;
 
-      default:
-        return (
-          <div style={contentWrap}>
-            <div style={emptyStateCard}>
-              <div style={emptyTitle}>Referee Manager</div>
-              <div style={emptyText}>
-                Pick a tile above to manage referee staff, schedules, head ref,
-                and time sheets.
+        default:
+          return (
+            <div style={contentWrap}>
+              <div style={emptyStateCard}>
+                <div style={emptyTitle}>Referee Manager</div>
+                <div style={emptyText}>
+                  Pick a tile above to manage referee staff, schedules, head ref,
+                  and time sheets.
+                </div>
               </div>
             </div>
+          );
+      }
+    } catch (err) {
+      console.error("Page crash:", err);
+
+      return (
+        <div style={contentWrap}>
+          <div style={emptyStateCard}>
+            <div style={{ color: "red", fontWeight: "bold" }}>
+              ⚠️ Page Error
+            </div>
+            <div style={emptyText}>
+              Something broke in this section. Check console.
+            </div>
           </div>
-        );
+        </div>
+      );
     }
   };
 
