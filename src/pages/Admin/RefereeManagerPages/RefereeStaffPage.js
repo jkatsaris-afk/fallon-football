@@ -25,11 +25,16 @@ export default function RefereeStaffPage({
     return DefaultProfile;
   };
 
-  /* 🔥 SIMPLE COACH TOGGLE */
+  /* 🔥 FIXED COACH TOGGLE (no mutation = no refresh loop) */
   const updateCoach = async (ref, isCoach) => {
     const { error } = await supabase
       .from("referees")
-      .update({ is_coach: isCoach })
+      .update({
+        is_coach: isCoach,
+        coach_team_id: isCoach ? ref.coach_team_id : null,
+        coach_division: isCoach ? ref.coach_division : null,
+        coach_notes: isCoach ? ref.coach_notes : null,
+      })
       .eq("id", ref.id);
 
     if (error) {
@@ -37,8 +42,7 @@ export default function RefereeStaffPage({
       return;
     }
 
-    // local update (no reload)
-    ref.is_coach = isCoach;
+    // ❌ DO NOT mutate ref here (this caused your refresh issue)
   };
 
   if (loading) {
@@ -83,7 +87,7 @@ export default function RefereeStaffPage({
 
                 <div style={detailsGrid}>
 
-                  {/* ROLE TILE */}
+                  {/* 🔥 ROLE TILE (WITH COACH TOGGLE INSIDE) */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Role</div>
 
@@ -99,13 +103,14 @@ export default function RefereeStaffPage({
                     </select>
 
                     <div style={helperText}>
-                      {displayRole(ref)}
+                      {displayRole(ref)}{" "}
+                      {ref.is_coach === true && "• Coach"}
                     </div>
 
-                    {/* 🔥 COACH TOGGLE (NEW CLEAN VERSION) */}
+                    {/* 🔥 COACH TOGGLE */}
                     <div style={{ marginTop: 10 }}>
                       <select
-                        value={ref.is_coach ? "yes" : "no"}
+                        value={ref.is_coach === true ? "yes" : "no"}
                         onChange={(e) =>
                           updateCoach(ref, e.target.value === "yes")
                         }
