@@ -1,4 +1,5 @@
 import React from "react";
+import "./styles.css"; // make sure this is already imported in your app
 
 export default function LoadingScreen() {
   return (
@@ -10,13 +11,6 @@ export default function LoadingScreen() {
         <span style={{ ...styles.dot, animationDelay: "0.2s" }} />
         <span style={{ ...styles.dot, animationDelay: "0.4s" }} />
       </div>
-
-      <style>{`
-        @keyframes bounce {
-          0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
-          40% { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }
@@ -25,7 +19,7 @@ const styles = {
   container: {
     height: "100vh",
     width: "100%",
-    background: "#ffffff", // 🔥 FIXED (was dark)
+    background: "#ffffff", // 🔥 match index.html
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
@@ -47,6 +41,6 @@ const styles = {
     height: "12px",
     backgroundColor: "#16a34a", // 🔥 green
     borderRadius: "50%",
-    animation: "bounce 1.4s infinite ease-in-out both",
+    animation: "bounce 1.4s infinite ease-in-out",
   },
 };
