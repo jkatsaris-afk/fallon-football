@@ -1,27 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-/* LOGOS */
-import bills from "../../resources/Buffalo Bills.png";
-import bengals from "../../resources/Cincinnati Bengals.png";
-import broncos from "../../resources/Denver Broncos.png";
-import lions from "../../resources/Detroit Lions.png";
-import colts from "../../resources/Indianapolis Colts.png";
-import chiefs from "../../resources/Kansas City Chiefs.png";
-import raiders from "../../resources/Las Vegas Raiders.png";
-import rams from "../../resources/Los Angeles Rams.png";
-import jets from "../../resources/New York Jets.png";
-import eagles from "../../resources/Philadelphia Eagles.png";
-import steelers from "../../resources/Pittsburgh Steelers.png";
-import niners from "../../resources/San Francisco 49ers.png";
-import ravens from "../../resources/Baltimore Ravens.png";
-
-const teamLogos = {
-  bills, bengals, broncos, lions, colts,
-  chiefs, raiders, rams, jets, eagles,
-  steelers, "49ers": niners, ravens
-};
-
 export default function RefTime() {
   const [grouped, setGrouped] = useState({});
   const [checkins, setCheckins] = useState([]);
@@ -42,11 +21,16 @@ export default function RefTime() {
       .from("referees")
       .select("*")
       .eq("auth_id", user.id)
-      .single();
+      .maybeSingle();
+
+    if (!refData) {
+      console.error("No ref found");
+      setLoading(false);
+      return;
+    }
 
     setRef(refData);
 
-    /* 🔥 FIX: REMOVED TODAY FILTER */
     const { data: gamesData } = await supabase
       .from("schedule_master_auto")
       .select("*")
@@ -55,6 +39,8 @@ export default function RefTime() {
       .order("event_time");
 
     const groupedData = (gamesData || []).reduce((acc, game) => {
+      if (!game?.event_date) return acc;
+
       if (!acc[game.event_date]) acc[game.event_date] = [];
       acc[game.event_date].push(game);
       return acc;
@@ -72,6 +58,8 @@ export default function RefTime() {
   };
 
   const checkIn = async (game) => {
+    if (!ref) return;
+
     const exists = checkins.find((c) => c.game_id === game.id);
     if (exists) return;
 
@@ -89,8 +77,10 @@ export default function RefTime() {
   const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
   const gamesReffed = checkins.length;
 
-  /* DATE FORMAT FIX */
+  /* SAFE DATE FORMAT */
   const formatDate = (dateStr) => {
+    if (!dateStr) return { day: "", date: "" };
+
     const [year, month, day] = dateStr.split("-");
     const d = new Date(year, month - 1, day);
 
@@ -104,10 +94,10 @@ export default function RefTime() {
     };
   };
 
-  /* WEEK FIX */
+  /* SAFE WEEK CALC */
   const getWeekNumber = (dateStr) => {
-    const dates = Object.keys(grouped).sort();
-    if (!dates.length) return 1;
+    const dates = Object.keys(grouped || {}).sort();
+    if (!dates.length || !dateStr) return 1;
 
     const [sy, sm, sd] = dates[0].split("-");
     const start = new Date(sy, sm - 1, sd);
@@ -123,17 +113,15 @@ export default function RefTime() {
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
-    <div style={wrap}>
+    <div style={{ padding: 20 }}>
 
-      {/* TOP TILES */}
-      <div style={statsGrid}>
-        <StatTile label="Earnings" value={`$${totalPay}`} highlight />
-        <StatTile label="Games" value={gamesReffed} />
+      <h2>Ref Time</h2>
+
+      <div>
+        Earnings: ${totalPay} | Games: {gamesReffed}
       </div>
 
-      <h2 style={title}>Ref Time</h2>
-
-      {Object.keys(grouped).map((date) => {
+      {Object.keys(grouped || {}).map((date) => {
         const isOpen = openDates[date];
         const { day, date: formatted } = formatDate(date);
         const week = getWeekNumber(date);
@@ -141,49 +129,26 @@ export default function RefTime() {
         return (
           <div key={date}>
 
-            <div style={dateTile} onClick={() => toggleDate(date)}>
-              <div style={dateLeft}>
-                <div style={dayText}>{day}</div>
-                <div style={dateText}>{formatted}</div>
-                <div style={weekText}>Week {week}</div>
-              </div>
-
-              <div style={arrow}>
-                {isOpen ? "▲" : "▼"}
-              </div>
+            <div onClick={() => toggleDate(date)}>
+              {day} - {formatted} (Week {week})
             </div>
 
             {isOpen && (
-              <div style={gameGrid}>
-                {grouped[date].map((game) => {
+              <div>
+                {(grouped[date] || []).map((game) => {
                   const checked = checkins.find(c => c.game_id === game.id);
 
                   return (
-                    <div key={game.id} style={card}>
+                    <div key={game.id}>
+                      {game.team} vs {game.opponent} - {game.event_time}
 
-                      <div style={teamsRow}>
-                        <TeamSide team={game.team} />
-                        <div style={vs}>vs</div>
-                        <TeamSide team={game.opponent} />
-                      </div>
-
-                      <div style={time}>{game.event_time}</div>
-
-                      <div style={meta}>
-                        <span>{game.division}</span>
-                        <span>{game.field}</span>
-                      </div>
-
-                      <div style={btnWrap}>
-                        {checked ? (
-                          <span style={checkedBadge}>Checked In</span>
-                        ) : (
-                          <button style={btn} onClick={() => checkIn(game)}>
-                            Check In
-                          </button>
-                        )}
-                      </div>
-
+                      {checked ? (
+                        <span> ✔ Checked In</span>
+                      ) : (
+                        <button onClick={() => checkIn(game)}>
+                          Check In
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -196,5 +161,3 @@ export default function RefTime() {
     </div>
   );
 }
-
-/* COMPONENTS + STYLES (UNCHANGED) */
