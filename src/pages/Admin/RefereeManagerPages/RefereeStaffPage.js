@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
@@ -13,6 +13,40 @@ export default function RefereeStaffPage({
   updateRole,
 }) {
   const [filter, setFilter] = useState("all");
+  const [teams, setTeams] = useState([]);
+
+  useEffect(() => {
+    loadTeams();
+  }, []);
+
+  const loadTeams = async () => {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("*")
+      .order("division", { ascending: true });
+
+    if (error) {
+      console.error("Error loading teams:", error);
+      setTeams([]);
+      return;
+    }
+
+    setTeams(data || []);
+  };
+
+  const updateCoachInfo = async (refId, updates) => {
+    const { error } = await supabase
+      .from("referees")
+      .update(updates)
+      .eq("id", refId);
+
+    if (error) {
+      console.error("Error updating coach info:", error);
+      return;
+    }
+
+    window.location.reload();
+  };
 
   const stats = useMemo(() => {
     const approved = refs.filter((r) => getStatus(r) === "approved").length;
@@ -48,6 +82,18 @@ export default function RefereeStaffPage({
 
     return refs;
   }, [refs, filter, getStatus, getRole]);
+
+  const divisions = useMemo(() => {
+    return [...new Set(teams.map((t) => t.division).filter(Boolean))].sort();
+  }, [teams]);
+
+  const getTeamsForDivision = (division) => {
+    return teams.filter((t) => t.division === division);
+  };
+
+  const getTeamName = (team) => {
+    return team?.name || team?.team_name || team?.team || "Unnamed Team";
+  };
 
   const getProfileImage = (ref) => {
     const rawImage =
@@ -147,6 +193,7 @@ export default function RefereeStaffPage({
             {filteredRefs.map((ref) => {
               const status = getStatus(ref);
               const role = getRole(ref);
+              const teamOptions = getTeamsForDivision(ref.coach_division);
 
               return (
                 <div key={ref.id} style={refCard}>
@@ -204,6 +251,76 @@ export default function RefereeStaffPage({
                       </select>
 
                       <div style={helperText}>{displayRole(ref)}</div>
+                    </div>
+
+                    <div style={detailTile}>
+                      <div style={detailLabel}>Coach Info</div>
+
+                      <select
+                        value={ref.is_coach ? "yes" : "no"}
+                        onChange={(e) => {
+                          const isCoach = e.target.value === "yes";
+
+                          updateCoachInfo(ref.id, {
+                            is_coach: isCoach,
+                            coach_division: isCoach
+                              ? ref.coach_division || null
+                              : null,
+                            coach_team_id: isCoach
+                              ? ref.coach_team_id || null
+                              : null,
+                          });
+                        }}
+                        style={select}
+                      >
+                        <option value="no">Not a Coach</option>
+                        <option value="yes">Is a Coach</option>
+                      </select>
+
+                      {ref.is_coach ? (
+                        <>
+                          <select
+                            value={ref.coach_division || ""}
+                            onChange={(e) =>
+                              updateCoachInfo(ref.id, {
+                                coach_division: e.target.value || null,
+                                coach_team_id: null,
+                              })
+                            }
+                            style={selectSpacing}
+                          >
+                            <option value="">Select Division</option>
+                            {divisions.map((division) => (
+                              <option key={division} value={division}>
+                                {division}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            value={ref.coach_team_id || ""}
+                            onChange={(e) =>
+                              updateCoachInfo(ref.id, {
+                                coach_team_id: e.target.value || null,
+                              })
+                            }
+                            style={selectSpacing}
+                          >
+                            <option value="">Select Team</option>
+                            {teamOptions.map((team) => (
+                              <option key={team.id} value={team.id}>
+                                {getTeamName(team)}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      ) : null}
+
+                      <div style={helperText}>
+                        {ref.is_coach
+                          ? `Coaching ${ref.coach_division || "No division selected"}`
+                          : "Mark if this referee is also coaching."}
+                      </div>
                     </div>
 
                     <div style={detailTile}>
@@ -472,6 +589,16 @@ const select = {
   border: "1px solid #cbd5e1",
   background: "#ffffff",
   fontSize: "14px",
+};
+
+const selectSpacing = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  fontSize: "14px",
+  marginTop: 10,
 };
 
 const helperText = {
