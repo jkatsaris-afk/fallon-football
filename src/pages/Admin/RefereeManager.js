@@ -51,6 +51,7 @@ export default function RefereeManager() {
       : "Assistant Ref";
   };
 
+  /* 🔥 FIXED — NO MORE loadRefs() */
   const updateStatus = async (id, status) => {
     const { error } = await supabase
       .from("referees")
@@ -62,14 +63,23 @@ export default function RefereeManager() {
       return;
     }
 
-    loadRefs();
+    // ✅ update local state only
+    setRefs((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, status } : r
+      )
+    );
   };
 
+  /* 🔥 FIXED — NO MORE loadRefs() */
   const updateRole = async (ref, newRole) => {
+    const roleValue =
+      newRole === "head" ? "Head Ref" : "Assistant Ref";
+
     const { error } = await supabase
       .from("referees")
       .update({
-        role: newRole === "head" ? "Head Ref" : "Assistant Ref",
+        role: roleValue,
       })
       .eq("id", ref.id);
 
@@ -78,7 +88,12 @@ export default function RefereeManager() {
       return;
     }
 
-    loadRefs();
+    // ✅ update local state only
+    setRefs((prev) =>
+      prev.map((r) =>
+        r.id === ref.id ? { ...r, role: roleValue } : r
+      )
+    );
   };
 
   const setHeadRef = async (refId) => {
@@ -102,7 +117,7 @@ export default function RefereeManager() {
       return;
     }
 
-    loadRefs();
+    loadRefs(); // ✅ keep this one (intentional full refresh)
   };
 
   const renderSelectedPage = () => {
@@ -200,109 +215,3 @@ export default function RefereeManager() {
     </div>
   );
 }
-
-function ManagerTile({ title, desc, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        ...tile,
-        ...(active ? activeTile : {}),
-      }}
-    >
-      <div style={tileTitle}>{title}</div>
-      <div style={tileDesc}>{desc}</div>
-    </button>
-  );
-}
-
-const pageWrap = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 20,
-};
-
-const topSection = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 18,
-};
-
-const titleRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const title = {
-  margin: 0,
-  fontSize: "28px",
-  fontWeight: 700,
-  color: "#0f172a",
-};
-
-const subtitle = {
-  marginTop: 6,
-  color: "#64748b",
-  fontSize: "14px",
-};
-
-const tileGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 16,
-};
-
-const tile = {
-  textAlign: "left",
-  border: "none",
-  borderRadius: 18,
-  background: "#ffffff",
-  padding: 18,
-  cursor: "pointer",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-  minHeight: 100,
-};
-
-const activeTile = {
-  outline: "2px solid #16a34a",
-  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
-};
-
-const tileTitle = {
-  fontSize: "16px",
-  fontWeight: 700,
-  color: "#0f172a",
-};
-
-const tileDesc = {
-  marginTop: 8,
-  fontSize: "13px",
-  color: "#64748b",
-  lineHeight: 1.4,
-};
-
-const contentWrap = {
-  display: "flex",
-  flexDirection: "column",
-};
-
-const emptyStateCard = {
-  background: "#ffffff",
-  borderRadius: 18,
-  padding: 24,
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-};
-
-const emptyTitle = {
-  fontSize: "20px",
-  fontWeight: 700,
-  color: "#0f172a",
-};
-
-const emptyText = {
-  marginTop: 8,
-  color: "#64748b",
-  fontSize: "14px",
-};
