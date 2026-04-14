@@ -35,6 +35,7 @@ export default function RefereeSchedulePage() {
   const [assignments, setAssignments] = useState([]);
   const [selectedRefs, setSelectedRefs] = useState({});
   const [filter, setFilter] = useState("all");
+  const [weekFilter, setWeekFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState(null);
   const [message, setMessage] = useState("");
@@ -98,6 +99,11 @@ export default function RefereeSchedulePage() {
     return map;
   }, [assignments]);
 
+  const weekOptions = useMemo(() => {
+    const uniqueWeeks = [...new Set(games.map((g) => g.week).filter(Boolean))];
+    return uniqueWeeks.sort((a, b) => Number(a) - Number(b));
+  }, [games]);
+
   const stats = useMemo(() => {
     const fullyAssigned = games.filter(
       (g) => (assignmentsByGame[g.id] || []).length >= 2
@@ -121,20 +127,26 @@ export default function RefereeSchedulePage() {
   }, [games, assignmentsByGame]);
 
   const filteredGames = useMemo(() => {
+    let filtered = [...games];
+
     if (filter === "open") {
-      return games.filter((g) => (assignmentsByGame[g.id] || []).length === 0);
+      filtered = filtered.filter((g) => (assignmentsByGame[g.id] || []).length === 0);
     }
 
     if (filter === "partial") {
-      return games.filter((g) => (assignmentsByGame[g.id] || []).length === 1);
+      filtered = filtered.filter((g) => (assignmentsByGame[g.id] || []).length === 1);
     }
 
     if (filter === "full") {
-      return games.filter((g) => (assignmentsByGame[g.id] || []).length >= 2);
+      filtered = filtered.filter((g) => (assignmentsByGame[g.id] || []).length >= 2);
     }
 
-    return games;
-  }, [games, filter, assignmentsByGame]);
+    if (weekFilter !== "all") {
+      filtered = filtered.filter((g) => String(g.week) === String(weekFilter));
+    }
+
+    return filtered;
+  }, [games, filter, weekFilter, assignmentsByGame]);
 
   const getRefName = (ref) =>
     `${ref?.first_name || ""} ${ref?.last_name || ""}`.trim() || "Unnamed Ref";
@@ -365,6 +377,23 @@ export default function RefereeSchedulePage() {
         />
       </div>
 
+      <div style={weekTileGrid}>
+        <WeekTile
+          label="All Weeks"
+          active={weekFilter === "all"}
+          onClick={() => setWeekFilter("all")}
+        />
+
+        {weekOptions.map((week) => (
+          <WeekTile
+            key={week}
+            label={`Week ${week}`}
+            active={String(weekFilter) === String(week)}
+            onClick={() => setWeekFilter(week)}
+          />
+        ))}
+      </div>
+
       <div style={sectionCard}>
         <div style={headerRow}>
           <div>
@@ -546,6 +575,21 @@ function ActionTile({ label, desc, onClick }) {
   );
 }
 
+function WeekTile({ label, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...weekTile,
+        ...(active ? activeWeekTile : {}),
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 const pageWrap = {
   display: "flex",
   flexDirection: "column",
@@ -556,6 +600,12 @@ const statsGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: 14,
+};
+
+const weekTileGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+  gap: 12,
 };
 
 const statTile = {
@@ -571,6 +621,24 @@ const statTile = {
 const activeStatTile = {
   outline: "2px solid #16a34a",
   boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
+};
+
+const weekTile = {
+  background: "#ffffff",
+  borderRadius: 16,
+  padding: "14px 16px",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  border: "none",
+  cursor: "pointer",
+  textAlign: "center",
+  fontWeight: 700,
+  color: "#334155",
+};
+
+const activeWeekTile = {
+  outline: "2px solid #2563eb",
+  boxShadow: "0 10px 28px rgba(37, 99, 235, 0.16)",
+  color: "#1d4ed8",
 };
 
 const actionTile = {
