@@ -69,7 +69,7 @@ export default function RefereeStaffPage({
     return refs;
   }, [refs, filter]);
 
-  /* 🔥 PROFILE IMAGE (YOUR ORIGINAL WORKING VERSION) */
+  /* 🔥 PROFILE IMAGE */
   const getProfileImage = (ref) => {
     const raw = ref.profile_image || "";
     if (!raw) return DefaultProfile;
@@ -88,7 +88,6 @@ export default function RefereeStaffPage({
   return (
     <div style={pageWrap}>
 
-      {/* FILTER TILES (UNCHANGED STYLE) */}
       <div style={statsGrid}>
         <FilterTile label="All Refs" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
@@ -121,7 +120,6 @@ export default function RefereeStaffPage({
 
                 <div style={detailsGrid}>
 
-                  {/* ROLE TILE */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Role</div>
 
@@ -141,7 +139,6 @@ export default function RefereeStaffPage({
                     </div>
                   </div>
 
-                  {/* STATUS TILE */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Status</div>
 
@@ -160,5 +157,150 @@ export default function RefereeStaffPage({
         </div>
       </div>
     </div>
+  );
+}
+
+/* 🔥 FIX ADDED BELOW (ONLY CHANGE) */
+
+const pageWrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
+
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: 12,
+};
+
+const sectionCard = {
+  background: "#ffffff",
+  borderRadius: 18,
+  padding: 20,
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+};
+
+const headerRow = {
+  marginBottom: 16,
+};
+
+const heading = {
+  margin: 0,
+  fontSize: "22px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const listWrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const refCard = {
+  background: "#f8fafc",
+  borderRadius: 14,
+  padding: 14,
+};
+
+const refTopRow = {
+  marginBottom: 10,
+};
+
+const leftSide = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+};
+
+const profileImage = {
+  width: 40,
+  height: 40,
+  borderRadius: "50%",
+  objectFit: "cover",
+};
+
+const refName = {
+  fontWeight: 700,
+};
+
+const detailsGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+};
+
+const detailTile = {
+  background: "#ffffff",
+  borderRadius: 12,
+  padding: 12,
+  border: "1px solid #e5e7eb",
+};
+
+const detailLabel = {
+  fontSize: 12,
+  color: "#64748b",
+  marginBottom: 6,
+};
+
+const helperText = {
+  marginTop: 6,
+  fontSize: 12,
+  color: "#64748b",
+};
+
+const select = {
+  width: "100%",
+  padding: 6,
+  borderRadius: 6,
+  border: "1px solid #d1d5db",
+};
+
+const buttonRow = {
+  display: "flex",
+  gap: 8,
+  marginTop: 8,
+};
+
+const approveBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6,
+};
+
+const pendingBtn = {
+  background: "#f59e0b",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6,
+};
+
+const denyBtn = {
+  background: "#dc2626",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6,
+};
+
+function FilterTile({ label, value, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: "#fff",
+        borderRadius: 14,
+        padding: 12,
+        border: active ? "2px solid #16a34a" : "1px solid #e5e7eb",
+        cursor: "pointer",
+      }}
+    >
+      <div style={{ fontWeight: 700 }}>{value}</div>
+      <div style={{ fontSize: 12 }}>{label}</div>
+    </button>
   );
 }
