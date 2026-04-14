@@ -84,9 +84,6 @@ export default function RefTime() {
     loadData();
   };
 
-  const getLogo = (team) =>
-    team ? teamLogos[team.toLowerCase().trim()] : null;
-
   const toggleDate = (date) => {
     setOpenDates(prev => ({ ...prev, [date]: !prev[date] }));
   };
@@ -169,7 +166,7 @@ export default function RefTime() {
   );
 }
 
-/* 🔥 COMPONENTS */
+/* COMPONENTS */
 
 function StatTile({ label, value }) {
   return (
@@ -191,7 +188,7 @@ function TeamSide({ team }) {
   );
 }
 
-/* 🔥 STYLES */
+/* STYLES */
 
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 
@@ -199,20 +196,20 @@ const title = { fontSize:24, fontWeight:700 };
 
 const statsGrid = {
   display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(120px,1fr))",
-  gap:12
+  gridTemplateColumns:"repeat(auto-fit, minmax(110px,1fr))",
+  gap:10
 };
 
 const statTile = {
   background:"#fff",
   borderRadius:16,
-  padding:16,
+  padding:14,
   textAlign:"center",
   boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
 };
 
-const statValue = { fontSize:20, fontWeight:800 };
-const statLabel = { fontSize:12, color:"#64748b" };
+const statValue = { fontSize:18, fontWeight:800 };
+const statLabel = { fontSize:11, color:"#64748b" };
 
 const dateTile = {
   background:"#fff",
@@ -220,14 +217,16 @@ const dateTile = {
   padding:14,
   display:"flex",
   justifyContent:"space-between",
+  alignItems:"center",
   fontWeight:700,
   cursor:"pointer",
-  boxShadow:"0 6px 18px rgba(0,0,0,0.06)"
+  boxShadow:"0 6px 18px rgba(0,0,0,0.06)",
+  flexWrap:"wrap"
 };
 
 const gameGrid = {
   display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(260px,1fr))",
+  gridTemplateColumns:"repeat(auto-fit, minmax(220px,1fr))",
   gap:12,
   marginTop:10
 };
@@ -235,32 +234,37 @@ const gameGrid = {
 const card = {
   background:"#fff",
   borderRadius:16,
-  padding:16,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+  padding:14,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
+  display:"flex",
+  flexDirection:"column",
+  gap:10
 };
 
 const teamsRow = {
   display:"flex",
   justifyContent:"space-between",
-  alignItems:"center"
+  alignItems:"center",
+  flexWrap:"wrap",
+  gap:6
 };
 
 const teamSide = {
   display:"flex",
   flexDirection:"column",
   alignItems:"center",
-  width:"40%"
+  width:"45%",
+  textAlign:"center"
 };
 
-const logoStyle = { width:40, height:40 };
+const logoStyle = { width:36, height:36 };
 
-const vs = { fontWeight:700 };
+const vs = { fontWeight:700, fontSize:14 };
 
 const time = {
   textAlign:"center",
-  fontSize:18,
-  fontWeight:700,
-  marginTop:10
+  fontSize:16,
+  fontWeight:700
 };
 
 const meta = {
@@ -268,25 +272,28 @@ const meta = {
   justifyContent:"space-between",
   fontSize:12,
   color:"#64748b",
-  marginTop:6
+  flexWrap:"wrap"
 };
 
 const btnWrap = {
   display:"flex",
   justifyContent:"center",
-  marginTop:10
+  marginTop:8
 };
 
 const btn = {
   background:"rgba(34,197,94,0.12)",
   color:"#166534",
   border:"1px solid rgba(34,197,94,0.25)",
-  padding:"8px 14px",
+  padding:"8px 12px",
   borderRadius:10,
-  cursor:"pointer"
+  cursor:"pointer",
+  width:"100%",
+  maxWidth:160
 };
 
 const checkedBadge = {
   color:"#16a34a",
-  fontWeight:700
+  fontWeight:700,
+  fontSize:13
 };
