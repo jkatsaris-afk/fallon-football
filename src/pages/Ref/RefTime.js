@@ -90,18 +90,16 @@ export default function RefTime() {
 
   const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
   const gamesReffed = checkins.length;
-  const assignedGames = Object.values(grouped).flat().length;
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP TILES (UPDATED SIZE) */}
+      {/* 🔥 TOP TILES */}
       <div style={statsGrid}>
-        <StatTile label="Earnings" value={`$${totalPay}`} />
+        <StatTile label="Earnings" value={`$${totalPay}`} highlight />
         <StatTile label="Games" value={gamesReffed} />
-        <StatTile label="Assigned" value={assignedGames} />
       </div>
 
       <h2 style={title}>Ref Time</h2>
@@ -163,10 +161,12 @@ export default function RefTime() {
 
 /* COMPONENTS */
 
-function StatTile({ label, value }) {
+function StatTile({ label, value, highlight }) {
   return (
     <div style={statTile}>
-      <div style={statValue}>{value}</div>
+      <div style={{ ...statValue, ...(highlight ? greenText : {}) }}>
+        {value}
+      </div>
       <div style={statLabel}>{label}</div>
     </div>
   );
@@ -189,7 +189,6 @@ const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 
 const title = { fontSize:24, fontWeight:700 };
 
-/* 🔥 UPDATED TILE STYLES */
 const statsGrid = {
   display:"grid",
   gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
@@ -213,6 +212,10 @@ const statValue = {
   fontWeight:800
 };
 
+const greenText = {
+  color:"#16a34a"   // 🔥 GREEN MONEY
+};
+
 const statLabel = {
   fontSize:13,
   color:"#64748b",
@@ -228,8 +231,7 @@ const dateTile = {
   alignItems:"center",
   fontWeight:700,
   cursor:"pointer",
-  boxShadow:"0 6px 18px rgba(0,0,0,0.06)",
-  flexWrap:"wrap"
+  boxShadow:"0 6px 18px rgba(0,0,0,0.06)"
 };
 
 const gameGrid = {
@@ -295,9 +297,7 @@ const btn = {
   border:"1px solid rgba(34,197,94,0.25)",
   padding:"8px 12px",
   borderRadius:10,
-  cursor:"pointer",
-  width:"100%",
-  maxWidth:160
+  cursor:"pointer"
 };
 
 const checkedBadge = {
