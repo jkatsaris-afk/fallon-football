@@ -3,7 +3,7 @@ import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
-  refs,
+  refs = [],
   loading,
   getName,
   getStatus,
@@ -20,10 +20,7 @@ export default function RefereeStaffPage({
   }, []);
 
   const loadTeams = async () => {
-    const { data, error } = await supabase
-      .from("teams")
-      .select("*")
-      .order("division", { ascending: true });
+    const { data, error } = await supabase.from("teams").select("*");
 
     if (error) {
       console.error("Error loading teams:", error);
@@ -84,11 +81,17 @@ export default function RefereeStaffPage({
   }, [refs, filter, getStatus, getRole]);
 
   const divisions = useMemo(() => {
-    return [...new Set(teams.map((t) => t.division).filter(Boolean))].sort();
+    const values = teams
+      .map((t) => t.division || t.division_name || "")
+      .filter(Boolean);
+
+    return [...new Set(values)].sort();
   }, [teams]);
 
   const getTeamsForDivision = (division) => {
-    return teams.filter((t) => t.division === division);
+    return teams.filter(
+      (t) => (t.division || t.division_name || "") === division
+    );
   };
 
   const getTeamName = (team) => {
