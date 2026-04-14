@@ -62,7 +62,6 @@ export default function RefereeStaffPage({
     setLoadingState(false);
   };
 
-  /* 🔥 KEEP YOUR EXISTING FUNCTION — ONLY ADD UI UPDATE */
   const updateCoachInfo = async (refId, updates) => {
     const { error } = await supabase
       .from("referees")
@@ -74,7 +73,6 @@ export default function RefereeStaffPage({
       return;
     }
 
-    // ✅ add this (no reload)
     setRefs((prev) =>
       prev.map((r) =>
         r.id === refId ? { ...r, ...updates } : r
@@ -124,16 +122,6 @@ export default function RefereeStaffPage({
 
     return [...new Set(values)].sort();
   }, [teams]);
-
-  const getTeamsForDivision = (division) => {
-    return teams.filter(
-      (t) => (t.division || t.division_name || "") === division
-    );
-  };
-
-  const getTeamName = (team) => {
-    return team?.name || team?.team_name || team?.team || "Unnamed Team";
-  };
 
   const getProfileImage = (ref) => {
     const rawImage =
@@ -191,118 +179,91 @@ export default function RefereeStaffPage({
           </div>
         </div>
 
-        {filteredRefs.length === 0 ? (
-          <div style={emptyState}>
-            <div style={emptyTitle}>No referees found</div>
-            <div style={muted}>
-              There are no referees in this filter yet.
-            </div>
-          </div>
-        ) : (
-          <div style={listWrap}>
-            {filteredRefs.map((ref) => {
-              const status = safeGetStatus(ref);
-              const role = safeGetRole(ref);
+        <div style={listWrap}>
+          {filteredRefs.map((ref) => {
+            return (
+              <div key={ref.id} style={refCard}>
+                <div style={detailsGrid}>
 
-              return (
-                <div key={ref.id} style={refCard}>
-                  <div style={refTopRow}>
-                    <div style={leftSide}>
-                      <img
-                        src={getProfileImage(ref)}
-                        alt={safeGetName(ref)}
-                        style={profileImage}
-                      />
-                      <div style={nameBlock}>
-                        <div style={refName}>{safeGetName(ref)}</div>
-                        <div style={contactRow}>{ref.email}</div>
-                      </div>
-                    </div>
-                  </div>
+                  {/* 🔥 FIX: stop navigation bubbling */}
+                  <div style={detailTile} onClick={(e) => e.stopPropagation()}>
+                    <div style={detailLabel}>Coach Info</div>
 
-                  <div style={detailsGrid}>
-                    {/* COACH */}
-                    <div style={detailTile}>
-                      <div style={detailLabel}>Coach Info</div>
+                    <select
+                      value={ref.is_coach ? "yes" : "no"}
+                      onChange={(e) => {
+                        e.stopPropagation();
 
-                      {/* FIX: prevent navigation */}
-                      <select
-                        value={ref.is_coach ? "yes" : "no"}
-                        onChange={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                        const isCoach = e.target.value === "yes";
 
-                          const isCoach = e.target.value === "yes";
+                        updateCoachInfo(ref.id, {
+                          is_coach: isCoach,
+                          coach_division: isCoach ? ref.coach_division || null : null,
+                          coach_team_id: isCoach ? ref.coach_team_id || null : null,
+                        });
+                      }}
+                      style={select}
+                    >
+                      <option value="no">Not a Coach</option>
+                      <option value="yes">Is a Coach</option>
+                    </select>
 
-                          updateCoachInfo(ref.id, {
-                            is_coach: isCoach,
-                            coach_division: isCoach ? ref.coach_division || null : null,
-                            coach_team_id: isCoach ? ref.coach_team_id || null : null,
-                          });
-                        }}
-                        style={select}
-                      >
-                        <option value="no">Not a Coach</option>
-                        <option value="yes">Is a Coach</option>
-                      </select>
+                    {ref.is_coach && (
+                      <>
+                        <select
+                          value={ref.coach_division || ""}
+                          onChange={(e) => {
+                            e.stopPropagation();
 
-                      {ref.is_coach && (
-                        <>
-                          <select
-                            value={ref.coach_division || ""}
-                            onChange={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
+                            updateCoachInfo(ref.id, {
+                              coach_division: e.target.value || null,
+                              coach_team_id: null,
+                            });
+                          }}
+                          style={selectSpacing}
+                        >
+                          <option value="">Select Division</option>
+                          {divisions.map((division) => (
+                            <option key={division} value={division}>
+                              {division}
+                            </option>
+                          ))}
+                        </select>
 
-                              updateCoachInfo(ref.id, {
-                                coach_division: e.target.value || null,
-                                coach_team_id: null,
-                              });
-                            }}
-                            style={selectSpacing}
-                          >
-                            <option value="">Select Division</option>
-                            {divisions.map((division) => (
-                              <option key={division} value={division}>
-                                {division}
+                        {/* 🔥 FIX: correct team display + UUID */}
+                        <select
+                          value={ref.coach_team_id || ""}
+                          onChange={(e) => {
+                            e.stopPropagation();
+
+                            updateCoachInfo(ref.id, {
+                              coach_team_id: e.target.value || null,
+                            });
+                          }}
+                          style={selectSpacing}
+                        >
+                          <option value="">Select Team</option>
+
+                          {teams
+                            .filter(
+                              (t) =>
+                                (t.division || t.division_name) === ref.coach_division
+                            )
+                            .map((team) => (
+                              <option key={team.id} value={team.id}>
+                                {team.team_name || team.name || team.team || team.nfl_team || "Unnamed Team"}
                               </option>
                             ))}
-                          </select>
-
-                          {/* FIX: correct team filtering + UUID storage */}
-                          <select
-                            value={ref.coach_team_id || ""}
-                            onChange={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-
-                              updateCoachInfo(ref.id, {
-                                coach_team_id: e.target.value || null,
-                              });
-                            }}
-                            style={selectSpacing}
-                          >
-                            <option value="">Select Team</option>
-                            {teams
-                              .filter(
-                                (t) =>
-                                  (t.division || t.division_name) === ref.coach_division
-                              )
-                              .map((team) => (
-                                <option key={team.id} value={team.id}>
-                                  {team.name || team.team_name || team.team}
-                                </option>
-                              ))}
-                          </select>
-                        </>
-                      )}
-                    </div>
+                        </select>
+                      </>
+                    )}
                   </div>
+
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
