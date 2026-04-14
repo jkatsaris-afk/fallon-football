@@ -12,25 +12,18 @@ export default function RefereeStaffPage({
 }) {
   const [refs, setRefs] = useState([]);
   const [loadingState, setLoadingState] = useState(true);
-
   const [filter, setFilter] = useState("all");
   const [teams, setTeams] = useState([]);
 
-  /* 🔥 SAFE FALLBACKS (PREVENT BLANK PAGE) */
+  /* SAFE FALLBACKS (prevents blank screen) */
   const safeGetStatus = (r) => {
-    try {
-      return getStatus ? getStatus(r) : r.status || "pending";
-    } catch {
-      return r.status || "pending";
-    }
+    try { return getStatus ? getStatus(r) : r.status || "pending"; }
+    catch { return r.status || "pending"; }
   };
 
   const safeGetRole = (r) => {
-    try {
-      return getRole ? getRole(r) : r.role || "assistant";
-    } catch {
-      return r.role || "assistant";
-    }
+    try { return getRole ? getRole(r) : r.role || "assistant"; }
+    catch { return r.role || "assistant"; }
   };
 
   const safeGetName = (r) => {
@@ -50,30 +43,23 @@ export default function RefereeStaffPage({
 
   const loadTeams = async () => {
     const { data, error } = await supabase.from("teams").select("*");
-
     if (error) {
-      console.error("Teams error:", error);
+      console.error(error);
       setTeams([]);
       return;
     }
-
     setTeams(data || []);
   };
 
   const loadRefs = async () => {
     setLoadingState(true);
-
-    const { data, error } = await supabase
-      .from("referees")
-      .select("*");
-
+    const { data, error } = await supabase.from("referees").select("*");
     if (error) {
-      console.error("Refs error:", error);
+      console.error(error);
       setRefs([]);
     } else {
       setRefs(data || []);
     }
-
     setLoadingState(false);
   };
 
@@ -90,38 +76,37 @@ export default function RefereeStaffPage({
       .update(updates)
       .eq("id", refId);
 
-    if (error) console.error("Update error:", error);
+    if (error) console.error(error);
   };
 
-  const stats = useMemo(() => {
-    return {
-      total: refs.length,
-      approved: refs.filter((r) => safeGetStatus(r) === "approved").length,
-      pending: refs.filter((r) => safeGetStatus(r) === "pending").length,
-      denied: refs.filter((r) => safeGetStatus(r) === "denied").length,
-      headRefs: refs.filter((r) => safeGetRole(r) === "head").length,
-    };
-  }, [refs]);
+  const stats = useMemo(() => ({
+    total: refs.length,
+    approved: refs.filter(r => safeGetStatus(r) === "approved").length,
+    pending: refs.filter(r => safeGetStatus(r) === "pending").length,
+    denied: refs.filter(r => safeGetStatus(r) === "denied").length,
+    headRefs: refs.filter(r => safeGetRole(r) === "head").length,
+  }), [refs]);
 
   const filteredRefs = useMemo(() => {
-    if (filter === "approved") return refs.filter((r) => safeGetStatus(r) === "approved");
-    if (filter === "pending") return refs.filter((r) => safeGetStatus(r) === "pending");
-    if (filter === "denied") return refs.filter((r) => safeGetStatus(r) === "denied");
-    if (filter === "head") return refs.filter((r) => safeGetRole(r) === "head");
+    if (filter === "approved") return refs.filter(r => safeGetStatus(r) === "approved");
+    if (filter === "pending") return refs.filter(r => safeGetStatus(r) === "pending");
+    if (filter === "denied") return refs.filter(r => safeGetStatus(r) === "denied");
+    if (filter === "head") return refs.filter(r => safeGetRole(r) === "head");
     return refs;
   }, [refs, filter]);
 
   const divisions = useMemo(() => {
     const values = teams
-      .map((t) => t.division || t.division_name || "")
+      .map(t => t.division || t.division_name || "")
       .filter(Boolean);
     return [...new Set(values)];
   }, [teams]);
 
   const getTeamsForDivision = (division) =>
-    teams.filter(
-      (t) => (t.division || t.division_name) === division
-    );
+    teams.filter(t => (t.division || t.division_name) === division);
+
+  const getTeamName = (team) =>
+    team?.name || team?.team_name || team?.team || "Unnamed Team";
 
   const getProfileImage = (ref) => {
     const raw = ref.profile_image || "";
@@ -135,18 +120,12 @@ export default function RefereeStaffPage({
   };
 
   if (loadingState) {
-    return (
-      <div style={pageWrap}>
-        <div style={sectionCard}>
-          <h2 style={heading}>Referee Staff</h2>
-          <div style={muted}>Loading referees...</div>
-        </div>
-      </div>
-    );
+    return <div style={{ padding: 20 }}>Loading referees...</div>;
   }
 
   return (
     <div style={pageWrap}>
+      {/* FILTER TILES */}
       <div style={statsGrid}>
         <FilterTile label="All Refs" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
@@ -160,67 +139,54 @@ export default function RefereeStaffPage({
           <h2 style={heading}>Referee Staff</h2>
         </div>
 
-        {filteredRefs.length === 0 ? (
-          <div style={emptyState}>No referees found</div>
-        ) : (
-          <div style={listWrap}>
-            {filteredRefs.map((ref) => {
-              const status = safeGetStatus(ref);
-              const role = safeGetRole(ref);
-              const teamsForDivision = getTeamsForDivision(ref.coach_division);
+        <div style={listWrap}>
+          {filteredRefs.map((ref) => {
+            const teamsForDivision = getTeamsForDivision(ref.coach_division);
 
-              return (
-                <div key={ref.id} style={refCard}>
-                  <div style={refTopRow}>
-                    <div style={leftSide}>
-                      <img
-                        src={getProfileImage(ref)}
-                        style={profileImage}
-                      />
-                      <div>
-                        <div style={refName}>{safeGetName(ref)}</div>
-                        <div>{ref.email}</div>
-                      </div>
+            return (
+              <div key={ref.id} style={refCard}>
+                <div style={refTopRow}>
+                  <div style={leftSide}>
+                    <img src={getProfileImage(ref)} style={profileImage} />
+                    <div>
+                      <div style={refName}>{safeGetName(ref)}</div>
+                      <div>{ref.email}</div>
                     </div>
                   </div>
+                </div>
 
-                  <div style={detailsGrid}>
-                    {/* COACH */}
-                    <div style={detailTile}>
-                      <div style={detailLabel}>Coach Info</div>
+                <div style={detailsGrid}>
+                  <div style={detailTile}>
+                    <div style={detailLabel}>Coach Info</div>
 
-                      <select
-                        value={ref.is_coach ? "yes" : "no"}
-                        onChange={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                    {/* COACH TOGGLE */}
+                    <select
+                      value={ref.is_coach ? "yes" : "no"}
+                      onChange={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                          const isCoach = e.target.value === "yes";
+                        const isCoach = e.target.value === "yes";
 
-                          updateCoachInfo(ref.id, {
-                            is_coach: isCoach,
-                            coach_division: isCoach ? ref.coach_division || null : null,
-                            coach_team_id: isCoach ? ref.coach_team_id || null : null,
-                          });
-                        }}
-                        style={select}
-                      >
-                        <option value="no">Not a Coach</option>
-                        <option value="yes">Is a Coach</option>
-                      </select>
+                        updateCoachInfo(ref.id, {
+                          is_coach: isCoach,
+                          coach_division: isCoach ? ref.coach_division || null : null,
+                          coach_team_id: isCoach ? ref.coach_team_id || null : null,
+                        });
+                      }}
+                      style={select}
+                    >
+                      <option value="no">Not a Coach</option>
+                      <option value="yes">Is a Coach</option>
+                    </select>
 
-                      <div
-                        style={{
-                          maxHeight: ref.is_coach ? 200 : 0,
-                          overflow: "hidden",
-                          transition: "all 0.25s ease",
-                        }}
-                      >
+                    {/* EXPAND SECTION */}
+                    {ref.is_coach && (
+                      <>
                         <select
                           value={ref.coach_division || ""}
                           onChange={(e) => {
                             e.stopPropagation();
-
                             updateCoachInfo(ref.id, {
                               coach_division: e.target.value,
                               coach_team_id: null,
@@ -238,7 +204,6 @@ export default function RefereeStaffPage({
                           value={ref.coach_team_id || ""}
                           onChange={(e) => {
                             e.stopPropagation();
-
                             updateCoachInfo(ref.id, {
                               coach_team_id: e.target.value,
                             });
@@ -248,18 +213,19 @@ export default function RefereeStaffPage({
                           <option value="">Select Team</option>
                           {teamsForDivision.map((team) => (
                             <option key={team.id} value={team.id}>
-                              {team.name || team.team_name}
+                              {getTeamName(team)}
                             </option>
                           ))}
                         </select>
-                      </div>
-                    </div>
+                      </>
+                    )}
+
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
