@@ -1,4 +1,3 @@
-<h1 style={{ color: "red" }}>STAFF PAGE - NO COACH</h1>
 import React from "react";
 import DefaultProfile from "../../../resources/Default-A.png";
 
@@ -38,6 +37,10 @@ export default function RefereeStaffPage({
 
   return (
     <div style={pageWrap}>
+
+      {/* 🔥 DEBUG HEADER */}
+      <h1 style={{ color: "red" }}>STAFF PAGE - NO COACH</h1>
+
       <div style={sectionCard}>
         <div style={headerRow}>
           <h2 style={heading}>Referee Staff</h2>
@@ -65,7 +68,7 @@ export default function RefereeStaffPage({
 
                 <div style={detailsGrid}>
 
-                  {/* 🔥 ROLE TILE (CLEAN) */}
+                  {/* ROLE TILE */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Role</div>
 
@@ -85,7 +88,7 @@ export default function RefereeStaffPage({
                     </div>
                   </div>
 
-                  {/* 🔥 STATUS TILE */}
+                  {/* STATUS TILE */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Status</div>
 
