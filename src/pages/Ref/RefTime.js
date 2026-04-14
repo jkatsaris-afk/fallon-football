@@ -91,12 +91,37 @@ export default function RefTime() {
   const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
   const gamesReffed = checkins.length;
 
+  /* 🔥 NEW HELPERS */
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr);
+
+    return {
+      day: d.toLocaleDateString("en-US", { weekday: "long" }),
+      date: d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      })
+    };
+  };
+
+  const getWeekNumber = (dateStr) => {
+    const firstDate = Object.keys(grouped)[0];
+    if (!firstDate) return 1;
+
+    const start = new Date(firstDate);
+    const current = new Date(dateStr);
+
+    const diff = Math.floor((current - start) / (1000 * 60 * 60 * 24));
+    return Math.floor(diff / 7) + 1;
+  };
+
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP TILES */}
+      {/* TOP TILES */}
       <div style={statsGrid}>
         <StatTile label="Earnings" value={`$${totalPay}`} highlight />
         <StatTile label="Games" value={gamesReffed} />
@@ -106,13 +131,23 @@ export default function RefTime() {
 
       {Object.keys(grouped).map((date) => {
         const isOpen = openDates[date];
+        const { day, date: formatted } = formatDate(date);
+        const week = getWeekNumber(date);
 
         return (
           <div key={date}>
 
+            {/* 🔥 UPDATED DATE TILE */}
             <div style={dateTile} onClick={() => toggleDate(date)}>
-              <span>{date}</span>
-              <span>{isOpen ? "▲" : "▼"}</span>
+              <div style={dateLeft}>
+                <div style={dayText}>{day}</div>
+                <div style={dateText}>{formatted}</div>
+                <div style={weekText}>Week {week}</div>
+              </div>
+
+              <div style={arrow}>
+                {isOpen ? "▲" : "▼"}
+              </div>
             </div>
 
             {isOpen && (
@@ -207,14 +242,9 @@ const statTile = {
   justifyContent:"center"
 };
 
-const statValue = {
-  fontSize:26,
-  fontWeight:800
-};
+const statValue = { fontSize:26, fontWeight:800 };
 
-const greenText = {
-  color:"#16a34a"   // 🔥 GREEN MONEY
-};
+const greenText = { color:"#16a34a" };
 
 const statLabel = {
   fontSize:13,
@@ -224,14 +254,40 @@ const statLabel = {
 
 const dateTile = {
   background:"#fff",
-  borderRadius:14,
-  padding:14,
+  borderRadius:16,
+  padding:16,
   display:"flex",
   justifyContent:"space-between",
   alignItems:"center",
-  fontWeight:700,
   cursor:"pointer",
-  boxShadow:"0 6px 18px rgba(0,0,0,0.06)"
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const dateLeft = {
+  display:"flex",
+  flexDirection:"column",
+  gap:2
+};
+
+const dayText = {
+  fontSize:16,
+  fontWeight:700
+};
+
+const dateText = {
+  fontSize:14,
+  color:"#64748b"
+};
+
+const weekText = {
+  fontSize:12,
+  color:"#16a34a",
+  fontWeight:600
+};
+
+const arrow = {
+  fontSize:16,
+  fontWeight:700
 };
 
 const gameGrid = {
