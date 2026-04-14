@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-/* IMAGE COMPRESS (UNCHANGED) */
+/* IMAGE COMPRESS */
 const compressImage = (file) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -115,7 +115,7 @@ export default function RefProfile() {
 
       <div style={card}>
 
-        {/* 🔥 BIG PROFILE IMAGE */}
+        {/* PROFILE IMAGE */}
         <div style={imageWrap}>
           <img src={getImageUrl()} alt="profile" style={profileImg} />
         </div>
@@ -195,7 +195,7 @@ export default function RefProfile() {
           )}
         </div>
 
-        {/* 🔥 LOGOUT */}
+        {/* LOGOUT */}
         <button style={logoutBtn} onClick={logout}>
           Log Out
         </button>
@@ -205,13 +205,14 @@ export default function RefProfile() {
   );
 }
 
-/* 🔥 STYLES */
+/* STYLES */
 
 const wrap = {
   padding: 20,
   display: "flex",
   flexDirection: "column",
-  gap: 20
+  gap: 20,
+  alignItems: "center" // 🔥 keeps centered nicely
 };
 
 const title = {
@@ -223,7 +224,8 @@ const card = {
   background: "#fff",
   borderRadius: 18,
   padding: 24,
-  maxWidth: 500,
+  width: "100%",
+  maxWidth: 800,   // 🔥 FIXED WIDTH (not skinny anymore)
   margin: "auto",
   boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
 };
@@ -235,7 +237,7 @@ const imageWrap = {
 };
 
 const profileImg = {
-  width: 140,           // 🔥 bigger
+  width: 140,
   height: 140,
   borderRadius: "50%",
   objectFit: "cover"
@@ -309,7 +311,6 @@ const uploadBtn = {
   cursor: "pointer"
 };
 
-/* 🔥 SOFT RED LOGOUT */
 const logoutBtn = {
   marginTop: 20,
   background: "rgba(220,38,38,0.12)",
