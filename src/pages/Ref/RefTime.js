@@ -91,9 +91,10 @@ export default function RefTime() {
   const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
   const gamesReffed = checkins.length;
 
-  /* 🔥 NEW HELPERS */
+  /* 🔥 FIXED DATE FORMAT (NO OFFSET BUG) */
   const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
+    const [year, month, day] = dateStr.split("-");
+    const d = new Date(year, month - 1, day);
 
     return {
       day: d.toLocaleDateString("en-US", { weekday: "long" }),
@@ -105,15 +106,20 @@ export default function RefTime() {
     };
   };
 
+  /* 🔥 FIXED WEEK CALC */
   const getWeekNumber = (dateStr) => {
-    const firstDate = Object.keys(grouped)[0];
-    if (!firstDate) return 1;
+    const dates = Object.keys(grouped).sort();
+    if (!dates.length) return 1;
 
-    const start = new Date(firstDate);
-    const current = new Date(dateStr);
+    const [sy, sm, sd] = dates[0].split("-");
+    const start = new Date(sy, sm - 1, sd);
 
-    const diff = Math.floor((current - start) / (1000 * 60 * 60 * 24));
-    return Math.floor(diff / 7) + 1;
+    const [cy, cm, cd] = dateStr.split("-");
+    const current = new Date(cy, cm - 1, cd);
+
+    const diffDays = Math.floor((current - start) / (1000 * 60 * 60 * 24));
+
+    return Math.floor(diffDays / 7) + 1;
   };
 
   if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
@@ -137,7 +143,6 @@ export default function RefTime() {
         return (
           <div key={date}>
 
-            {/* 🔥 UPDATED DATE TILE */}
             <div style={dateTile} onClick={() => toggleDate(date)}>
               <div style={dateLeft}>
                 <div style={dayText}>{day}</div>
@@ -218,10 +223,9 @@ function TeamSide({ team }) {
   );
 }
 
-/* STYLES */
+/* STYLES (UNCHANGED) */
 
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
-
 const title = { fontSize:24, fontWeight:700 };
 
 const statsGrid = {
@@ -243,7 +247,6 @@ const statTile = {
 };
 
 const statValue = { fontSize:26, fontWeight:800 };
-
 const greenText = { color:"#16a34a" };
 
 const statLabel = {
@@ -255,28 +258,37 @@ const statLabel = {
 const dateTile = {
   background:"#fff",
   borderRadius:16,
-  padding:16,
+  padding:14,
   display:"flex",
   justifyContent:"space-between",
   alignItems:"center",
   cursor:"pointer",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
+  gap:10,
+  overflow:"hidden"
 };
 
 const dateLeft = {
   display:"flex",
   flexDirection:"column",
-  gap:2
+  gap:2,
+  minWidth:0
 };
 
 const dayText = {
-  fontSize:16,
-  fontWeight:700
+  fontSize:15,
+  fontWeight:700,
+  whiteSpace:"nowrap",
+  overflow:"hidden",
+  textOverflow:"ellipsis"
 };
 
 const dateText = {
-  fontSize:14,
-  color:"#64748b"
+  fontSize:13,
+  color:"#64748b",
+  whiteSpace:"nowrap",
+  overflow:"hidden",
+  textOverflow:"ellipsis"
 };
 
 const weekText = {
@@ -287,7 +299,8 @@ const weekText = {
 
 const arrow = {
   fontSize:16,
-  fontWeight:700
+  fontWeight:700,
+  flexShrink:0
 };
 
 const gameGrid = {
