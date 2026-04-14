@@ -1,419 +1,85 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
+import DefaultProfile from "../../../resources/Default-A.png";
 
-import Logo49ers from "../../../resources/San Francisco 49ers.png";
-import LogoBengals from "../../../resources/Cincinnati Bengals.png";
-import LogoBills from "../../../resources/Buffalo Bills.png";
-import LogoBroncos from "../../../resources/Denver Broncos.png";
-import LogoChiefs from "../../../resources/Kansas City Chiefs.png";
-import LogoColts from "../../../resources/Indianapolis Colts.png";
-import LogoEagles from "../../../resources/Philadelphia Eagles.png";
-import LogoJets from "../../../resources/New York Jets.png";
-import LogoLions from "../../../resources/Detroit Lions.png";
-import LogoRaiders from "../../../resources/Las Vegas Raiders.png";
-import LogoRams from "../../../resources/Los Angeles Rams.png";
-import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
-
-const TEAM_LOGOS = {
-  "49ers": Logo49ers,
-  Bengals: LogoBengals,
-  Bills: LogoBills,
-  Broncos: LogoBroncos,
-  Chiefs: LogoChiefs,
-  Colts: LogoColts,
-  Eagles: LogoEagles,
-  Jets: LogoJets,
-  Lions: LogoLions,
-  Raiders: LogoRaiders,
-  Rams: LogoRams,
-  Steelers: LogoSteelers,
-};
-
-export default function RefereeSchedulePage() {
-  const [games, setGames] = useState([]);
-  const [refs, setRefs] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [assignments, setAssignments] = useState([]);
-  const [selectedRefs, setSelectedRefs] = useState({});
+export default function RefereeStaffPage({
+  refs,
+  loading,
+  getName,
+  getStatus,
+  getRole,
+  displayRole,
+  updateStatus,
+  updateRole,
+}) {
   const [filter, setFilter] = useState("all");
-  const [weekFilter, setWeekFilter] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState(null);
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    loadPageData();
-  }, []);
-
-  const loadPageData = async () => {
-    setLoading(true);
-    setMessage("");
-
-    const [gamesRes, refsRes, assignmentsRes, teamsRes] = await Promise.all([
-      supabase
-        .from("schedule_master_auto")
-        .select("*")
-        .ilike("event_type", "%game%")
-        .order("week", { ascending: true })
-        .order("event_date", { ascending: true })
-        .order("time", { ascending: true }),
-
-      supabase
-        .from("referees")
-        .select("*")
-        .eq("status", "approved")
-        .order("first_name", { ascending: true }),
-
-      supabase
-        .from("ref_assignments")
-        .select("*, referees(*)"),
-
-      supabase
-        .from("teams")
-        .select("id, name"),
-    ]);
-
-    if (gamesRes.error) console.error("Error loading games:", gamesRes.error);
-    if (refsRes.error) console.error("Error loading referees:", refsRes.error);
-    if (assignmentsRes.error) {
-      console.error("Error loading assignments:", assignmentsRes.error);
-    }
-    if (teamsRes.error) {
-      console.error("Error loading teams:", teamsRes.error);
-    }
-
-    setGames(gamesRes.data || []);
-    setRefs(refsRes.data || []);
-    setAssignments(assignmentsRes.data || []);
-    setTeams(teamsRes.data || []);
-    setLoading(false);
-  };
-
-  const assignmentsByGame = useMemo(() => {
-    const map = {};
-    assignments.forEach((a) => {
-      if (!a.schedule_id) return;
-      if (!map[a.schedule_id]) map[a.schedule_id] = [];
-      map[a.schedule_id].push(a);
-    });
-
-    Object.keys(map).forEach((gameId) => {
-      map[gameId] = map[gameId].slice().sort((a, b) => {
-        const aTime = new Date(a.created_at || 0).getTime();
-        const bTime = new Date(b.created_at || 0).getTime();
-        return aTime - bTime;
-      });
-    });
-
-    return map;
-  }, [assignments]);
-
-  const weekOptions = useMemo(() => {
-    const uniqueWeeks = [...new Set(games.map((g) => g.week).filter(Boolean))];
-    return uniqueWeeks.sort((a, b) => Number(a) - Number(b));
-  }, [games]);
 
   const stats = useMemo(() => {
-    const fullyAssigned = games.filter(
-      (g) => (assignmentsByGame[g.id] || []).length >= 2
-    ).length;
-
-    const partiallyAssigned = games.filter((g) => {
-      const count = (assignmentsByGame[g.id] || []).length;
-      return count === 1;
-    }).length;
-
-    const openGames = games.filter(
-      (g) => (assignmentsByGame[g.id] || []).length === 0
-    ).length;
+    const approved = refs.filter((r) => getStatus(r) === "approved").length;
+    const pending = refs.filter((r) => getStatus(r) === "pending").length;
+    const denied = refs.filter((r) => getStatus(r) === "denied").length;
+    const headRefs = refs.filter((r) => getRole(r) === "head").length;
 
     return {
-      total: games.length,
-      openGames,
-      partiallyAssigned,
-      fullyAssigned,
+      total: refs.length,
+      approved,
+      pending,
+      denied,
+      headRefs,
     };
-  }, [games, assignmentsByGame]);
+  }, [refs, getStatus, getRole]);
 
-  const filteredGames = useMemo(() => {
-    let filtered = [...games];
-
-    if (filter === "open") {
-      filtered = filtered.filter((g) => (assignmentsByGame[g.id] || []).length === 0);
+  const filteredRefs = useMemo(() => {
+    if (filter === "approved") {
+      return refs.filter((r) => getStatus(r) === "approved");
     }
 
-    if (filter === "partial") {
-      filtered = filtered.filter((g) => (assignmentsByGame[g.id] || []).length === 1);
+    if (filter === "pending") {
+      return refs.filter((r) => getStatus(r) === "pending");
     }
 
-    if (filter === "full") {
-      filtered = filtered.filter((g) => (assignmentsByGame[g.id] || []).length >= 2);
+    if (filter === "denied") {
+      return refs.filter((r) => getStatus(r) === "denied");
     }
 
-    if (weekFilter !== "all") {
-      filtered = filtered.filter((g) => String(g.week) === String(weekFilter));
+    if (filter === "head") {
+      return refs.filter((r) => getRole(r) === "head");
     }
 
-    return filtered;
-  }, [games, filter, weekFilter, assignmentsByGame]);
+    return refs;
+  }, [refs, filter, getStatus, getRole]);
 
-  const getRefName = (ref) =>
-    `${ref?.first_name || ""} ${ref?.last_name || ""}`.trim() || "Unnamed Ref";
+  const getProfileImage = (ref) => {
+    const rawImage =
+      ref.profile_image || ref.profile_image_url || ref.photo_url || "";
 
-  const getAssignmentsForGame = (gameId) => assignmentsByGame[gameId] || [];
+    if (!rawImage) return DefaultProfile;
 
-  const getTeamLogo = (teamName) => TEAM_LOGOS[teamName] || null;
+    if (rawImage.startsWith("http://") || rawImage.startsWith("https://")) {
+      return rawImage;
+    }
 
-  const getGameStatus = (game) => {
-    const count = getAssignmentsForGame(game.id).length;
-    if (count >= 2) return "full";
-    if (count === 1) return "partial";
-    return "open";
+    const { data } = supabase.storage
+      .from("profile-images")
+      .getPublicUrl(rawImage);
+
+    return data?.publicUrl || DefaultProfile;
   };
 
-  const getCoachTeam = (ref) => {
-    if (!ref?.coach_team_id) return null;
-    return teams.find((t) => String(t.id) === String(ref.coach_team_id)) || null;
-  };
-
-  const getCoachTeamName = (ref) => {
-    return getCoachTeam(ref)?.name || "-";
-  };
-
-  const parseTimeValue = (timeStr) => {
-    if (!timeStr) return null;
-
-    const match = String(timeStr).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) return null;
-
-    let hour = parseInt(match[1], 10);
-    const minute = parseInt(match[2], 10);
-    const ampm = match[3].toUpperCase();
-
-    if (ampm === "PM" && hour !== 12) hour += 12;
-    if (ampm === "AM" && hour === 12) hour = 0;
-
-    return hour * 60 + minute;
-  };
-
-  const getCoachGameForDate = (ref, eventDate) => {
-    if (!ref?.is_coach || !ref?.coach_team_id) return null;
-
-    const coachTeam = getCoachTeam(ref);
-    if (!coachTeam) return null;
-
-    return games.find((g) => {
-      if (g.event_date !== eventDate) return false;
-
-      return (
-        String(g.team || "").trim().toLowerCase() ===
-          String(coachTeam.name || "").trim().toLowerCase() ||
-        String(g.opponent || "").trim().toLowerCase() ===
-          String(coachTeam.name || "").trim().toLowerCase()
-      );
-    });
-  };
-
-  const isOwnGameConflict = (ref, game) => {
-    const coachGame = getCoachGameForDate(ref, game.event_date);
-    if (!coachGame) return false;
-    return String(coachGame.id) === String(game.id);
-  };
-
-  const isGameBeforeOwnGameConflict = (ref, game) => {
-    const coachGame = getCoachGameForDate(ref, game.event_date);
-    if (!coachGame) return false;
-
-    const coachTime = parseTimeValue(coachGame.time);
-    const gameTime = parseTimeValue(game.time);
-
-    if (coachTime === null || gameTime === null) return false;
-
-    return coachTime - gameTime === 60;
-  };
-
-  const getRefConflictReason = (ref, game, excludeAssignmentId = null) => {
-    if (isOwnGameConflict(ref, game)) {
-      return "Own game";
-    }
-
-    if (isGameBeforeOwnGameConflict(ref, game)) {
-      return "Game before own game";
-    }
-
-    const sameTimeBusy = assignments.some((a) => {
-      if (a.referee_id !== ref.id) return false;
-      if (excludeAssignmentId && a.id === excludeAssignmentId) return false;
-
-      const assignedGame = games.find((g) => g.id === a.schedule_id);
-      if (!assignedGame) return false;
-
-      return (
-        assignedGame.event_date === game.event_date &&
-        assignedGame.time === game.time
-      );
-    });
-
-    if (sameTimeBusy) {
-      return "Already assigned same time";
-    }
-
-    return null;
-  };
-
-  const getAvailableRefsForGame = (game, slotIndex) => {
-    const currentAssignments = getAssignmentsForGame(game.id);
-    const currentSlotAssignment = currentAssignments[slotIndex] || null;
-    const assignedRefIds = currentAssignments
-      .filter((a, index) => index !== slotIndex)
-      .map((a) => a.referee_id);
-
-    return refs.filter((ref) => {
-      if (assignedRefIds.includes(ref.id)) return false;
-
-      const reason = getRefConflictReason(
-        ref,
-        game,
-        currentSlotAssignment ? currentSlotAssignment.id : null
-      );
-
-      return !reason;
-    });
-  };
-
-  const assignRefToSlot = async (game, slotIndex) => {
-    const selectedKey = `${game.id}-${slotIndex}`;
-    const refereeId = selectedRefs[selectedKey];
-    if (!refereeId) return;
-
-    const currentAssignments = getAssignmentsForGame(game.id);
-    const currentAssignment = currentAssignments[slotIndex] || null;
-    const selectedRef = refs.find((r) => String(r.id) === String(refereeId));
-
-    setSavingKey(selectedKey);
-    setMessage("");
-
-    if (selectedRef) {
-      const reason = getRefConflictReason(
-        selectedRef,
-        game,
-        currentAssignment ? currentAssignment.id : null
-      );
-
-      if (reason) {
-        setMessage(`That referee is blocked: ${reason}.`);
-        setSavingKey(null);
-        return;
-      }
-    }
-
-    const duplicateOnSameGame = currentAssignments.some(
-      (a, index) => index !== slotIndex && a.referee_id === refereeId
-    );
-
-    if (duplicateOnSameGame) {
-      setMessage("That referee is already assigned to this game.");
-      setSavingKey(null);
-      return;
-    }
-
-    let error = null;
-
-    if (currentAssignment) {
-      const updateRes = await supabase
-        .from("ref_assignments")
-        .update({ referee_id: refereeId })
-        .eq("id", currentAssignment.id);
-
-      error = updateRes.error;
-    } else {
-      const insertRes = await supabase.from("ref_assignments").insert({
-        schedule_id: game.id,
-        referee_id: refereeId,
-        assigned_role: slotIndex === 0 ? "Ref 1" : "Ref 2",
-        status: "assigned",
-      });
-
-      error = insertRes.error;
-    }
-
-    if (error) {
-      console.error("Error assigning referee:", error);
-      setMessage("Could not assign referee.");
-      setSavingKey(null);
-      return;
-    }
-
-    setMessage("Referee assignment updated.");
-    await loadPageData();
-    setSavingKey(null);
-  };
-
-  const autoAssignOpenGames = async () => {
-    setLoading(true);
-    setMessage("");
-
-    const workingAssignments = [...assignments];
-    let assignedCount = 0;
-
-    for (const game of games) {
-      const currentAssignments = workingAssignments.filter(
-        (a) => a.schedule_id === game.id
-      );
-
-      while (currentAssignments.length < 2) {
-        const alreadyAssignedIds = currentAssignments.map((a) => a.referee_id);
-
-        const availableRef = refs.find((ref) => {
-          if (alreadyAssignedIds.includes(ref.id)) return false;
-
-          const reason = getRefConflictReason(ref, game);
-          return !reason;
-        });
-
-        if (!availableRef) break;
-
-        const slotNumber = currentAssignments.length + 1;
-
-        const insertRes = await supabase.from("ref_assignments").insert({
-          schedule_id: game.id,
-          referee_id: availableRef.id,
-          assigned_role: slotNumber === 1 ? "Ref 1" : "Ref 2",
-          status: "assigned",
-        });
-
-        if (insertRes.error) {
-          console.error("Auto assign error:", insertRes.error);
-          break;
-        }
-
-        const newAssignment = {
-          schedule_id: game.id,
-          referee_id: availableRef.id,
-          assigned_role: slotNumber === 1 ? "Ref 1" : "Ref 2",
-        };
-
-        workingAssignments.push(newAssignment);
-        currentAssignments.push(newAssignment);
-        assignedCount += 1;
-      }
-    }
-
-    await loadPageData();
-    setMessage(
-      assignedCount > 0
-        ? `${assignedCount} referee slot(s) auto-assigned.`
-        : "No referee slots could be auto-assigned."
-    );
-    setLoading(false);
+  const getFilterLabel = () => {
+    if (filter === "approved") return "Approved Referees";
+    if (filter === "pending") return "Pending Referees";
+    if (filter === "denied") return "Denied Referees";
+    if (filter === "head") return "Head Ref Roles";
+    return "All Referees";
   };
 
   if (loading) {
     return (
       <div style={pageWrap}>
         <div style={sectionCard}>
-          <h2 style={heading}>Referee Schedule</h2>
-          <div style={muted}>Loading games and assignments...</div>
+          <h2 style={heading}>Referee Staff</h2>
+          <div style={muted}>Loading referees...</div>
         </div>
       </div>
     );
@@ -423,228 +89,149 @@ export default function RefereeSchedulePage() {
     <div style={pageWrap}>
       <div style={statsGrid}>
         <FilterTile
-          label="All Games"
+          label="All Refs"
           value={stats.total}
           active={filter === "all"}
           onClick={() => setFilter("all")}
         />
 
         <FilterTile
-          label="Open Games"
-          value={stats.openGames}
-          active={filter === "open"}
-          onClick={() => setFilter("open")}
+          label="Approved"
+          value={stats.approved}
+          active={filter === "approved"}
+          onClick={() => setFilter("approved")}
         />
 
         <FilterTile
-          label="1 Ref Assigned"
-          value={stats.partiallyAssigned}
-          active={filter === "partial"}
-          onClick={() => setFilter("partial")}
+          label="Pending"
+          value={stats.pending}
+          active={filter === "pending"}
+          onClick={() => setFilter("pending")}
         />
 
         <FilterTile
-          label="2 Refs Assigned"
-          value={stats.fullyAssigned}
-          active={filter === "full"}
-          onClick={() => setFilter("full")}
+          label="Denied"
+          value={stats.denied}
+          active={filter === "denied"}
+          onClick={() => setFilter("denied")}
         />
 
-        <ActionTile
-          label="Auto Assign Refs"
-          desc="Fill both ref slots for games"
-          onClick={autoAssignOpenGames}
+        <FilterTile
+          label="Head Ref"
+          value={stats.headRefs}
+          active={filter === "head"}
+          onClick={() => setFilter("head")}
         />
-      </div>
-
-      <div style={weekTileGrid}>
-        <WeekTile
-          label="All Weeks"
-          active={weekFilter === "all"}
-          onClick={() => setWeekFilter("all")}
-        />
-
-        {weekOptions.map((week) => (
-          <WeekTile
-            key={week}
-            label={`Week ${week}`}
-            active={String(weekFilter) === String(week)}
-            onClick={() => setWeekFilter(week)}
-          />
-        ))}
       </div>
 
       <div style={sectionCard}>
         <div style={headerRow}>
           <div>
-            <h2 style={heading}>Referee Schedule</h2>
+            <h2 style={heading}>Referee Staff</h2>
             <div style={subheading}>
-              Assign 2 referees per game and manage open referee slots.
+              {getFilterLabel()} • Approve referees, update roles, and manage
+              staff status.
             </div>
           </div>
         </div>
 
-        {message ? <div style={messageBox}>{message}</div> : null}
-
-        {filteredGames.length === 0 ? (
+        {filteredRefs.length === 0 ? (
           <div style={emptyState}>
-            <div style={emptyTitle}>No games found</div>
-            <div style={muted}>There are no games in this filter yet.</div>
+            <div style={emptyTitle}>No referees found</div>
+            <div style={muted}>
+              There are no referees in this filter yet.
+            </div>
           </div>
         ) : (
           <div style={listWrap}>
-            {filteredGames.map((game) => {
-              const gameAssignments = getAssignmentsForGame(game.id);
-              const status = getGameStatus(game);
-              const teamLogo = getTeamLogo(game.team);
-              const opponentLogo = getTeamLogo(game.opponent);
+            {filteredRefs.map((ref) => {
+              const status = getStatus(ref);
+              const role = getRole(ref);
 
               return (
-                <div key={game.id} style={gameCard}>
-                  <div style={gameTopRow}>
-                    <div style={matchupWrap}>
-                      <div style={teamBlock}>
-                        {teamLogo ? (
-                          <img
-                            src={teamLogo}
-                            alt={game.team || "Team"}
-                            style={teamLogoStyle}
-                          />
-                        ) : (
-                          <div style={logoFallback}>{(game.team || "?").slice(0, 1)}</div>
-                        )}
-                        <div style={teamName}>{game.team || "TBD"}</div>
-                      </div>
+                <div key={ref.id} style={refCard}>
+                  <div style={refTopRow}>
+                    <div style={leftSide}>
+                      <img
+                        src={getProfileImage(ref)}
+                        alt={getName(ref) || "Referee"}
+                        style={profileImage}
+                        onError={(e) => {
+                          e.currentTarget.src = DefaultProfile;
+                        }}
+                      />
 
-                      <div style={vsWrap}>vs</div>
+                      <div style={nameBlock}>
+                        <div style={refName}>
+                          {getName(ref) || "Unnamed Referee"}
+                        </div>
 
-                      <div style={teamBlock}>
-                        {opponentLogo ? (
-                          <img
-                            src={opponentLogo}
-                            alt={game.opponent || "Opponent"}
-                            style={teamLogoStyle}
-                          />
-                        ) : (
-                          <div style={logoFallback}>
-                            {(game.opponent || "?").slice(0, 1)}
-                          </div>
-                        )}
-                        <div style={teamName}>{game.opponent || "TBD"}</div>
+                        <div style={contactRow}>
+                          <span style={contactItem}>
+                            {ref.email || "No email"}
+                          </span>
+                          <span style={dot}>•</span>
+                          <span style={contactItem}>
+                            {ref.phone || "No phone"}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div>
+                    <div style={badgeWrap}>
                       <span
                         style={{
                           ...statusBadge,
-                          ...(status === "full"
-                            ? fullBadge
-                            : status === "partial"
-                            ? partialBadge
-                            : openBadge),
+                          ...statusBadgeStyles(status),
                         }}
                       >
-                        {status === "full"
-                          ? "2 Refs Assigned"
-                          : status === "partial"
-                          ? "1 Ref Assigned"
-                          : "Open"}
+                        {status}
                       </span>
                     </div>
                   </div>
 
-                  <div style={metaRow}>
-                    <span style={metaPill}>Week {game.week || "-"}</span>
-                    <span style={metaPill}>{game.division || "No Division"}</span>
-                    <span style={metaPill}>{game.event_date || "No Date"}</span>
-                    <span style={metaPill}>{game.time || "No Time"}</span>
-                    <span style={metaPill}>{game.field || "No Field"}</span>
-                  </div>
-
                   <div style={detailsGrid}>
-                    {[0, 1].map((slotIndex) => {
-                      const slotAssignment = gameAssignments[slotIndex] || null;
-                      const assignedRef = slotAssignment?.referees || null;
-                      const availableRefs = getAvailableRefsForGame(game, slotIndex);
-                      const selectedKey = `${game.id}-${slotIndex}`;
+                    <div style={detailTile}>
+                      <div style={detailLabel}>Role</div>
 
-                      return (
-                        <div key={slotIndex} style={detailTile}>
-                          <div style={detailLabel}>
-                            {slotIndex === 0 ? "Referee 1" : "Referee 2"}
-                          </div>
+                      <select
+                        value={role}
+                        onChange={(e) => updateRole(ref, e.target.value)}
+                        style={select}
+                      >
+                        <option value="assistant">Assistant Ref</option>
+                        <option value="head">Head Ref</option>
+                      </select>
 
-                          <div style={assignedName}>
-                            {assignedRef
-                              ? getRefName(assignedRef)
-                              : "No referee assigned"}
-                          </div>
+                      <div style={helperText}>{displayRole(ref)}</div>
+                    </div>
 
-                          {assignedRef ? (
-                            <div style={coachInfoWrap}>
-                              <div style={coachInfoRow}>
-                                <span style={coachInfoLabel}>Coach:</span>
-                                <span style={coachInfoValue}>
-                                  {assignedRef.is_coach ? "Yes" : "No"}
-                                </span>
-                              </div>
+                    <div style={detailTile}>
+                      <div style={detailLabel}>Status Actions</div>
 
-                              <div style={coachInfoRow}>
-                                <span style={coachInfoLabel}>Team ID:</span>
-                                <span style={coachInfoValue}>
-                                  {assignedRef.coach_team_id || "-"}
-                                </span>
-                              </div>
+                      <div style={buttonRow}>
+                        <button
+                          style={approveBtn}
+                          onClick={() => updateStatus(ref.id, "approved")}
+                        >
+                          Approve
+                        </button>
 
-                              <div style={coachInfoRow}>
-                                <span style={coachInfoLabel}>Team:</span>
-                                <span style={coachInfoValue}>
-                                  {getCoachTeamName(assignedRef)}
-                                </span>
-                              </div>
-                            </div>
-                          ) : null}
+                        <button
+                          style={pendingBtn}
+                          onClick={() => updateStatus(ref.id, "pending")}
+                        >
+                          Pending
+                        </button>
 
-                          <select
-                            value={selectedRefs[selectedKey] || ""}
-                            onChange={(e) =>
-                              setSelectedRefs((prev) => ({
-                                ...prev,
-                                [selectedKey]: e.target.value,
-                              }))
-                            }
-                            style={select}
-                          >
-                            <option value="">Select referee</option>
-                            {availableRefs.map((ref) => (
-                              <option key={ref.id} value={ref.id}>
-                                {getRefName(ref)}
-                              </option>
-                            ))}
-                          </select>
-
-                          <div style={helperText}>
-                            Approved refs only. Blocks own game, game before own
-                            game, and same-time conflicts.
-                          </div>
-
-                          <button
-                            style={assignBtn}
-                            onClick={() => assignRefToSlot(game, slotIndex)}
-                            disabled={
-                              !selectedRefs[selectedKey] || savingKey === selectedKey
-                            }
-                          >
-                            {savingKey === selectedKey
-                              ? "Saving..."
-                              : slotAssignment
-                              ? "Update Ref"
-                              : "Assign Ref"}
-                          </button>
-                        </div>
-                      );
-                    })}
+                        <button
+                          style={denyBtn}
+                          onClick={() => updateStatus(ref.id, "denied")}
+                        >
+                          Deny
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -672,29 +259,26 @@ function FilterTile({ label, value, active, onClick }) {
   );
 }
 
-function ActionTile({ label, desc, onClick }) {
-  return (
-    <button type="button" onClick={onClick} style={actionTile}>
-      <div style={actionTitle}>{label}</div>
-      <div style={actionDesc}>{desc}</div>
-    </button>
-  );
-}
+const statusBadgeStyles = (status) => {
+  if (status === "approved") {
+    return {
+      background: "#dcfce7",
+      color: "#166534",
+    };
+  }
 
-function WeekTile({ label, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        ...weekTile,
-        ...(active ? activeWeekTile : {}),
-      }}
-    >
-      {label}
-    </button>
-  );
-}
+  if (status === "denied") {
+    return {
+      background: "#fee2e2",
+      color: "#991b1b",
+    };
+  }
+
+  return {
+    background: "#fef3c7",
+    color: "#92400e",
+  };
+};
 
 const pageWrap = {
   display: "flex",
@@ -706,12 +290,6 @@ const statsGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: 14,
-};
-
-const weekTileGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-  gap: 12,
 };
 
 const statTile = {
@@ -727,47 +305,6 @@ const statTile = {
 const activeStatTile = {
   outline: "2px solid #16a34a",
   boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
-};
-
-const weekTile = {
-  background: "#ffffff",
-  borderRadius: 16,
-  padding: "14px 16px",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-  border: "none",
-  cursor: "pointer",
-  textAlign: "center",
-  fontWeight: 700,
-  color: "#334155",
-};
-
-const activeWeekTile = {
-  outline: "2px solid #2563eb",
-  boxShadow: "0 10px 28px rgba(37, 99, 235, 0.16)",
-  color: "#1d4ed8",
-};
-
-const actionTile = {
-  background: "#16a34a",
-  color: "#ffffff",
-  borderRadius: 18,
-  padding: 18,
-  boxShadow: "0 8px 24px rgba(22, 163, 74, 0.18)",
-  border: "none",
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const actionTitle = {
-  fontSize: "20px",
-  fontWeight: 800,
-  lineHeight: 1,
-};
-
-const actionDesc = {
-  marginTop: 8,
-  fontSize: "13px",
-  opacity: 0.95,
 };
 
 const statValue = {
@@ -812,13 +349,8 @@ const subheading = {
   fontSize: "14px",
 };
 
-const messageBox = {
-  marginBottom: 16,
-  padding: "12px 14px",
-  borderRadius: 12,
-  background: "#f0fdf4",
-  color: "#166534",
-  fontWeight: 600,
+const muted = {
+  color: "#64748b",
 };
 
 const emptyState = {
@@ -834,24 +366,20 @@ const emptyTitle = {
   marginBottom: 6,
 };
 
-const muted = {
-  color: "#64748b",
-};
-
 const listWrap = {
   display: "flex",
   flexDirection: "column",
   gap: 14,
 };
 
-const gameCard = {
+const refCard = {
   border: "1px solid #e5e7eb",
   borderRadius: 18,
   padding: 18,
   background: "#f8fafc",
 };
 
-const gameTopRow = {
+const refTopRow = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
@@ -859,64 +387,53 @@ const gameTopRow = {
   flexWrap: "wrap",
 };
 
-const matchupWrap = {
+const leftSide = {
   display: "flex",
+  gap: 14,
   alignItems: "center",
-  gap: 16,
   flexWrap: "wrap",
 };
 
-const teamBlock = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
-const teamLogoStyle = {
-  width: 46,
-  height: 46,
-  objectFit: "contain",
-};
-
-const logoFallback = {
-  width: 46,
-  height: 46,
+const profileImage = {
+  width: 64,
+  height: 64,
   borderRadius: "50%",
-  background: "#e2e8f0",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 700,
-  color: "#334155",
+  objectFit: "cover",
+  border: "3px solid #e2e8f0",
+  background: "#ffffff",
 };
 
-const teamName = {
+const nameBlock = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const refName = {
   fontSize: "18px",
   fontWeight: 700,
   color: "#0f172a",
 };
 
-const vsWrap = {
-  fontSize: "16px",
-  fontWeight: 700,
+const contactRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const contactItem = {
+  fontSize: "13px",
   color: "#64748b",
 };
 
-const metaRow = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-  marginTop: 14,
+const dot = {
+  color: "#cbd5e1",
 };
 
-const metaPill = {
-  background: "#ffffff",
-  border: "1px solid #e2e8f0",
-  borderRadius: 999,
-  padding: "6px 10px",
-  fontSize: "12px",
-  color: "#475569",
-  fontWeight: 600,
+const badgeWrap = {
+  display: "flex",
+  alignItems: "center",
 };
 
 const statusBadge = {
@@ -924,26 +441,12 @@ const statusBadge = {
   borderRadius: 999,
   fontSize: "12px",
   fontWeight: 700,
-};
-
-const fullBadge = {
-  background: "#dcfce7",
-  color: "#166534",
-};
-
-const partialBadge = {
-  background: "#dbeafe",
-  color: "#1d4ed8",
-};
-
-const openBadge = {
-  background: "#fef3c7",
-  color: "#92400e",
+  textTransform: "capitalize",
 };
 
 const detailsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: 14,
   marginTop: 16,
 };
@@ -962,40 +465,6 @@ const detailLabel = {
   marginBottom: 10,
 };
 
-const assignedName = {
-  fontSize: "16px",
-  fontWeight: 700,
-  color: "#0f172a",
-  marginBottom: 10,
-};
-
-const coachInfoWrap = {
-  marginBottom: 10,
-  padding: "10px 12px",
-  borderRadius: 12,
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-};
-
-const coachInfoRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 4,
-};
-
-const coachInfoLabel = {
-  fontSize: "12px",
-  fontWeight: 700,
-  color: "#64748b",
-};
-
-const coachInfoValue = {
-  fontSize: "12px",
-  fontWeight: 600,
-  color: "#0f172a",
-};
-
 const select = {
   width: "100%",
   padding: "10px 12px",
@@ -1011,9 +480,34 @@ const helperText = {
   color: "#64748b",
 };
 
-const assignBtn = {
-  marginTop: 12,
-  background: "#2563eb",
+const buttonRow = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const approveBtn = {
+  background: "#16a34a",
+  color: "#ffffff",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 12,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const pendingBtn = {
+  background: "#f59e0b",
+  color: "#ffffff",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 12,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const denyBtn = {
+  background: "#dc2626",
   color: "#ffffff",
   border: "none",
   padding: "10px 14px",
