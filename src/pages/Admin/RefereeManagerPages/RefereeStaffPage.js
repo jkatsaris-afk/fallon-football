@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../../supabase";
+import React, { useMemo, useState } from "react";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
+  refs = [],
+  loading,
   getName,
   getStatus,
   getRole,
@@ -10,12 +11,8 @@ export default function RefereeStaffPage({
   updateStatus,
   updateRole,
 }) {
-  const [refs, setRefs] = useState([]);
-  const [loadingState, setLoadingState] = useState(true);
   const [filter, setFilter] = useState("all");
-  const [teams, setTeams] = useState([]);
 
-  /* SAFE FALLBACKS (prevents blank screen) */
   const safeGetStatus = (r) => {
     try { return getStatus ? getStatus(r) : r.status || "pending"; }
     catch { return r.status || "pending"; }
@@ -36,49 +33,6 @@ export default function RefereeStaffPage({
     }
   };
 
-  useEffect(() => {
-    loadTeams();
-    loadRefs();
-  }, []);
-
-  const loadTeams = async () => {
-    const { data, error } = await supabase.from("teams").select("*");
-    if (error) {
-      console.error(error);
-      setTeams([]);
-      return;
-    }
-    setTeams(data || []);
-  };
-
-  const loadRefs = async () => {
-    setLoadingState(true);
-    const { data, error } = await supabase.from("referees").select("*");
-    if (error) {
-      console.error(error);
-      setRefs([]);
-    } else {
-      setRefs(data || []);
-    }
-    setLoadingState(false);
-  };
-
-  /* 🔥 SMOOTH UPDATE (NO RELOAD) */
-  const updateCoachInfo = async (refId, updates) => {
-    setRefs((prev) =>
-      prev.map((r) =>
-        r.id === refId ? { ...r, ...updates } : r
-      )
-    );
-
-    const { error } = await supabase
-      .from("referees")
-      .update(updates)
-      .eq("id", refId);
-
-    if (error) console.error(error);
-  };
-
   const stats = useMemo(() => ({
     total: refs.length,
     approved: refs.filter(r => safeGetStatus(r) === "approved").length,
@@ -95,37 +49,20 @@ export default function RefereeStaffPage({
     return refs;
   }, [refs, filter]);
 
-  const divisions = useMemo(() => {
-    const values = teams
-      .map(t => t.division || t.division_name || "")
-      .filter(Boolean);
-    return [...new Set(values)];
-  }, [teams]);
-
-  const getTeamsForDivision = (division) =>
-    teams.filter(t => (t.division || t.division_name) === division);
-
-  const getTeamName = (team) =>
-    team?.name || team?.team_name || team?.team || "Unnamed Team";
-
   const getProfileImage = (ref) => {
-    const raw = ref.profile_image || "";
+    const raw = ref?.profile_image || "";
     if (!raw) return DefaultProfile;
-
-    const { data } = supabase.storage
-      .from("profile-images")
-      .getPublicUrl(raw);
-
-    return data?.publicUrl || DefaultProfile;
+    return raw.startsWith("http") ? raw : DefaultProfile;
   };
 
-  if (loadingState) {
+  if (loading) {
     return <div style={{ padding: 20 }}>Loading referees...</div>;
   }
 
   return (
     <div style={pageWrap}>
-      {/* FILTER TILES */}
+      
+      {/* 🔥 FILTER TILES (YOUR UI) */}
       <div style={statsGrid}>
         <FilterTile label="All Refs" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
@@ -141,7 +78,7 @@ export default function RefereeStaffPage({
 
         <div style={listWrap}>
           {filteredRefs.map((ref) => {
-            const teamsForDivision = getTeamsForDivision(ref.coach_division);
+            const role = safeGetRole(ref);
 
             return (
               <div key={ref.id} style={refCard}>
@@ -156,71 +93,38 @@ export default function RefereeStaffPage({
                 </div>
 
                 <div style={detailsGrid}>
+
+                  {/* ROLE TILE */}
                   <div style={detailTile}>
-                    <div style={detailLabel}>Coach Info</div>
+                    <div style={detailLabel}>Role</div>
 
-                    {/* COACH TOGGLE */}
                     <select
-                      value={ref.is_coach ? "yes" : "no"}
-                      onChange={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        const isCoach = e.target.value === "yes";
-
-                        updateCoachInfo(ref.id, {
-                          is_coach: isCoach,
-                          coach_division: isCoach ? ref.coach_division || null : null,
-                          coach_team_id: isCoach ? ref.coach_team_id || null : null,
-                        });
-                      }}
+                      value={role}
+                      onChange={(e) =>
+                        updateRole(ref, e.target.value)
+                      }
                       style={select}
                     >
-                      <option value="no">Not a Coach</option>
-                      <option value="yes">Is a Coach</option>
+                      <option value="assistant">Assistant Ref</option>
+                      <option value="head">Head Ref</option>
                     </select>
 
-                    {/* EXPAND SECTION */}
-                    {ref.is_coach && (
-                      <>
-                        <select
-                          value={ref.coach_division || ""}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            updateCoachInfo(ref.id, {
-                              coach_division: e.target.value,
-                              coach_team_id: null,
-                            });
-                          }}
-                          style={selectSpacing}
-                        >
-                          <option value="">Select Division</option>
-                          {divisions.map((d) => (
-                            <option key={d} value={d}>{d}</option>
-                          ))}
-                        </select>
-
-                        <select
-                          value={ref.coach_team_id || ""}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            updateCoachInfo(ref.id, {
-                              coach_team_id: e.target.value,
-                            });
-                          }}
-                          style={selectSpacing}
-                        >
-                          <option value="">Select Team</option>
-                          {teamsForDivision.map((team) => (
-                            <option key={team.id} value={team.id}>
-                              {getTeamName(team)}
-                            </option>
-                          ))}
-                        </select>
-                      </>
-                    )}
-
+                    <div style={helperText}>
+                      {displayRole(ref)}
+                    </div>
                   </div>
+
+                  {/* STATUS TILE */}
+                  <div style={detailTile}>
+                    <div style={detailLabel}>Status</div>
+
+                    <div style={buttonRow}>
+                      <button style={approveBtn} onClick={() => updateStatus(ref.id, "approved")}>Approve</button>
+                      <button style={pendingBtn} onClick={() => updateStatus(ref.id, "pending")}>Pending</button>
+                      <button style={denyBtn} onClick={() => updateStatus(ref.id, "denied")}>Deny</button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             );
