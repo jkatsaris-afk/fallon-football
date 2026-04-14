@@ -3,7 +3,7 @@ import React from "react";
 export default function LoadingScreen() {
   return (
     <div style={styles.container}>
-      <div style={styles.logo}>OIKOS</div>
+      <div style={styles.title}>FALLON FOOTBALL</div>
 
       <div style={styles.dots}>
         <span style={{ ...styles.dot, animationDelay: "0s" }} />
@@ -25,18 +25,18 @@ const styles = {
   container: {
     height: "100vh",
     width: "100%",
-    background: "linear-gradient(to bottom right, #0f172a, #1e293b)",
+    background: "#ffffff", // 🔥 FIXED (was dark)
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
-    color: "white",
+    color: "#111",
+    fontFamily: "sans-serif",
   },
-  logo: {
-    fontSize: "32px",
+  title: {
+    fontSize: "28px",
     fontWeight: "600",
     marginBottom: "20px",
-    letterSpacing: "2px",
   },
   dots: {
     display: "flex",
@@ -45,7 +45,7 @@ const styles = {
   dot: {
     width: "12px",
     height: "12px",
-    backgroundColor: "#22c55e",
+    backgroundColor: "#16a34a", // 🔥 green
     borderRadius: "50%",
     animation: "bounce 1.4s infinite ease-in-out both",
   },
