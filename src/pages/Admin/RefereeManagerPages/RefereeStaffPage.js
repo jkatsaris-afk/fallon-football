@@ -35,45 +35,43 @@ export default function RefereeStaffPage({
 
   const loadTeams = async () => {
     const { data, error } = await supabase.from("teams").select("*");
-
     if (error) {
       console.error("Error loading teams:", error);
       setTeams([]);
       return;
     }
-
     setTeams(data || []);
   };
 
   const loadRefs = async () => {
     setLoadingState(true);
-
-    const { data, error } = await supabase
-      .from("referees")
-      .select("*");
-
+    const { data, error } = await supabase.from("referees").select("*");
     if (error) {
       console.error("Error loading referees:", error);
       setRefs([]);
     } else {
       setRefs(data || []);
     }
-
     setLoadingState(false);
   };
 
-  /* 🔥 FIX: SILENT DB UPDATE (NO STATE CHANGE) */
-  const updateCoachInfo = async (refId, updates) => {
+  /* 🔥 FIX: MATCH ROLE TILE PATTERN */
+  const updateCoachInfo = async (ref, updates) => {
     const { error } = await supabase
       .from("referees")
       .update(updates)
-      .eq("id", refId);
+      .eq("id", ref.id);
 
     if (error) {
       console.error("Error updating coach info:", error);
+      return;
     }
 
-    // ❌ NO setRefs (prevents page jump)
+    setRefs((prev) =>
+      prev.map((r) =>
+        r.id === ref.id ? { ...r, ...updates } : r
+      )
+    );
   };
 
   const stats = useMemo(() => {
@@ -92,22 +90,10 @@ export default function RefereeStaffPage({
   }, [refs]);
 
   const filteredRefs = useMemo(() => {
-    if (filter === "approved") {
-      return refs.filter((r) => safeGetStatus(r) === "approved");
-    }
-
-    if (filter === "pending") {
-      return refs.filter((r) => safeGetStatus(r) === "pending");
-    }
-
-    if (filter === "denied") {
-      return refs.filter((r) => safeGetStatus(r) === "denied");
-    }
-
-    if (filter === "head") {
-      return refs.filter((r) => safeGetRole(r) === "head");
-    }
-
+    if (filter === "approved") return refs.filter((r) => safeGetStatus(r) === "approved");
+    if (filter === "pending") return refs.filter((r) => safeGetStatus(r) === "pending");
+    if (filter === "denied") return refs.filter((r) => safeGetStatus(r) === "denied");
+    if (filter === "head") return refs.filter((r) => safeGetRole(r) === "head");
     return refs;
   }, [refs, filter]);
 
@@ -115,7 +101,6 @@ export default function RefereeStaffPage({
     const values = teams
       .map((t) => t.division || t.division_name || "")
       .filter(Boolean);
-
     return [...new Set(values)].sort();
   }, [teams]);
 
@@ -135,9 +120,7 @@ export default function RefereeStaffPage({
 
     if (!rawImage) return DefaultProfile;
 
-    if (rawImage.startsWith("http://") || rawImage.startsWith("https://")) {
-      return rawImage;
-    }
+    if (rawImage.startsWith("http")) return rawImage;
 
     const { data } = supabase.storage
       .from("profile-images")
@@ -146,44 +129,22 @@ export default function RefereeStaffPage({
     return data?.publicUrl || DefaultProfile;
   };
 
-  const getFilterLabel = () => {
-    if (filter === "approved") return "Approved Referees";
-    if (filter === "pending") return "Pending Referees";
-    if (filter === "denied") return "Denied Referees";
-    if (filter === "head") return "Head Ref Roles";
-    return "All Referees";
-  };
-
   if (loadingState) {
-    return (
-      <div style={pageWrap}>
-        <div style={sectionCard}>
-          <h2 style={heading}>Referee Staff</h2>
-          <div style={muted}>Loading referees...</div>
-        </div>
-      </div>
-    );
+    return <div style={{ padding: 20 }}>Loading referees...</div>;
   }
 
   return (
     <div style={pageWrap}>
       <div style={statsGrid}>
-        <FilterTile label="All Refs" value={stats.total} active={filter === "all"} onClick={() => setFilter("all")} />
-        <FilterTile label="Approved" value={stats.approved} active={filter === "approved"} onClick={() => setFilter("approved")} />
-        <FilterTile label="Pending" value={stats.pending} active={filter === "pending"} onClick={() => setFilter("pending")} />
-        <FilterTile label="Denied" value={stats.denied} active={filter === "denied"} onClick={() => setFilter("denied")} />
-        <FilterTile label="Head Ref" value={stats.headRefs} active={filter === "head"} onClick={() => setFilter("head")} />
+        <FilterTile label="All Refs" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
+        <FilterTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
+        <FilterTile label="Pending" value={stats.pending} active={filter==="pending"} onClick={()=>setFilter("pending")} />
+        <FilterTile label="Denied" value={stats.denied} active={filter==="denied"} onClick={()=>setFilter("denied")} />
+        <FilterTile label="Head Ref" value={stats.headRefs} active={filter==="head"} onClick={()=>setFilter("head")} />
       </div>
 
       <div style={sectionCard}>
-        <div style={headerRow}>
-          <div>
-            <h2 style={heading}>Referee Staff</h2>
-            <div style={subheading}>
-              {getFilterLabel()} • Approve referees, update roles, and manage staff status.
-            </div>
-          </div>
-        </div>
+        <h2 style={heading}>Referee Staff</h2>
 
         <div style={listWrap}>
           {filteredRefs.map((ref) => {
@@ -192,16 +153,17 @@ export default function RefereeStaffPage({
             return (
               <div key={ref.id} style={refCard}>
                 <div style={detailsGrid}>
+
+                  {/* COACH TILE (NOW MATCHES ROLE BEHAVIOR) */}
                   <div style={detailTile}>
                     <div style={detailLabel}>Coach Info</div>
 
-                    {/* Coach toggle */}
                     <select
                       value={ref.is_coach ? "yes" : "no"}
                       onChange={(e) => {
                         const isCoach = e.target.value === "yes";
 
-                        updateCoachInfo(ref.id, {
+                        updateCoachInfo(ref, {
                           is_coach: isCoach,
                           coach_division: isCoach ? ref.coach_division || null : null,
                           coach_team_id: isCoach ? ref.coach_team_id || null : null,
@@ -215,11 +177,10 @@ export default function RefereeStaffPage({
 
                     {ref.is_coach && (
                       <>
-                        {/* Division */}
                         <select
                           value={ref.coach_division || ""}
                           onChange={(e) => {
-                            updateCoachInfo(ref.id, {
+                            updateCoachInfo(ref, {
                               coach_division: e.target.value || null,
                               coach_team_id: null,
                             });
@@ -227,25 +188,21 @@ export default function RefereeStaffPage({
                           style={selectSpacing}
                         >
                           <option value="">Select Division</option>
-                          {divisions.map((division) => (
-                            <option key={division} value={division}>
-                              {division}
-                            </option>
+                          {divisions.map((d) => (
+                            <option key={d} value={d}>{d}</option>
                           ))}
                         </select>
 
-                        {/* Team */}
                         <select
                           value={ref.coach_team_id || ""}
                           onChange={(e) => {
-                            updateCoachInfo(ref.id, {
+                            updateCoachInfo(ref, {
                               coach_team_id: e.target.value || null,
                             });
                           }}
                           style={selectSpacing}
                         >
                           <option value="">Select Team</option>
-
                           {teamOptions.map((team) => (
                             <option key={team.id} value={team.id}>
                               {getTeamName(team)}
@@ -254,7 +211,9 @@ export default function RefereeStaffPage({
                         </select>
                       </>
                     )}
+
                   </div>
+
                 </div>
               </div>
             );
