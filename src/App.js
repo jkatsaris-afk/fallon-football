@@ -47,7 +47,7 @@ export default function App() {
       if (session?.user) {
         const path = window.location.pathname.toLowerCase();
 
-        if (path.startsWith("/ref")) {
+        if (path === "/ref" || path.startsWith("/ref/")) {
           setPage("refDashboard");
         }
 
@@ -98,7 +98,6 @@ export default function App() {
     /* ===== FALLBACK ===== */
 
     setPage("home");
-
   }, []);
 
   /* ================= AUTH ================= */
@@ -136,7 +135,6 @@ export default function App() {
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_, session) => {
-
         if (!session) {
           const path = window.location.pathname.toLowerCase();
 
@@ -144,11 +142,10 @@ export default function App() {
             setPage("adminLogin");
           }
 
-          if (path.startsWith("/ref")) {
+          if (path === "/ref" || path.startsWith("/ref/")) {
             setPage("refLogin");
           }
         }
-
       }
     );
 
@@ -170,7 +167,6 @@ export default function App() {
     if (page === "refProfile") window.history.pushState({}, "", "/ref/profile");
 
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
-
   }, [page]);
 
   /* ================= UI ================= */
@@ -197,13 +193,13 @@ export default function App() {
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
-        <RefLayout page={page} setPage={setPage}>
-          {page === "refDashboard" && <RefDashboard />}
-          {page === "refSchedule" && <RefSchedule />}
-          {page === "refTime" && <RefTime />}
-          {page === "refProfile" && <RefProfile />}
-        </RefLayout>
-      )}
+          <RefLayout page={page} setPage={setPage}>
+            {page === "refDashboard" && <RefDashboard />}
+            {page === "refSchedule" && <RefSchedule />}
+            {page === "refTime" && <RefTime />}
+            {page === "refProfile" && <RefProfile />}
+          </RefLayout>
+        )}
 
       {/* PUBLIC */}
       {page !== "dashboard" &&
@@ -211,23 +207,23 @@ export default function App() {
         (!page.startsWith("ref") ||
           page === "refLogin" ||
           page === "refSignup") && (
-        <PublicLayout page={page} setPage={setPage}>
-          {page === "home" && <HomePage setPage={setPage} />}
-          {page === "schedule" && <SchedulePage setPage={setPage} />}
-          {page === "scoreboard" && <ScoreboardPage />}
-          {page === "teamSchedules" && <TeamSchedulesPage setPage={setPage} />}
+          <PublicLayout page={page} setPage={setPage}>
+            {page === "home" && <HomePage setPage={setPage} />}
+            {page === "schedule" && <SchedulePage setPage={setPage} />}
+            {page === "scoreboard" && <ScoreboardPage />}
+            {page === "teamSchedules" && <TeamSchedulesPage setPage={setPage} />}
 
-          {page === "loginSelect" && <LoginSelectPage setPage={setPage} />}
-          {page === "coachLogin" && <CoachLoginPage />}
-          {page === "refLogin" && <RefLoginPage setPage={setPage} />}
-          {page === "parentLogin" && <ParentLoginPage />}
+            {page === "loginSelect" && <LoginSelectPage setPage={setPage} />}
+            {page === "coachLogin" && <CoachLoginPage />}
+            {page === "refLogin" && <RefLoginPage setPage={setPage} />}
+            {page === "parentLogin" && <ParentLoginPage />}
 
-          {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />}
-          {page === "signup" && <SignUpPage />}
-          {page === "coachSignup" && <CoachSignUpPage />}
-          {page === "refSignup" && <RefSignUpPage />}
-        </PublicLayout>
-      )}
+            {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />}
+            {page === "signup" && <SignUpPage />}
+            {page === "coachSignup" && <CoachSignUpPage />}
+            {page === "refSignup" && <RefSignUpPage />}
+          </PublicLayout>
+        )}
     </>
   );
 }
