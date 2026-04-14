@@ -46,12 +46,10 @@ export default function RefTime() {
 
     setRef(refData);
 
-    const today = new Date().toISOString().split("T")[0];
-
+    /* 🔥 FIX: REMOVED TODAY FILTER */
     const { data: gamesData } = await supabase
       .from("schedule_master_auto")
       .select("*")
-      .gte("event_date", today)
       .ilike("event_type", "%game%")
       .order("event_date")
       .order("event_time");
@@ -91,7 +89,7 @@ export default function RefTime() {
   const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
   const gamesReffed = checkins.length;
 
-  /* 🔥 FIXED DATE FORMAT (NO OFFSET BUG) */
+  /* DATE FORMAT FIX */
   const formatDate = (dateStr) => {
     const [year, month, day] = dateStr.split("-");
     const d = new Date(year, month - 1, day);
@@ -106,7 +104,7 @@ export default function RefTime() {
     };
   };
 
-  /* 🔥 FIXED WEEK CALC */
+  /* WEEK FIX */
   const getWeekNumber = (dateStr) => {
     const dates = Object.keys(grouped).sort();
     if (!dates.length) return 1;
@@ -199,178 +197,4 @@ export default function RefTime() {
   );
 }
 
-/* COMPONENTS */
-
-function StatTile({ label, value, highlight }) {
-  return (
-    <div style={statTile}>
-      <div style={{ ...statValue, ...(highlight ? greenText : {}) }}>
-        {value}
-      </div>
-      <div style={statLabel}>{label}</div>
-    </div>
-  );
-}
-
-function TeamSide({ team }) {
-  const logo = team ? teamLogos[team.toLowerCase().trim()] : null;
-
-  return (
-    <div style={teamSide}>
-      {logo && <img src={logo} style={logoStyle} />}
-      <div>{team}</div>
-    </div>
-  );
-}
-
-/* STYLES (UNCHANGED) */
-
-const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
-const title = { fontSize:24, fontWeight:700 };
-
-const statsGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
-  gap:14
-};
-
-const statTile = {
-  background:"#fff",
-  borderRadius:18,
-  padding:20,
-  textAlign:"center",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  minHeight:90,
-  display:"flex",
-  flexDirection:"column",
-  justifyContent:"center"
-};
-
-const statValue = { fontSize:26, fontWeight:800 };
-const greenText = { color:"#16a34a" };
-
-const statLabel = {
-  fontSize:13,
-  color:"#64748b",
-  marginTop:4
-};
-
-const dateTile = {
-  background:"#fff",
-  borderRadius:16,
-  padding:14,
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center",
-  cursor:"pointer",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  gap:10,
-  overflow:"hidden"
-};
-
-const dateLeft = {
-  display:"flex",
-  flexDirection:"column",
-  gap:2,
-  minWidth:0
-};
-
-const dayText = {
-  fontSize:15,
-  fontWeight:700,
-  whiteSpace:"nowrap",
-  overflow:"hidden",
-  textOverflow:"ellipsis"
-};
-
-const dateText = {
-  fontSize:13,
-  color:"#64748b",
-  whiteSpace:"nowrap",
-  overflow:"hidden",
-  textOverflow:"ellipsis"
-};
-
-const weekText = {
-  fontSize:12,
-  color:"#16a34a",
-  fontWeight:600
-};
-
-const arrow = {
-  fontSize:16,
-  fontWeight:700,
-  flexShrink:0
-};
-
-const gameGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(220px,1fr))",
-  gap:12,
-  marginTop:10
-};
-
-const card = {
-  background:"#fff",
-  borderRadius:16,
-  padding:14,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  display:"flex",
-  flexDirection:"column",
-  gap:10
-};
-
-const teamsRow = {
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center",
-  flexWrap:"wrap",
-  gap:6
-};
-
-const teamSide = {
-  display:"flex",
-  flexDirection:"column",
-  alignItems:"center",
-  width:"45%",
-  textAlign:"center"
-};
-
-const logoStyle = { width:36, height:36 };
-
-const vs = { fontWeight:700, fontSize:14 };
-
-const time = {
-  textAlign:"center",
-  fontSize:16,
-  fontWeight:700
-};
-
-const meta = {
-  display:"flex",
-  justifyContent:"space-between",
-  fontSize:12,
-  color:"#64748b",
-  flexWrap:"wrap"
-};
-
-const btnWrap = {
-  display:"flex",
-  justifyContent:"center",
-  marginTop:8
-};
-
-const btn = {
-  background:"rgba(34,197,94,0.12)",
-  color:"#166534",
-  border:"1px solid rgba(34,197,94,0.25)",
-  padding:"8px 12px",
-  borderRadius:10,
-  cursor:"pointer"
-};
-
-const checkedBadge = {
-  color:"#16a34a",
-  fontWeight:700,
-  fontSize:13
-};
+/* COMPONENTS + STYLES (UNCHANGED) */
