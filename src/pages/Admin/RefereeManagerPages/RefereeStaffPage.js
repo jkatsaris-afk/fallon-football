@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { supabase } from "../../../supabase"; // ✅ ADDED
+import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
@@ -49,7 +49,6 @@ export default function RefereeStaffPage({
     return refs;
   }, [refs, filter, getStatus, getRole]);
 
-  // ✅ FIXED PROFILE IMAGE HANDLER
   const getProfileImage = (ref) => {
     const rawImage =
       ref.profile_image || ref.profile_image_url || ref.photo_url || "";
@@ -153,11 +152,13 @@ export default function RefereeStaffPage({
                 <div key={ref.id} style={refCard}>
                   <div style={refTopRow}>
                     <div style={leftSide}>
-                      {/* ✅ PROFILE IMAGE NOW WORKS */}
                       <img
                         src={getProfileImage(ref)}
                         alt={getName(ref) || "Referee"}
                         style={profileImage}
+                        onError={(e) => {
+                          e.currentTarget.src = DefaultProfile;
+                        }}
                       />
 
                       <div style={nameBlock}>
@@ -211,27 +212,21 @@ export default function RefereeStaffPage({
                       <div style={buttonRow}>
                         <button
                           style={approveBtn}
-                          onClick={() =>
-                            updateStatus(ref.id, "approved")
-                          }
+                          onClick={() => updateStatus(ref.id, "approved")}
                         >
                           Approve
                         </button>
 
                         <button
                           style={pendingBtn}
-                          onClick={() =>
-                            updateStatus(ref.id, "pending")
-                          }
+                          onClick={() => updateStatus(ref.id, "pending")}
                         >
                           Pending
                         </button>
 
                         <button
                           style={denyBtn}
-                          onClick={() =>
-                            updateStatus(ref.id, "denied")
-                          }
+                          onClick={() => updateStatus(ref.id, "denied")}
                         >
                           Deny
                         </button>
@@ -248,4 +243,275 @@ export default function RefereeStaffPage({
   );
 }
 
-/* ========= (rest of your styles unchanged) ========= */
+function FilterTile({ label, value, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...statTile,
+        ...(active ? activeStatTile : {}),
+      }}
+    >
+      <div style={statValue}>{value}</div>
+      <div style={statLabel}>{label}</div>
+    </button>
+  );
+}
+
+const statusBadgeStyles = (status) => {
+  if (status === "approved") {
+    return {
+      background: "#dcfce7",
+      color: "#166534",
+    };
+  }
+
+  if (status === "denied") {
+    return {
+      background: "#fee2e2",
+      color: "#991b1b",
+    };
+  }
+
+  return {
+    background: "#fef3c7",
+    color: "#92400e",
+  };
+};
+
+const pageWrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
+};
+
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: 14,
+};
+
+const statTile = {
+  background: "#ffffff",
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  border: "none",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const activeStatTile = {
+  outline: "2px solid #16a34a",
+  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
+};
+
+const statValue = {
+  fontSize: "28px",
+  fontWeight: 800,
+  color: "#0f172a",
+  lineHeight: 1,
+};
+
+const statLabel = {
+  marginTop: 8,
+  fontSize: "13px",
+  color: "#64748b",
+};
+
+const sectionCard = {
+  background: "#ffffff",
+  borderRadius: 18,
+  padding: 20,
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+};
+
+const headerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 12,
+  marginBottom: 18,
+  flexWrap: "wrap",
+};
+
+const heading = {
+  margin: 0,
+  fontSize: "24px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const subheading = {
+  marginTop: 6,
+  color: "#64748b",
+  fontSize: "14px",
+};
+
+const muted = {
+  color: "#64748b",
+};
+
+const emptyState = {
+  padding: 24,
+  borderRadius: 16,
+  background: "#f8fafc",
+};
+
+const emptyTitle = {
+  fontSize: "18px",
+  fontWeight: 700,
+  color: "#0f172a",
+  marginBottom: 6,
+};
+
+const listWrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+};
+
+const refCard = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 18,
+  padding: 18,
+  background: "#f8fafc",
+};
+
+const refTopRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const leftSide = {
+  display: "flex",
+  gap: 14,
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const profileImage = {
+  width: 64,
+  height: 64,
+  borderRadius: "50%",
+  objectFit: "cover",
+  border: "3px solid #e2e8f0",
+  background: "#ffffff",
+};
+
+const nameBlock = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const refName = {
+  fontSize: "18px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const contactRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const contactItem = {
+  fontSize: "13px",
+  color: "#64748b",
+};
+
+const dot = {
+  color: "#cbd5e1",
+};
+
+const badgeWrap = {
+  display: "flex",
+  alignItems: "center",
+};
+
+const statusBadge = {
+  padding: "6px 12px",
+  borderRadius: 999,
+  fontSize: "12px",
+  fontWeight: 700,
+  textTransform: "capitalize",
+};
+
+const detailsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 14,
+  marginTop: 16,
+};
+
+const detailTile = {
+  background: "#ffffff",
+  borderRadius: 16,
+  padding: 16,
+  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+};
+
+const detailLabel = {
+  fontSize: "13px",
+  fontWeight: 700,
+  color: "#475569",
+  marginBottom: 10,
+};
+
+const select = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  fontSize: "14px",
+};
+
+const helperText = {
+  marginTop: 8,
+  fontSize: "12px",
+  color: "#64748b",
+};
+
+const buttonRow = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const approveBtn = {
+  background: "#16a34a",
+  color: "#ffffff",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 12,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const pendingBtn = {
+  background: "#f59e0b",
+  color: "#ffffff",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 12,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const denyBtn = {
+  background: "#dc2626",
+  color: "#ffffff",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 12,
+  cursor: "pointer",
+  fontWeight: 600,
+};
