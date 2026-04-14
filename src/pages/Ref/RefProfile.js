@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-/* ================= 🔥 IMAGE COMPRESS ================= */
+/* IMAGE COMPRESS (UNCHANGED) */
 const compressImage = (file) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -25,13 +25,7 @@ const compressImage = (file) => {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      canvas.toBlob(
-        (blob) => {
-          resolve(blob);
-        },
-        "image/jpeg",
-        0.7
-      );
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.7);
     };
   });
 };
@@ -54,11 +48,6 @@ export default function RefProfile() {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
 
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     const { data } = await supabase
       .from("referees")
       .select("*")
@@ -75,26 +64,18 @@ export default function RefProfile() {
 
     let filePath = ref.profile_image;
 
-    // 🔥 COMPRESS + UPLOAD IMAGE
     if (file) {
       filePath = `${Date.now()}.jpg`;
-
       const compressedFile = await compressImage(file);
 
-      const { error: uploadError } = await supabase.storage
+      await supabase.storage
         .from("profile-images")
         .upload(filePath, compressedFile, {
           contentType: "image/jpeg"
         });
-
-      if (uploadError) {
-        console.error(uploadError);
-        alert("Image upload failed");
-        return;
-      }
     }
 
-    const { error } = await supabase
+    await supabase
       .from("referees")
       .update({
         phone: form.phone,
@@ -105,18 +86,16 @@ export default function RefProfile() {
       })
       .eq("id", ref.id);
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save");
-      return;
-    }
-
     setEditing(false);
     setFile(null);
     loadProfile();
   };
 
-  /* ================= 🔥 IMAGE URL ================= */
+  const logout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
   const getImageUrl = () => {
     if (!ref?.profile_image) return "/default-profile.png";
 
@@ -131,69 +110,75 @@ export default function RefProfile() {
   if (!ref) return <div style={{ padding: 20 }}>No profile found</div>;
 
   return (
-    <div style={container}>
-      <h2 style={{ marginBottom: 20 }}>My Profile</h2>
+    <div style={wrap}>
+      <h2 style={title}>My Profile</h2>
 
       <div style={card}>
-        {/* IMAGE */}
+
+        {/* 🔥 BIG PROFILE IMAGE */}
         <div style={imageWrap}>
           <img src={getImageUrl()} alt="profile" style={profileImg} />
         </div>
 
-        {/* UPLOAD */}
         {editing && (
-          <div style={{ textAlign: "center", marginBottom: 15 }}>
+          <div style={uploadWrap}>
             <label style={uploadBtn}>
-              Change Profile Picture
+              Change Photo
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setFile(e.target.files[0])}
                 hidden
+                onChange={(e) => setFile(e.target.files[0])}
               />
             </label>
-
-            {file && <div style={fileName}>{file.name}</div>}
           </div>
         )}
 
         {/* NAME */}
-        <h3>{ref.first_name} {ref.last_name}</h3>
+        <div style={name}>
+          {ref.first_name} {ref.last_name}
+        </div>
 
         {/* EMAIL */}
-        <div style={label}>Email</div>
-        <div>{ref.email}</div>
+        <div style={field}>
+          <div style={label}>Email</div>
+          <div>{ref.email}</div>
+        </div>
 
         {/* PHONE */}
-        <div style={label}>Phone</div>
-        {editing ? (
-          <input
-            value={form.phone || ""}
-            onChange={(e) =>
-              setForm({ ...form, phone: e.target.value })
-            }
-            style={input}
-          />
-        ) : (
-          <div>{ref.phone || "-"}</div>
-        )}
+        <div style={field}>
+          <div style={label}>Phone</div>
+          {editing ? (
+            <input
+              style={input}
+              value={form.phone || ""}
+              onChange={(e) =>
+                setForm({ ...form, phone: e.target.value })
+              }
+            />
+          ) : (
+            <div>{ref.phone || "-"}</div>
+          )}
+        </div>
 
         {/* EXPERIENCE */}
-        <div style={label}>Experience</div>
-        {editing ? (
-          <textarea
-            value={form.experience || ""}
-            onChange={(e) =>
-              setForm({ ...form, experience: e.target.value })
-            }
-            style={textarea}
-          />
-        ) : (
-          <div>{ref.experience || "-"}</div>
-        )}
+        <div style={field}>
+          <div style={label}>Experience</div>
+          {editing ? (
+            <textarea
+              style={textarea}
+              value={form.experience || ""}
+              onChange={(e) =>
+                setForm({ ...form, experience: e.target.value })
+              }
+            />
+          ) : (
+            <div>{ref.experience || "-"}</div>
+          )}
+        </div>
 
         {/* BUTTONS */}
-        <div style={{ marginTop: 20 }}>
+        <div style={buttonRow}>
           {!editing ? (
             <button style={btn} onClick={() => setEditing(true)}>
               Edit Profile
@@ -203,100 +188,135 @@ export default function RefProfile() {
               <button style={btn} onClick={saveProfile}>
                 Save
               </button>
-              <button
-                style={cancelBtn}
-                onClick={() => {
-                  setEditing(false);
-                  setFile(null);
-                }}
-              >
+              <button style={cancelBtn} onClick={() => setEditing(false)}>
                 Cancel
               </button>
             </>
           )}
         </div>
+
+        {/* 🔥 LOGOUT */}
+        <button style={logoutBtn} onClick={logout}>
+          Log Out
+        </button>
+
       </div>
     </div>
   );
 }
 
-/* ================= STYLES ================= */
+/* 🔥 STYLES */
 
-const container = { padding: 20 };
+const wrap = {
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 20
+};
+
+const title = {
+  fontSize: 24,
+  fontWeight: 700
+};
 
 const card = {
   background: "#fff",
-  borderRadius: 16,
-  padding: 20,
-  boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
+  borderRadius: 18,
+  padding: 24,
   maxWidth: 500,
-  margin: "auto"
+  margin: "auto",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
 };
 
 const imageWrap = {
   display: "flex",
   justifyContent: "center",
-  marginBottom: 15
+  marginBottom: 10
 };
 
 const profileImg = {
-  width: 100,
-  height: 100,
+  width: 140,           // 🔥 bigger
+  height: 140,
   borderRadius: "50%",
   objectFit: "cover"
 };
 
+const uploadWrap = {
+  textAlign: "center",
+  marginBottom: 10
+};
+
+const name = {
+  fontSize: 20,
+  fontWeight: 700,
+  textAlign: "center",
+  marginBottom: 10
+};
+
+const field = {
+  marginTop: 14
+};
+
 const label = {
   fontSize: 12,
-  color: "#64748b",
-  marginTop: 12
+  color: "#64748b"
 };
 
 const input = {
   width: "100%",
   padding: 10,
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  fontSize: 16
+  borderRadius: 10,
+  border: "1px solid #e5e7eb"
 };
 
 const textarea = {
   width: "100%",
-  minHeight: 80,
   padding: 10,
-  borderRadius: 8,
+  borderRadius: 10,
   border: "1px solid #e5e7eb",
-  fontSize: 16
+  minHeight: 80
+};
+
+const buttonRow = {
+  marginTop: 20,
+  display: "flex",
+  gap: 10,
+  justifyContent: "center"
 };
 
 const btn = {
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: "none",
   background: "#16a34a",
   color: "#fff",
-  marginRight: 10
-};
-
-const cancelBtn = {
-  padding: "10px 14px",
-  borderRadius: 8,
   border: "none",
-  background: "#64748b",
-  color: "#fff"
-};
-
-const uploadBtn = {
-  display: "inline-block",
-  padding: "8px 14px",
+  padding: "10px 16px",
   borderRadius: 10,
-  background: "#16a34a",
-  color: "#fff",
   cursor: "pointer"
 };
 
-const fileName = {
-  marginTop: 6,
-  fontSize: 12,
-  color: "#64748b"
+const cancelBtn = {
+  background: "#64748b",
+  color: "#fff",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: 10
+};
+
+const uploadBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  padding: "8px 14px",
+  borderRadius: 10,
+  cursor: "pointer"
+};
+
+/* 🔥 SOFT RED LOGOUT */
+const logoutBtn = {
+  marginTop: 20,
+  background: "rgba(220,38,38,0.12)",
+  color: "#b91c1c",
+  border: "1px solid rgba(220,38,38,0.25)",
+  padding: "10px 16px",
+  borderRadius: 10,
+  cursor: "pointer",
+  width: "100%"
 };
