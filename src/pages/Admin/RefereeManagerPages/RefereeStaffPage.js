@@ -196,7 +196,7 @@ export default function RefereeStaffPage({
             {filteredRefs.map((ref) => {
               const status = getStatus(ref);
               const role = getRole(ref);
-              const teamOptions = getTeamsForDivision(ref.coach_division || "");
+              const teamOptions = getTeamsForDivision(ref.coach_division);
 
               return (
                 <div key={ref.id} style={refCard}>
@@ -257,7 +257,7 @@ export default function RefereeStaffPage({
                     </div>
 
                     <div style={detailTile}>
-                      <div style={detailLabel}>Coach Role</div>
+                      <div style={detailLabel}>Coach Info</div>
 
                       <select
                         value={ref.is_coach ? "yes" : "no"}
