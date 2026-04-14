@@ -1,3 +1,4 @@
+<h1 style={{ color: "red" }}>STAFF PAGE - NO COACH</h1>
 import React from "react";
 import DefaultProfile from "../../../resources/Default-A.png";
 
