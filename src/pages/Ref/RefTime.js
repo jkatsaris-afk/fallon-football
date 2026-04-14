@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../supabase";
+import { supabase } from "../../../supabase";
 
 /* LOGOS */
 import bills from "../../resources/Buffalo Bills.png";
@@ -97,9 +97,9 @@ export default function RefTime() {
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP TILES (UPDATED SIZE) */}
-      <div style={statsGrid}>
-        <StatTile label="Earnings" value={`$${totalPay}`} />
+      {/* 🔥 TOP TILES */}
+      <div style={statsRow}>
+        <StatTile label="Earnings" value={`$${totalPay}`} highlight />
         <StatTile label="Games" value={gamesReffed} />
         <StatTile label="Assigned" value={assignedGames} />
       </div>
@@ -163,10 +163,12 @@ export default function RefTime() {
 
 /* COMPONENTS */
 
-function StatTile({ label, value }) {
+function StatTile({ label, value, highlight }) {
   return (
     <div style={statTile}>
-      <div style={statValue}>{value}</div>
+      <div style={{ ...statValue, ...(highlight ? greenText : {}) }}>
+        {value}
+      </div>
       <div style={statLabel}>{label}</div>
     </div>
   );
@@ -189,28 +191,31 @@ const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 
 const title = { fontSize:24, fontWeight:700 };
 
-/* 🔥 UPDATED TILE STYLES */
-const statsGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
-  gap:14
+/* 🔥 FORCE SINGLE ROW */
+const statsRow = {
+  display: "flex",
+  gap: 14,
+  overflowX: "auto",
+  paddingBottom: 4
 };
 
 const statTile = {
+  minWidth: 140,              // 🔥 keeps size consistent
   background:"#fff",
   borderRadius:18,
   padding:20,
   textAlign:"center",
   boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  minHeight:90,
-  display:"flex",
-  flexDirection:"column",
-  justifyContent:"center"
+  flexShrink: 0               // 🔥 prevents shrinking
 };
 
 const statValue = {
   fontSize:26,
   fontWeight:800
+};
+
+const greenText = {
+  color:"#16a34a"             // 🔥 green money
 };
 
 const statLabel = {
@@ -225,11 +230,9 @@ const dateTile = {
   padding:14,
   display:"flex",
   justifyContent:"space-between",
-  alignItems:"center",
   fontWeight:700,
   cursor:"pointer",
-  boxShadow:"0 6px 18px rgba(0,0,0,0.06)",
-  flexWrap:"wrap"
+  boxShadow:"0 6px 18px rgba(0,0,0,0.06)"
 };
 
 const gameGrid = {
@@ -267,7 +270,7 @@ const teamSide = {
 
 const logoStyle = { width:36, height:36 };
 
-const vs = { fontWeight:700, fontSize:14 };
+const vs = { fontWeight:700 };
 
 const time = {
   textAlign:"center",
@@ -279,14 +282,12 @@ const meta = {
   display:"flex",
   justifyContent:"space-between",
   fontSize:12,
-  color:"#64748b",
-  flexWrap:"wrap"
+  color:"#64748b"
 };
 
 const btnWrap = {
   display:"flex",
-  justifyContent:"center",
-  marginTop:8
+  justifyContent:"center"
 };
 
 const btn = {
@@ -295,13 +296,10 @@ const btn = {
   border:"1px solid rgba(34,197,94,0.25)",
   padding:"8px 12px",
   borderRadius:10,
-  cursor:"pointer",
-  width:"100%",
-  maxWidth:160
+  cursor:"pointer"
 };
 
 const checkedBadge = {
   color:"#16a34a",
-  fontWeight:700,
-  fontSize:13
+  fontWeight:700
 };
