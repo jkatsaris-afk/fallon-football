@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import "./styles.css";
 
-import LoadingScreen from "./LoadingScreen"; // ✅ ADDED
+import LoadingScreen from "./LoadingScreen"; // (you already added this)
 
 import HomePage from "./pages/Public/HomePage";
 import SchedulePage from "./pages/Public/SchedulePage";
@@ -35,10 +35,10 @@ import AdminLayout from "./layouts/AdminLayout";
 import { supabase } from "./supabase";
 
 export default function App() {
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState(null); // ✅ FIXED (was "home")
   const [adminPage, setAdminPage] = useState("dashboard");
   const [accessDenied, setAccessDenied] = useState(false);
-  const [loading, setLoading] = useState(true); // ✅ ADDED
+  const [loading, setLoading] = useState(true);
 
   /* ================= SESSION RESTORE ================= */
 
@@ -91,7 +91,7 @@ export default function App() {
 
     else setPage("home");
 
-    setLoading(false); // ✅ ADDED (after routing finishes)
+    setLoading(false);
   }, []);
 
   /* ================= AUTH ================= */
@@ -101,7 +101,7 @@ export default function App() {
 
     if (!data.user) {
       setPage("adminLogin");
-      setLoading(false); // ✅ ADDED
+      setLoading(false);
       return;
     }
 
@@ -114,12 +114,12 @@ export default function App() {
     if (!userData?.is_admin) {
       setAccessDenied(true);
       setPage("home");
-      setLoading(false); // ✅ ADDED
+      setLoading(false);
       return;
     }
 
     setPage("dashboard");
-    setLoading(false); // ✅ ADDED
+    setLoading(false);
   };
 
   const checkRef = async () => {
@@ -127,12 +127,12 @@ export default function App() {
 
     if (!data.user) {
       setPage("refLogin");
-      setLoading(false); // ✅ ADDED
+      setLoading(false);
       return;
     }
 
     setPage("refDashboard");
-    setLoading(false); // ✅ ADDED
+    setLoading(false);
   };
 
   /* ================= AUTH LISTENER ================= */
@@ -174,9 +174,9 @@ export default function App() {
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
   }, [page]);
 
-  /* ================= LOADING SCREEN ================= */
+  /* ================= LOADING ================= */
 
-  if (loading) return <LoadingScreen />; // ✅ ADDED
+  if (loading || page === null) return <LoadingScreen />; // ✅ FIXED
 
   /* ================= UI ================= */
 
