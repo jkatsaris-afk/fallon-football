@@ -93,7 +93,7 @@ export default function RefereeStaffPage({
   return (
     <div style={wrap}>
 
-      {/* 🔥 CLEAN STATS (SCHEDULE STYLE) */}
+      {/* STATS */}
       <div style={statsGrid}>
         <StatTile label="All" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <StatTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
@@ -168,7 +168,7 @@ export default function RefereeStaffPage({
   );
 }
 
-/* 🔥 CLEAN STATS TILE */
+/* STATS TILE */
 function StatTile({ label, value, active, onClick }) {
   return (
     <div onClick={onClick} style={{
@@ -181,7 +181,7 @@ function StatTile({ label, value, active, onClick }) {
   );
 }
 
-/* STYLES (MATCH SCHEDULE) */
+/* STYLES */
 
 const wrap = { display:"flex", flexDirection:"column", gap:20 };
 
@@ -199,9 +199,7 @@ const stat = {
   cursor:"pointer"
 };
 
-const statActive = {
-  outline:"2px solid #16a34a"
-};
+const statActive = { outline:"2px solid #16a34a" };
 
 const statValue = { fontSize:26, fontWeight:800 };
 const statLabel = { fontSize:12, color:"#64748b" };
@@ -250,11 +248,40 @@ const input = { width:"100%", padding:10, borderRadius:10 };
 
 const btnRow = { display:"flex", gap:8 };
 
-const btnGreen = { background:"#16a34a", color:"#fff", padding:10, borderRadius:10 };
-const btnYellow = { background:"#f59e0b", color:"#fff", padding:10, borderRadius:10 };
-const btnRed = { background:"#dc2626", color:"#fff", padding:10, borderRadius:10 };
+/* 🔥 SOFT BUTTONS */
+const btnGreen = {
+  background:"rgba(34,197,94,0.12)",
+  color:"#166534",
+  border:"1px solid rgba(34,197,94,0.25)",
+  padding:"10px 12px",
+  borderRadius:10,
+  fontWeight:600,
+  cursor:"pointer"
+};
 
+const btnYellow = {
+  background:"rgba(245,158,11,0.12)",
+  color:"#92400e",
+  border:"1px solid rgba(245,158,11,0.25)",
+  padding:"10px 12px",
+  borderRadius:10,
+  fontWeight:600,
+  cursor:"pointer"
+};
+
+const btnRed = {
+  background:"rgba(239,68,68,0.12)",
+  color:"#991b1b",
+  border:"1px solid rgba(239,68,68,0.25)",
+  padding:"10px 12px",
+  borderRadius:10,
+  fontWeight:600,
+  cursor:"pointer"
+};
+
+/* 🔥 SOFT BADGES */
 const badge = { padding:"6px 12px", borderRadius:999, fontWeight:700 };
-const green = { background:"#dcfce7", color:"#166534" };
-const yellow = { background:"#fef3c7", color:"#92400e" };
-const red = { background:"#fee2e2", color:"#991b1b" };
+
+const green = { background:"rgba(34,197,94,0.12)", color:"#166534" };
+const yellow = { background:"rgba(245,158,11,0.12)", color:"#92400e" };
+const red = { background:"rgba(239,68,68,0.12)", color:"#991b1b" };
