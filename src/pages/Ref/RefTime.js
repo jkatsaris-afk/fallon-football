@@ -97,7 +97,7 @@ export default function RefTime() {
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP TILES */}
+      {/* 🔥 TOP TILES (UPDATED SIZE) */}
       <div style={statsGrid}>
         <StatTile label="Earnings" value={`$${totalPay}`} />
         <StatTile label="Games" value={gamesReffed} />
@@ -112,7 +112,6 @@ export default function RefTime() {
         return (
           <div key={date}>
 
-            {/* DATE TILE */}
             <div style={dateTile} onClick={() => toggleDate(date)}>
               <span>{date}</span>
               <span>{isOpen ? "▲" : "▼"}</span>
@@ -126,23 +125,19 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
-                      {/* TEAMS */}
                       <div style={teamsRow}>
                         <TeamSide team={game.team} />
                         <div style={vs}>vs</div>
                         <TeamSide team={game.opponent} />
                       </div>
 
-                      {/* TIME */}
                       <div style={time}>{game.event_time}</div>
 
-                      {/* META */}
                       <div style={meta}>
                         <span>{game.division}</span>
                         <span>{game.field}</span>
                       </div>
 
-                      {/* BUTTON */}
                       <div style={btnWrap}>
                         {checked ? (
                           <span style={checkedBadge}>Checked In</span>
@@ -194,22 +189,35 @@ const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 
 const title = { fontSize:24, fontWeight:700 };
 
+/* 🔥 UPDATED TILE STYLES */
 const statsGrid = {
   display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(110px,1fr))",
-  gap:10
+  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
+  gap:14
 };
 
 const statTile = {
   background:"#fff",
-  borderRadius:16,
-  padding:14,
+  borderRadius:18,
+  padding:20,
   textAlign:"center",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
+  minHeight:90,
+  display:"flex",
+  flexDirection:"column",
+  justifyContent:"center"
 };
 
-const statValue = { fontSize:18, fontWeight:800 };
-const statLabel = { fontSize:11, color:"#64748b" };
+const statValue = {
+  fontSize:26,
+  fontWeight:800
+};
+
+const statLabel = {
+  fontSize:13,
+  color:"#64748b",
+  marginTop:4
+};
 
 const dateTile = {
   background:"#fff",
