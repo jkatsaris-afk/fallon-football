@@ -105,51 +105,62 @@ export default function RefereeManager() {
     loadRefs();
   };
 
+  /* 🔥 ONLY CHANGE IS HERE */
   const renderSelectedPage = () => {
-    switch (view) {
-      case "staff":
-        return (
-          <RefereeStaffPage
-            refs={refs}
-            loading={loading}
-            getName={getName}
-            getStatus={getStatus}
-            getRole={getRole}
-            displayRole={displayRole}
-            updateStatus={updateStatus}
-            updateRole={updateRole}
-          />
-        );
+    try {
+      switch (view) {
+        case "staff":
+          return (
+            <RefereeStaffPage
+              refs={refs}
+              loading={loading}
+              getName={getName}
+              getStatus={getStatus}
+              getRole={getRole}
+              displayRole={displayRole}
+              updateStatus={updateStatus}
+              updateRole={updateRole}
+            />
+          );
 
-      case "schedule":
-        return <RefereeSchedulePage />;
+        case "schedule":
+          return <RefereeSchedulePage />;
 
-      case "head":
-        return (
-          <HeadRefPage
-            refs={refs}
-            loading={loading}
-            getName={getName}
-            getStatus={getStatus}
-            setHeadRef={setHeadRef}
-          />
-        );
+        case "head":
+          return (
+            <HeadRefPage
+              refs={refs}
+              loading={loading}
+              getName={getName}
+              getStatus={getStatus}
+              setHeadRef={setHeadRef}
+            />
+          );
 
-      case "time":
-        return <RefereeTimeSheetsPage />;
+        case "time":
+          return <RefereeTimeSheetsPage />;
 
-      default:
-        return (
-          <div style={contentWrap}>
-            <div style={emptyStateCard}>
-              <div style={emptyTitle}>Referee Manager</div>
-              <div style={emptyText}>
-                Pick a tile above to manage referee staff, schedules, head ref,
-                and time sheets.
+        default:
+          return (
+            <div style={contentWrap}>
+              <div style={emptyStateCard}>
+                <div style={emptyTitle}>Referee Manager</div>
+                <div style={emptyText}>
+                  Pick a tile above to manage referee staff, schedules, head ref,
+                  and time sheets.
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
+      }
+    } catch (err) {
+      console.error("Referee Manager crash:", err);
+
+      return (
+        <div style={{ padding: 20, color: "red" }}>
+          ⚠️ Page crashed — check console
+        </div>
+      );
     }
   };
 
@@ -200,6 +211,8 @@ export default function RefereeManager() {
     </div>
   );
 }
+
+/* UI BELOW IS UNCHANGED */
 
 function ManagerTile({ title, desc, active, onClick }) {
   return (
