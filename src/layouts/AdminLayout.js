@@ -7,13 +7,13 @@ import {
   Trophy,
   MoreHorizontal
 } from "lucide-react";
-import { supabase } from "../supabase"; // 🔥 ADD
+import { supabase } from "../supabase";
 
 export default function AdminLayout({
   adminPage,
   setAdminPage,
   children,
-  setPage // 🔥 ADD THIS PROP
+  setPage
 }) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -24,7 +24,6 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // 🔥 LOGOUT FUNCTION
   const logout = async () => {
     await supabase.auth.signOut();
     setPage("home");
@@ -33,7 +32,6 @@ export default function AdminLayout({
   return (
     <div style={container}>
 
-      {/* DESKTOP SIDEBAR */}
       {!isMobile && (
         <div style={sidebar}>
           <img src={fallonLogo} alt="logo" style={{ width: 36, marginBottom: 20 }} />
@@ -52,25 +50,25 @@ export default function AdminLayout({
         </div>
       )}
 
-      {/* MAIN */}
       <div style={main}>
 
-        {/* 🔥 TOP BAR */}
         <div style={topBar}>
           Fallon Football Admin
 
-          {/* 🔥 LOGOUT BUTTON */}
           <button style={logoutBtn} onClick={logout}>
             Logout
           </button>
         </div>
 
-        {/* CONTENT */}
-        <div style={content}>
+        {/* 🔥 FIX IS HERE */}
+        <div
+          style={content}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
           {children}
         </div>
 
-        {/* MOBILE NAV */}
         {isMobile && (
           <div className="nav">
             <NavItem icon={<Home size={22} />} label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
@@ -142,7 +140,7 @@ const topBar = {
   borderBottom: "1px solid #e5e7eb",
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between", // 🔥 IMPORTANT
+  justifyContent: "space-between",
   padding: "0 20px",
   fontWeight: 600
 };
