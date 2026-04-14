@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../../supabase";
+import { supabase } from "../../supabase";
 
 /* LOGOS */
 import bills from "../../resources/Buffalo Bills.png";
