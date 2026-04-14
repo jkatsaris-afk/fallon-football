@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <title>Fallon Flag Football</title>
 
-    <!-- 🔥 MOBILE FIX (prevents zoom issues) -->
+    <!-- 🔥 MOBILE FIX -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
@@ -16,19 +16,76 @@
     <!-- 🔥 MANIFEST -->
     <link rel="manifest" href="/manifest.json" />
 
-    <!-- 🔥 APPLE SUPPORT (VERY IMPORTANT FOR iPHONE) -->
+    <!-- 🔥 APPLE SUPPORT -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Football" />
 
-    <!-- 🔥 ICONS (THIS FIXES YOUR ISSUE) -->
+    <!-- 🔥 ICONS -->
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
-
   </head>
 
   <body style="margin:0;">
-    <div id="root"></div>
+    <div id="root">
+      <!-- 🔥 INITIAL LOADER (PREVENTS FLASH) -->
+      <div
+        id="initial-loader"
+        style="
+          height:100vh;
+          width:100%;
+          background: linear-gradient(to bottom right, #0f172a, #1e293b);
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
+          align-items:center;
+          color:white;
+          font-family:sans-serif;
+        "
+      >
+        <div style="font-size:32px; font-weight:600; margin-bottom:20px;">
+          FALLON FOOTBALL
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔥 LOADER ANIMATION -->
+    <style>
+      .dot {
+        width: 12px;
+        height: 12px;
+        background: #22c55e;
+        border-radius: 50%;
+        animation: bounce 1.4s infinite ease-in-out both;
+      }
+
+      .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: scale(0);
+          opacity: 0.3;
+        }
+        40% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+    </style>
   </body>
 </html>
