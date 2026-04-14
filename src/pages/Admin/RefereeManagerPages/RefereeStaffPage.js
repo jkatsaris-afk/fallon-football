@@ -14,11 +14,6 @@ export default function RefereeStaffPage({
   const [loadingState, setLoadingState] = useState(true);
   const [filter, setFilter] = useState("all");
 
-  const safeGetStatus = (r) => getStatus ? getStatus(r) : r.status || "pending";
-  const safeGetRole = (r) => getRole ? getRole(r) : r.role || "assistant";
-  const safeGetName = (r) =>
-    getName ? getName(r) : `${r.first_name || ""} ${r.last_name || ""}`.trim();
-
   useEffect(() => {
     loadRefs();
   }, []);
@@ -37,6 +32,25 @@ export default function RefereeStaffPage({
     setLoadingState(false);
   };
 
+  /* 🔥 FIXED STATUS UPDATE */
+  const handleStatusUpdate = async (id, status) => {
+    if (updateStatus) {
+      await updateStatus(id, status);
+    } else {
+      await supabase
+        .from("referees")
+        .update({ status })
+        .eq("id", id);
+    }
+
+    loadRefs(); // 🔥 THIS FIXES YOUR BUTTONS
+  };
+
+  const safeGetStatus = (r) => getStatus ? getStatus(r) : r.status || "pending";
+  const safeGetRole = (r) => getRole ? getRole(r) : r.role || "assistant";
+  const safeGetName = (r) =>
+    getName ? getName(r) : `${r.first_name || ""} ${r.last_name || ""}`.trim();
+
   const stats = useMemo(() => ({
     total: refs.length,
     approved: refs.filter(r => safeGetStatus(r) === "approved").length,
@@ -54,8 +68,14 @@ export default function RefereeStaffPage({
   }, [refs, filter]);
 
   const getProfileImage = (ref) => {
-    const raw = ref.profile_image || "";
+    const raw =
+      ref?.profile_image ||
+      ref?.profile_image_url ||
+      ref?.photo_url ||
+      "";
+
     if (!raw) return DefaultProfile;
+    if (raw.startsWith("http")) return raw;
 
     const { data } = supabase.storage
       .from("profile-images")
@@ -71,7 +91,7 @@ export default function RefereeStaffPage({
   return (
     <div style={pageWrap}>
 
-      {/* 🔥 FILTER TILES (MATCH SCHEDULE) */}
+      {/* FILTER TILES */}
       <div style={statsGrid}>
         <FilterTile label="All Refs" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
@@ -82,10 +102,7 @@ export default function RefereeStaffPage({
 
       <div style={sectionCard}>
         <div style={headerRow}>
-          <div>
-            <h2 style={heading}>Referee Staff</h2>
-            <div style={subheading}>Manage referee roles and approvals</div>
-          </div>
+          <h2 style={heading}>Referee Staff</h2>
         </div>
 
         <div style={listWrap}>
@@ -93,59 +110,46 @@ export default function RefereeStaffPage({
             const role = safeGetRole(ref);
 
             return (
-              <div key={ref.id} style={card}>
+              <div key={ref.id} style={refCard}>
 
-                {/* HEADER */}
-                <div style={topRow}>
-                  <div style={left}>
-                    <img src={getProfileImage(ref)} style={avatar} />
+                <div style={refTopRow}>
+                  <div style={leftSide}>
+                    <img src={getProfileImage(ref)} style={profileImage} />
+
                     <div>
-                      <div style={name}>{safeGetName(ref)}</div>
+                      <div style={refName}>{safeGetName(ref)}</div>
                       <div style={email}>{ref.email}</div>
+                      <div style={phone}>{ref.phone || "No phone"}</div>
                     </div>
                   </div>
-
-                  <span
-                    style={{
-                      ...statusBadge,
-                      ...(safeGetStatus(ref) === "approved"
-                        ? approved
-                        : safeGetStatus(ref) === "denied"
-                        ? denied
-                        : pending),
-                    }}
-                  >
-                    {safeGetStatus(ref)}
-                  </span>
                 </div>
 
-                {/* DETAIL GRID */}
                 <div style={detailsGrid}>
 
-                  <div style={tile}>
+                  {/* ROLE */}
+                  <div style={detailTile}>
                     <div style={label}>Role</div>
 
                     <select
                       value={role}
-                      onChange={(e) =>
-                        updateRole(ref, e.target.value)
-                      }
+                      onChange={(e) => updateRole(ref, e.target.value)}
                       style={select}
                     >
                       <option value="assistant">Assistant Ref</option>
                       <option value="head">Head Ref</option>
                     </select>
 
-                    <div style={helper}>{displayRole(ref)}</div>
+                    <div style={helperText}>{displayRole(ref)}</div>
                   </div>
 
-                  <div style={tile}>
+                  {/* STATUS */}
+                  <div style={detailTile}>
                     <div style={label}>Status</div>
 
-                    <div style={btnRow}>
-                      <button style={approveBtn} onClick={() => updateStatus(ref.id, "approved")}>Approve</button>
-                      <button style={pendingBtn} onClick={() => updateStatus(ref.id, "pending")}>Pending</button>
-                      <button style={denyBtn} onClick={() => updateStatus(ref.id, "denied")}>Deny</button>
+                    <div style={buttonRow}>
+                      <button style={approveBtn} onClick={() => handleStatusUpdate(ref.id, "approved")}>Approve</button>
+                      <button style={pendingBtn} onClick={() => handleStatusUpdate(ref.id, "pending")}>Pending</button>
+                      <button style={denyBtn} onClick={() => handleStatusUpdate(ref.id, "denied")}>Deny</button>
                     </div>
                   </div>
 
@@ -160,154 +164,86 @@ export default function RefereeStaffPage({
   );
 }
 
-/* 🔥 FILTER TILE */
+/* FILTER TILE */
 function FilterTile({ label, value, active, onClick }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        ...statTile,
-        ...(active ? activeStatTile : {}),
-      }}
-    >
-      <div style={statValue}>{value}</div>
-      <div style={statLabel}>{label}</div>
+    <button onClick={onClick} style={{
+      background: "#fff",
+      borderRadius: 16,
+      padding: 14,
+      border: active ? "2px solid #16a34a" : "1px solid #e5e7eb",
+      cursor: "pointer",
+      fontWeight: 700,
+    }}>
+      <div style={{ fontSize: 18 }}>{value}</div>
+      <div style={{ fontSize: 12 }}>{label}</div>
     </button>
   );
 }
 
-/* 🔥 STYLES (MATCH SCHEDULE EXACTLY) */
+/* STYLES */
 
 const pageWrap = { display: "flex", flexDirection: "column", gap: 20 };
 
 const statsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-  gap: 16,
-};
-
-const statTile = {
-  textAlign: "left",
-  border: "none",
-  borderRadius: 18,
-  background: "#ffffff",
-  padding: 18,
-  cursor: "pointer",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-};
-
-const activeStatTile = {
-  outline: "2px solid #16a34a",
-  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
-};
-
-const statValue = {
-  fontSize: "26px",
-  fontWeight: 800,
-};
-
-const statLabel = {
-  marginTop: 8,
-  fontSize: "13px",
-  color: "#64748b",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: 12,
 };
 
 const sectionCard = {
-  background: "#ffffff",
+  background: "#fff",
   borderRadius: 18,
   padding: 20,
   boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
 };
 
-const headerRow = { marginBottom: 18 };
+const headerRow = { marginBottom: 16 };
 
-const heading = { fontSize: "24px", fontWeight: 700 };
-const subheading = { fontSize: "14px", color: "#64748b" };
+const heading = { fontSize: 22, fontWeight: 700 };
 
-const listWrap = { display: "flex", flexDirection: "column", gap: 16 };
+const listWrap = { display: "flex", flexDirection: "column", gap: 12 };
 
-const card = {
+const refCard = {
   border: "1px solid #e5e7eb",
   borderRadius: 18,
   padding: 18,
   background: "#f8fafc",
 };
 
-const topRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 14,
-};
+const refTopRow = { marginBottom: 10 };
 
-const left = { display: "flex", alignItems: "center", gap: 12 };
+const leftSide = { display: "flex", alignItems: "center", gap: 12 };
 
-const avatar = {
-  width: 48,
-  height: 48,
-  borderRadius: "50%",
-  objectFit: "cover",
-};
+const profileImage = { width: 44, height: 44, borderRadius: "50%" };
 
-const name = { fontSize: "16px", fontWeight: 700 };
-const email = { fontSize: "13px", color: "#64748b" };
+const refName = { fontWeight: 700 };
+
+const email = { fontSize: 13, color: "#64748b" };
+
+const phone = { fontSize: 13, color: "#475569" };
 
 const detailsGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: 16,
+  gap: 14,
 };
 
-const tile = {
-  background: "#ffffff",
+const detailTile = {
+  background: "#fff",
   borderRadius: 16,
   padding: 16,
-  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+  border: "1px solid #e5e7eb",
 };
 
-const label = { fontWeight: 700, marginBottom: 8 };
+const label = { fontWeight: 800, fontSize: 13, marginBottom: 10 };
 
-const select = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #cbd5e1",
-};
+const helperText = { fontSize: 12 };
 
-const helper = { fontSize: 12, marginTop: 6 };
+const select = { width: "100%", padding: 10, borderRadius: 10 };
 
-const btnRow = { display: "flex", gap: 8 };
+const buttonRow = { display: "flex", gap: 8 };
 
-const approveBtn = {
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  padding: "10px 12px",
-  borderRadius: 12,
-};
-
-const pendingBtn = {
-  background: "#f59e0b",
-  color: "#fff",
-  border: "none",
-  padding: "10px 12px",
-  borderRadius: 12,
-};
-
-const denyBtn = {
-  background: "#dc2626",
-  color: "#fff",
-  border: "none",
-  padding: "10px 12px",
-  borderRadius: 12,
-};
-
-const statusBadge = {
-  padding: "6px 12px",
-  borderRadius: 999,
-  fontWeight: 700,
-};
-
-const approved = { background: "#dcfce7", color: "#166534" };
-const pending = { background: "#fef3c7", color: "#92400e" };
-const denied = { background: "#fee2e2", color: "#991b1b" };
+const approveBtn = { background: "#16a34a", color: "#fff", padding: 10, borderRadius: 10 };
+const pendingBtn = { background: "#f59e0b", color: "#fff", padding: 10, borderRadius: 10 };
+const denyBtn = { background: "#dc2626", color: "#fff", padding: 10, borderRadius: 10 };
