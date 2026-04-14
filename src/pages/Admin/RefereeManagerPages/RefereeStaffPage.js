@@ -25,7 +25,7 @@ export default function RefereeStaffPage({
     return DefaultProfile;
   };
 
-  /* 🔥 NEW: coach toggle update */
+  /* 🔥 SIMPLE COACH TOGGLE */
   const updateCoach = async (ref, isCoach) => {
     const { error } = await supabase
       .from("referees")
@@ -37,7 +37,7 @@ export default function RefereeStaffPage({
       return;
     }
 
-    // 🔥 update UI locally (no reload)
+    // local update (no reload)
     ref.is_coach = isCoach;
   };
 
@@ -102,7 +102,7 @@ export default function RefereeStaffPage({
                       {displayRole(ref)}
                     </div>
 
-                    {/* 🔥 NEW COACH TOGGLE */}
+                    {/* 🔥 COACH TOGGLE (NEW CLEAN VERSION) */}
                     <div style={{ marginTop: 10 }}>
                       <select
                         value={ref.is_coach ? "yes" : "no"}
