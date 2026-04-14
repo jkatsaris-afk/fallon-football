@@ -1,4 +1,5 @@
 import React from "react";
+import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
@@ -24,6 +25,22 @@ export default function RefereeStaffPage({
     return DefaultProfile;
   };
 
+  /* 🔥 SIMPLE COACH TOGGLE */
+  const updateCoach = async (ref, isCoach) => {
+    const { error } = await supabase
+      .from("referees")
+      .update({ is_coach: isCoach })
+      .eq("id", ref.id);
+
+    if (error) {
+      console.error("Error updating coach:", error);
+      return;
+    }
+
+    // local update (no reload)
+    ref.is_coach = isCoach;
+  };
+
   if (loading) {
     return (
       <div style={pageWrap}>
@@ -37,13 +54,11 @@ export default function RefereeStaffPage({
 
   return (
     <div style={pageWrap}>
-
-      {/* 🔥 DEBUG HEADER */}
-      <h1 style={{ color: "red" }}>STAFF PAGE - NO COACH</h1>
-
       <div style={sectionCard}>
         <div style={headerRow}>
-          <h2 style={heading}>Referee Staff</h2>
+          <div>
+            <h2 style={heading}>Referee Staff</h2>
+          </div>
         </div>
 
         <div style={listWrap}>
@@ -85,6 +100,20 @@ export default function RefereeStaffPage({
 
                     <div style={helperText}>
                       {displayRole(ref)}
+                    </div>
+
+                    {/* 🔥 COACH TOGGLE (NEW CLEAN VERSION) */}
+                    <div style={{ marginTop: 10 }}>
+                      <select
+                        value={ref.is_coach ? "yes" : "no"}
+                        onChange={(e) =>
+                          updateCoach(ref, e.target.value === "yes")
+                        }
+                        style={selectSpacing}
+                      >
+                        <option value="no">Not a Coach</option>
+                        <option value="yes">Is a Coach</option>
+                      </select>
                     </div>
                   </div>
 
