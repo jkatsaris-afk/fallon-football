@@ -10,146 +10,199 @@ export default function HeadRefPage({
   const headRef = refs.find((r) => r.is_head_ref);
 
   if (loading) {
-    return (
-      <div style={card}>
-        <h2 style={heading}>Head Ref</h2>
-        <div style={muted}>Loading referees...</div>
-      </div>
-    );
+    return <div style={{ padding: 20 }}>Loading referees...</div>;
   }
 
   return (
-    <div style={card}>
-      <h2 style={heading}>Head Referee</h2>
+    <div style={wrap}>
 
-      {headRef ? (
-        <div style={profileCard}>
-          <div style={profileName}>{getName(headRef)}</div>
-          <div style={info}>Email: {headRef.email || "-"}</div>
-          <div style={info}>Phone: {headRef.phone || "-"}</div>
-          <div style={statusStyle(getStatus(headRef))}>{getStatus(headRef)}</div>
-        </div>
-      ) : (
-        <div style={muted}>No Head Ref Assigned</div>
-      )}
+      {/* 🔥 HEAD REF PROFILE */}
+      <div style={section}>
+        <h2 style={title}>Head Referee</h2>
 
-      <div style={sectionTitle}>Assign Head Ref</div>
+        {headRef ? (
+          <div style={profileCard}>
 
-      <div style={listWrap}>
-        {refs.map((ref) => (
-          <div key={ref.id} style={assignRow}>
-            <div>
-              <div style={assignName}>{getName(ref)}</div>
-              <div style={assignSub}>{ref.email || "-"}</div>
+            <div style={profileTop}>
+              <div style={avatarLarge} />
+              <div>
+                <div style={name}>{getName(headRef)}</div>
+                <div style={sub}>
+                  {(headRef.email || "") +
+                    (headRef.phone ? " • " + headRef.phone : "")}
+                </div>
+
+                <span style={{
+                  ...badge,
+                  ...(getStatus(headRef)==="approved"
+                    ? green
+                    : getStatus(headRef)==="denied"
+                    ? red
+                    : yellow)
+                }}>
+                  {getStatus(headRef)}
+                </span>
+              </div>
             </div>
 
-            <button
-              style={headRef?.id === ref.id ? currentBtn : assignBtn}
-              onClick={() => setHeadRef(ref.id)}
-            >
-              {headRef?.id === ref.id ? "Current Head" : "Make Head"}
-            </button>
+            {/* 🔥 INFO GRID */}
+            <div style={grid}>
+              <InfoTile label="Email" value={headRef.email || "-"} />
+              <InfoTile label="Phone" value={headRef.phone || "-"} />
+              <InfoTile label="Experience" value={headRef.experience || "-"} />
+              <InfoTile label="Notes" value={headRef.notes || "-"} />
+            </div>
+
           </div>
-        ))}
+        ) : (
+          <div style={empty}>No Head Ref Assigned</div>
+        )}
       </div>
+
+      {/* 🔥 ASSIGN SECTION */}
+      <div style={section}>
+        <h3 style={subTitle}>Assign Head Ref</h3>
+
+        <div style={list}>
+          {refs.map((ref) => (
+            <div key={ref.id} style={assignCard}>
+              <div>
+                <div style={name}>{getName(ref)}</div>
+                <div style={sub}>
+                  {(ref.email || "") +
+                    (ref.phone ? " • " + ref.phone : "")}
+                </div>
+              </div>
+
+              <button
+                style={
+                  headRef?.id === ref.id ? currentBtn : assignBtn
+                }
+                onClick={() => setHeadRef(ref.id)}
+              >
+                {headRef?.id === ref.id ? "Current" : "Make Head"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
 
-const card = {
-  background: "#ffffff",
+/* 🔥 SMALL TILE */
+function InfoTile({ label, value }) {
+  return (
+    <div style={tile}>
+      <div style={labelStyle}>{label}</div>
+      <div style={valueStyle}>{value}</div>
+    </div>
+  );
+}
+
+/* STYLES */
+
+const wrap = { display: "flex", flexDirection: "column", gap: 20 };
+
+const section = {
+  background: "#fff",
   borderRadius: 18,
   padding: 20,
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
 };
 
-const heading = {
-  marginTop: 0,
-  marginBottom: 18,
-  fontSize: "22px",
-  color: "#0f172a",
-};
-
-const muted = {
-  color: "#64748b",
-};
+const title = { fontSize: 24, fontWeight: 700 };
+const subTitle = { fontSize: 18, fontWeight: 700 };
 
 const profileCard = {
-  background: "#f8fafc",
-  borderRadius: 16,
-  padding: 18,
-  marginBottom: 24,
-};
-
-const profileName = {
-  fontSize: "20px",
-  fontWeight: 700,
-  color: "#0f172a",
-};
-
-const info = {
-  marginTop: 8,
-  color: "#334155",
-};
-
-const sectionTitle = {
-  fontSize: "16px",
-  fontWeight: 700,
-  color: "#0f172a",
-  marginBottom: 14,
-};
-
-const listWrap = {
   display: "flex",
   flexDirection: "column",
-  gap: 12,
+  gap: 20,
 };
 
-const assignRow = {
+const profileTop = {
+  display: "flex",
+  gap: 16,
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const avatarLarge = {
+  width: 72,
+  height: 72,
+  borderRadius: "50%",
+  background: "#e5e7eb",
+};
+
+const name = { fontSize: 18, fontWeight: 700 };
+const sub = { fontSize: 13, color: "#64748b" };
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))",
+  gap: 14,
+};
+
+const tile = {
+  background: "#f8fafc",
+  borderRadius: 14,
+  padding: 14,
+  border: "1px solid #e5e7eb",
+};
+
+const labelStyle = {
+  fontSize: 12,
+  color: "#64748b",
+  marginBottom: 6,
+};
+
+const valueStyle = {
+  fontWeight: 600,
+};
+
+const list = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const assignCard = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 16,
-  background: "#ffffff",
+  background: "#fff",
   border: "1px solid #e5e7eb",
   borderRadius: 14,
   padding: 14,
   flexWrap: "wrap",
 };
 
-const assignName = {
-  fontWeight: 700,
-  color: "#0f172a",
-};
-
-const assignSub = {
-  fontSize: 13,
-  color: "#64748b",
-  marginTop: 4,
-};
-
 const assignBtn = {
-  background: "#2563eb",
-  color: "#ffffff",
-  border: "none",
+  background: "rgba(37,99,235,0.12)",
+  color: "#1d4ed8",
+  border: "1px solid rgba(37,99,235,0.25)",
+  padding: "8px 12px",
   borderRadius: 10,
-  padding: "10px 14px",
-  cursor: "pointer",
 };
 
 const currentBtn = {
-  background: "#16a34a",
-  color: "#ffffff",
-  border: "none",
+  background: "rgba(34,197,94,0.12)",
+  color: "#166534",
+  border: "1px solid rgba(34,197,94,0.25)",
+  padding: "8px 12px",
   borderRadius: 10,
-  padding: "10px 14px",
-  cursor: "pointer",
 };
 
-const statusStyle = (s) => ({
-  marginTop: 10,
-  color:
-    s === "approved" ? "#16a34a" : s === "denied" ? "#dc2626" : "#f59e0b",
-  fontWeight: 700,
-  textTransform: "capitalize",
-});
+const badge = {
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 12,
+  marginTop: 6,
+};
+
+const green = { background: "rgba(34,197,94,0.12)", color: "#166534" };
+const yellow = { background: "rgba(245,158,11,0.12)", color: "#92400e" };
+const red = { background: "rgba(239,68,68,0.12)", color: "#991b1b" };
+
+const empty = { color: "#64748b", marginTop: 10 };
