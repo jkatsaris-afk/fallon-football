@@ -5,7 +5,6 @@ export default function RefereeTimeSheetsPage() {
   const [refs, setRefs] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     loadData();
@@ -28,20 +27,16 @@ export default function RefereeTimeSheetsPage() {
     setRefs(refData || []);
     setCheckins(checkinData || []);
 
-    console.log("CHECKINS:", checkinData);
-
     setLoading(false);
   };
 
-  /* 🔥 GROUP */
+  /* 🔥 GROUP BY REF + DATE */
   const grouped = useMemo(() => {
     const map = {};
 
     checkins.forEach((c) => {
       const refId = c.ref_id;
       const date = c.schedule_master_auto?.event_date || "Unknown";
-
-      if (!refId) return;
 
       if (!map[refId]) map[refId] = {};
       if (!map[refId][date]) map[refId][date] = [];
@@ -54,60 +49,34 @@ export default function RefereeTimeSheetsPage() {
 
   /* 🔥 PAY CALC */
   const calculatePay = (ref, days) => {
-    let gamePay = 0;
-    let paid = 0;
-    let unpaid = 0;
-    let headBonus = 0;
+    let total = 0;
 
     Object.keys(days).forEach((date) => {
       const games = days[date];
 
-      games.forEach((g) => {
-        const val = g.pay || 20;
-        gamePay += val;
+      // $40 per game
+      total += games.length * 40;
 
-        if (g.paid) paid += val;
-        else unpaid += val;
-      });
-
+      // +$20 head ref per day
       if (ref?.is_head_ref) {
-        headBonus += 20;
+        total += 20;
       }
     });
 
-    return {
-      total: gamePay + headBonus,
-      paid,
-      unpaid,
-      headBonus
-    };
+    return total;
   };
 
-  /* 🔥 GLOBAL STATS */
-  const stats = useMemo(() => {
-    let total = 0;
-    let paid = 0;
-    let unpaid = 0;
-
-    checkins.forEach((c) => {
-      const val = c.pay || 20;
-      total += val;
-
-      if (c.paid) paid += val;
-      else unpaid += val;
-    });
-
-    return { total, paid, unpaid };
-  }, [checkins]);
-
-  /* 🔥 MARK PAID */
-  const markPaid = async (refId) => {
-    const unpaidRows = checkins.filter(
-      (c) => c.ref_id === refId && !c.paid
+  /* 🔥 PAY DAY BUTTON */
+  const markDatePaid = async (refId, date) => {
+    const rows = checkins.filter(
+      (c) =>
+        c.ref_id === refId &&
+        !c.paid &&
+        c.schedule_master_auto?.event_date === date
     );
 
-    const ids = unpaidRows.map((c) => c.id);
-    if (ids.length === 0) return;
+    const ids = rows.map((r) => r.id);
+    if (!ids.length) return;
 
     await supabase
       .from("ref_checkins")
@@ -122,13 +91,6 @@ export default function RefereeTimeSheetsPage() {
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP FILTER TILES */}
-      <div style={statsGrid}>
-        <StatTile label="Total" value={`$${stats.total}`} active={filter==="all"} onClick={()=>setFilter("all")} />
-        <StatTile label="Paid" value={`$${stats.paid}`} active={filter==="paid"} onClick={()=>setFilter("paid")} />
-        <StatTile label="Unpaid" value={`$${stats.unpaid}`} active={filter==="unpaid"} onClick={()=>setFilter("unpaid")} />
-      </div>
-
       <h2 style={title}>Referee Pay Manager</h2>
 
       {Object.keys(grouped).map((refId) => {
@@ -136,15 +98,12 @@ export default function RefereeTimeSheetsPage() {
         const days = grouped[refId];
         if (!ref) return null;
 
-        const pay = calculatePay(ref, days);
-
-        if (filter === "paid" && pay.unpaid > 0) return null;
-        if (filter === "unpaid" && pay.unpaid === 0) return null;
+        const totalPay = calculatePay(ref, days);
 
         return (
           <div key={refId} style={card}>
 
-            {/* 🔥 HEADER */}
+            {/* HEADER */}
             <div style={header}>
               <div>
                 <div style={name}>
@@ -157,23 +116,23 @@ export default function RefereeTimeSheetsPage() {
               </div>
 
               <div style={payBox}>
-                ${pay.total}
+                ${totalPay}
               </div>
             </div>
 
-            {/* 🔥 SUMMARY */}
-            <div style={summaryRow}>
-              <span>Paid: ${pay.paid}</span>
-              <span>Unpaid: ${pay.unpaid}</span>
-            </div>
-
-            {/* 🔥 DAY GRID */}
+            {/* DAYS */}
             <div style={dayGrid}>
               {Object.keys(days).map((date) => {
                 const games = days[date];
 
+                const unpaidTotal = games
+                  .filter(g => !g.paid)
+                  .reduce((sum) => sum + 40, 0) +
+                  (ref.is_head_ref ? 20 : 0);
+
                 return (
                   <div key={date} style={dayCard}>
+
                     <div style={dayHeader}>
                       {date}
                       <span>{games.length} games</span>
@@ -185,25 +144,29 @@ export default function RefereeTimeSheetsPage() {
                           {g.schedule_master_auto?.team || "Team"} vs{" "}
                           {g.schedule_master_auto?.opponent || "Opponent"}
                         </span>
-                        <span>${g.pay || 20}</span>
+                        <span>$40</span>
                       </div>
                     ))}
 
                     <div style={dayTotal}>
-                      ${games.length * 20}
+                      ${games.length * 40}
                       {ref.is_head_ref && " + $20 Head"}
                     </div>
+
+                    {/* 🔥 PAY BUTTON */}
+                    {games.some(g => !g.paid) && (
+                      <button
+                        style={payBtn}
+                        onClick={() => markDatePaid(refId, date)}
+                      >
+                        Pay Day (${unpaidTotal})
+                      </button>
+                    )}
+
                   </div>
                 );
               })}
             </div>
-
-            {/* 🔥 PAY BUTTON */}
-            {pay.unpaid > 0 && (
-              <button style={payBtn} onClick={() => markPaid(refId)}>
-                Mark Paid (${pay.unpaid})
-              </button>
-            )}
 
           </div>
         );
@@ -212,38 +175,9 @@ export default function RefereeTimeSheetsPage() {
   );
 }
 
-/* TILE */
-function StatTile({ label, value, active, onClick }) {
-  return (
-    <div onClick={onClick} style={{ ...tile, ...(active ? activeTile : {}) }}>
-      <div style={tileValue}>{value}</div>
-      <div style={tileLabel}>{label}</div>
-    </div>
-  );
-}
-
 /* STYLES */
 
 const wrap = { display:"flex", flexDirection:"column", gap:20, padding:20 };
-
-const statsGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
-  gap:14
-};
-
-const tile = {
-  background:"#fff",
-  borderRadius:18,
-  padding:18,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  cursor:"pointer"
-};
-
-const activeTile = { outline:"2px solid #16a34a" };
-
-const tileValue = { fontSize:22, fontWeight:800 };
-const tileLabel = { fontSize:12, color:"#64748b" };
 
 const title = { fontSize:24, fontWeight:700 };
 
@@ -269,13 +203,6 @@ const payBox = {
   fontSize:22,
   fontWeight:800,
   color:"#16a34a"
-};
-
-const summaryRow = {
-  display:"flex",
-  gap:20,
-  fontSize:13,
-  marginBottom:10
 };
 
 const dayGrid = {
@@ -312,11 +239,11 @@ const dayTotal = {
 };
 
 const payBtn = {
-  marginTop:12,
+  marginTop:10,
   background:"rgba(34,197,94,0.12)",
   color:"#166534",
   border:"1px solid rgba(34,197,94,0.25)",
-  padding:"10px 14px",
-  borderRadius:12,
+  padding:"8px 12px",
+  borderRadius:10,
   cursor:"pointer"
 };
