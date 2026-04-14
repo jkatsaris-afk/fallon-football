@@ -7,6 +7,8 @@ export default function RefereeStaffPage({
   getStatus,
   getRole,
   displayRole,
+  updateStatus,
+  updateRole,
 }) {
   const [refs, setRefs] = useState([]);
   const [loadingState, setLoadingState] = useState(true);
@@ -32,46 +34,22 @@ export default function RefereeStaffPage({
 
   /* 🔥 FIXED STATUS UPDATE */
   const handleStatusUpdate = async (id, status) => {
-    await supabase
-      .from("referees")
-      .update({ status })
-      .eq("id", id);
-
-    loadRefs();
-  };
-
-  /* 🔥 FIXED ROLE UPDATE */
-  const handleRoleUpdate = async (ref, newRole) => {
-    const roleValue =
-      newRole === "head" ? "Head Ref" : "Assistant Ref";
-
-    await supabase
-      .from("referees")
-      .update({ role: roleValue })
-      .eq("id", ref.id);
-
-    loadRefs();
-  };
-
-  const safeGetStatus = (r) => {
-    try { return getStatus ? getStatus(r) : r.status || "pending"; }
-    catch { return r.status || "pending"; }
-  };
-
-  const safeGetRole = (r) => {
-    try { return getRole ? getRole(r) : r.role || "assistant"; }
-    catch { return r.role || "assistant"; }
-  };
-
-  const safeGetName = (r) => {
-    try {
-      return getName
-        ? getName(r)
-        : `${r.first_name || ""} ${r.last_name || ""}`.trim();
-    } catch {
-      return "Unnamed Referee";
+    if (updateStatus) {
+      await updateStatus(id, status);
+    } else {
+      await supabase
+        .from("referees")
+        .update({ status })
+        .eq("id", id);
     }
+
+    loadRefs(); // 🔥 THIS FIXES YOUR BUTTONS
   };
+
+  const safeGetStatus = (r) => getStatus ? getStatus(r) : r.status || "pending";
+  const safeGetRole = (r) => getRole ? getRole(r) : r.role || "assistant";
+  const safeGetName = (r) =>
+    getName ? getName(r) : `${r.first_name || ""} ${r.last_name || ""}`.trim();
 
   const stats = useMemo(() => ({
     total: refs.length,
@@ -97,7 +75,6 @@ export default function RefereeStaffPage({
       "";
 
     if (!raw) return DefaultProfile;
-
     if (raw.startsWith("http")) return raw;
 
     const { data } = supabase.storage
@@ -114,6 +91,7 @@ export default function RefereeStaffPage({
   return (
     <div style={pageWrap}>
 
+      {/* FILTER TILES */}
       <div style={statsGrid}>
         <FilterTile label="All Refs" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Approved" value={stats.approved} active={filter==="approved"} onClick={()=>setFilter("approved")} />
@@ -150,27 +128,23 @@ export default function RefereeStaffPage({
 
                   {/* ROLE */}
                   <div style={detailTile}>
-                    <div style={detailLabel}>Role</div>
+                    <div style={label}>Role</div>
 
                     <select
                       value={role}
-                      onChange={(e) =>
-                        handleRoleUpdate(ref, e.target.value)
-                      }
+                      onChange={(e) => updateRole(ref, e.target.value)}
                       style={select}
                     >
                       <option value="assistant">Assistant Ref</option>
                       <option value="head">Head Ref</option>
                     </select>
 
-                    <div style={helperText}>
-                      {displayRole(ref)}
-                    </div>
+                    <div style={helperText}>{displayRole(ref)}</div>
                   </div>
 
                   {/* STATUS */}
                   <div style={detailTile}>
-                    <div style={detailLabel}>Status</div>
+                    <div style={label}>Status</div>
 
                     <div style={buttonRow}>
                       <button style={approveBtn} onClick={() => handleStatusUpdate(ref.id, "approved")}>Approve</button>
@@ -193,43 +167,83 @@ export default function RefereeStaffPage({
 /* FILTER TILE */
 function FilterTile({ label, value, active, onClick }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        background: "#fff",
-        borderRadius: 14,
-        padding: 12,
-        border: active ? "2px solid #16a34a" : "1px solid #e5e7eb",
-        cursor: "pointer",
-      }}
-    >
-      <div style={{ fontWeight: 700 }}>{value}</div>
+    <button onClick={onClick} style={{
+      background: "#fff",
+      borderRadius: 16,
+      padding: 14,
+      border: active ? "2px solid #16a34a" : "1px solid #e5e7eb",
+      cursor: "pointer",
+      fontWeight: 700,
+    }}>
+      <div style={{ fontSize: 18 }}>{value}</div>
       <div style={{ fontSize: 12 }}>{label}</div>
     </button>
   );
 }
 
-/* ORIGINAL STYLES (UNCHANGED) */
+/* STYLES */
 
 const pageWrap = { display: "flex", flexDirection: "column", gap: 20 };
-const statsGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 };
-const sectionCard = { background: "#fff", borderRadius: 18, padding: 20 };
+
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: 12,
+};
+
+const sectionCard = {
+  background: "#fff",
+  borderRadius: 18,
+  padding: 20,
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+};
+
 const headerRow = { marginBottom: 16 };
+
 const heading = { fontSize: 22, fontWeight: 700 };
+
 const listWrap = { display: "flex", flexDirection: "column", gap: 12 };
-const refCard = { background: "#f8fafc", borderRadius: 14, padding: 14 };
+
+const refCard = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 18,
+  padding: 18,
+  background: "#f8fafc",
+};
+
 const refTopRow = { marginBottom: 10 };
+
 const leftSide = { display: "flex", alignItems: "center", gap: 12 };
-const profileImage = { width: 40, height: 40, borderRadius: "50%" };
+
+const profileImage = { width: 44, height: 44, borderRadius: "50%" };
+
 const refName = { fontWeight: 700 };
+
 const email = { fontSize: 13, color: "#64748b" };
+
 const phone = { fontSize: 13, color: "#475569" };
-const detailsGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
-const detailTile = { background: "#fff", borderRadius: 12, padding: 12 };
-const detailLabel = { fontSize: 12, color: "#64748b" };
+
+const detailsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 14,
+};
+
+const detailTile = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 16,
+  border: "1px solid #e5e7eb",
+};
+
+const label = { fontWeight: 800, fontSize: 13, marginBottom: 10 };
+
 const helperText = { fontSize: 12 };
-const select = { width: "100%" };
+
+const select = { width: "100%", padding: 10, borderRadius: 10 };
+
 const buttonRow = { display: "flex", gap: 8 };
-const approveBtn = { background: "#16a34a", color: "#fff", padding: 6, borderRadius: 6 };
-const pendingBtn = { background: "#f59e0b", color: "#fff", padding: 6, borderRadius: 6 };
-const denyBtn = { background: "#dc2626", color: "#fff", padding: 6, borderRadius: 6 };
+
+const approveBtn = { background: "#16a34a", color: "#fff", padding: 10, borderRadius: 10 };
+const pendingBtn = { background: "#f59e0b", color: "#fff", padding: 10, borderRadius: 10 };
+const denyBtn = { background: "#dc2626", color: "#fff", padding: 10, borderRadius: 10 };
