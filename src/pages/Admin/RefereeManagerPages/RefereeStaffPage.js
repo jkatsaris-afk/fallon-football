@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import DefaultProfile from "../../resources/Default-A.png";
+import DefaultProfile from "../../../resources/Default-A.png";
 
 export default function RefereeStaffPage({
   refs,
