@@ -25,16 +25,11 @@ export default function AutoAssignPage() {
     }
   }, [selectedWeek]);
 
-  /* ---------------- FIXED TIME NORMALIZER ---------------- */
+  /* ---------------- TIME FIX ---------------- */
 
   const normalizeTime = (t) => {
     if (!t) return null;
-
-    return t
-      .toString()
-      .replace(" AM", "")
-      .replace(" PM", "")
-      .trim();
+    return t.toString().replace(" AM", "").replace(" PM", "").trim();
   };
 
   /* ---------------- LOAD ---------------- */
@@ -77,11 +72,7 @@ export default function AutoAssignPage() {
 
     data?.forEach((a) => {
       if (!map[a.referee_id]) map[a.referee_id] = {};
-
-      // normalize here too 🔥
-      const time = normalizeTime(a.time_block);
-
-      map[a.referee_id][time] = a.available;
+      map[a.referee_id][normalizeTime(a.time_block)] = a.available;
     });
 
     setAvailability(map);
@@ -90,13 +81,22 @@ export default function AutoAssignPage() {
   /* ---------------- AVAILABILITY ---------------- */
 
   const toggleAvailability = (refId, time) => {
-    setAvailability((prev) => ({
-      ...prev,
-      [refId]: {
-        ...prev[refId],
-        [time]: !prev?.[refId]?.[time],
-      },
-    }));
+    setAvailability((prev) => {
+      const current = prev?.[refId]?.[time];
+
+      let next;
+      if (current === true) next = false;
+      else if (current === false) next = undefined;
+      else next = true;
+
+      return {
+        ...prev,
+        [refId]: {
+          ...prev[refId],
+          [time]: next,
+        },
+      };
+    });
   };
 
   const saveAvailability = async () => {
@@ -107,7 +107,7 @@ export default function AutoAssignPage() {
             referee_id: refId,
             week: selectedWeek,
             time_block: time,
-            available: availability[refId]?.[time] || false,
+            available: availability[refId]?.[time] ?? null,
           },
           {
             onConflict: "referee_id,week,time_block",
@@ -116,10 +116,10 @@ export default function AutoAssignPage() {
       }
     }
 
-    alert("Availability Saved");
+    setStep(3);
   };
 
-  /* ---------------- FIXED AUTO ASSIGN ---------------- */
+  /* ---------------- AUTO ASSIGN ---------------- */
 
   const autoAssign = () => {
     let usage = {};
@@ -131,7 +131,6 @@ export default function AutoAssignPage() {
         .filter((ref) => {
           const a = availability[ref.id];
 
-          // 🔥 KEY FIXES
           if (!a) return true;
           if (a[gameTime] === undefined) return true;
 
@@ -145,18 +144,14 @@ export default function AutoAssignPage() {
         usage[r.id] = (usage[r.id] || 0) + 1;
       });
 
-      return {
-        gameId: game.id,
-        game,
-        refs: selected,
-      };
+      return { gameId: game.id, game, refs: selected };
     });
 
-    console.log("Assignments:", result);
     setAssignments(result);
+    setStep(4);
   };
 
-  /* ---------------- SAVE ASSIGNMENTS ---------------- */
+  /* ---------------- SAVE ---------------- */
 
   const saveAssignments = async () => {
     for (let a of assignments) {
@@ -184,6 +179,7 @@ export default function AutoAssignPage() {
   return (
     <div style={wrap}>
 
+      {/* STEP NAV */}
       <div style={stepGrid}>
         <StepTile label="Week" active={step === 1} onClick={() => setStep(1)} />
         <StepTile label="Availability" active={step === 2} onClick={() => setStep(2)} />
@@ -195,14 +191,7 @@ export default function AutoAssignPage() {
       {step === 1 && (
         <div style={grid}>
           {weeks.map((w) => (
-            <div
-              key={w}
-              style={tile}
-              onClick={() => {
-                setSelectedWeek(w);
-                setStep(2);
-              }}
-            >
+            <div key={w} style={tile} onClick={() => { setSelectedWeek(w); setStep(2); }}>
               Week {w}
             </div>
           ))}
@@ -212,42 +201,46 @@ export default function AutoAssignPage() {
       {/* STEP 2 */}
       {step === 2 && (
         <>
-          <div style={grid}>
+          <div style={refGrid}>
             {refs.map((ref) => (
-              <div key={ref.id} style={card}>
-                <div style={name}>
+              <div key={ref.id} style={refCard}>
+                <div style={refName}>
                   {ref.first_name} {ref.last_name}
                 </div>
 
-                <div style={timeRow}>
-                  {TIMES.map((t) => (
-                    <button
-                      key={t}
-                      style={{
-                        ...timeBtn,
-                        background:
-                          availability?.[ref.id]?.[t]
-                            ? "#16a34a"
-                            : "#e5e7eb",
-                      }}
-                      onClick={() => toggleAvailability(ref.id, t)}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <div style={timeGrid}>
+                  {TIMES.map((t) => {
+                    const value = availability?.[ref.id]?.[t];
+
+                    return (
+                      <button
+                        key={t}
+                        style={{
+                          ...timePill,
+                          background:
+                            value === true
+                              ? "#16a34a"
+                              : value === false
+                              ? "#ef4444"
+                              : "#e5e7eb",
+                          color:
+                            value === true || value === false
+                              ? "#fff"
+                              : "#111",
+                        }}
+                        onClick={() => toggleAvailability(ref.id, t)}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
           </div>
 
           <div style={actionRow}>
-            <button
-              style={primaryBtn}
-              onClick={async () => {
-                await saveAvailability();
-                setStep(3);
-              }}
-            >
+            <button style={primaryBtn} onClick={saveAvailability}>
               Save Availability
             </button>
           </div>
@@ -258,14 +251,7 @@ export default function AutoAssignPage() {
       {step === 3 && (
         <div style={centerBox}>
           <h2>Auto Assign Referees</h2>
-
-          <button
-            style={primaryBtn}
-            onClick={() => {
-              autoAssign();
-              setStep(4);
-            }}
-          >
+          <button style={primaryBtn} onClick={autoAssign}>
             Run Auto Assign
           </button>
         </div>
@@ -315,87 +301,105 @@ export default function AutoAssignPage() {
 
 /* ---------------- STYLES ---------------- */
 
-const wrap = { padding: 20 };
+const wrap = { display: "flex", flexDirection: "column", gap: 20, padding: 20 };
 
 const stepGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(4,1fr)",
-  gap: 10,
-  marginBottom: 20,
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px,1fr))",
+  gap: 10
 };
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
-  gap: 12,
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px,1fr))",
+  gap: 12
 };
 
 const tile = {
-  padding: 16,
-  borderRadius: 16,
-  background: "#fff",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-  cursor: "pointer",
-  textAlign: "center",
-  fontWeight: 700,
+  background:"#fff",
+  borderRadius:18,
+  padding:18,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
+  textAlign:"center",
+  fontWeight:700,
+  cursor:"pointer"
+};
+
+const refGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(240px,1fr))",
+  gap:14
+};
+
+const refCard = {
+  background:"#fff",
+  borderRadius:18,
+  padding:18,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const refName = { fontWeight:700, marginBottom:10 };
+
+const timeGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(4,1fr)",
+  gap:6
+};
+
+const timePill = {
+  padding:"10px 6px",
+  borderRadius:10,
+  border:"none",
+  cursor:"pointer",
+  fontWeight:600,
+  minHeight:40
 };
 
 const card = {
-  padding: 16,
-  borderRadius: 16,
-  background: "#fff",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-};
-
-const name = { fontWeight: 700, marginBottom: 10 };
-
-const timeRow = { display: "flex", gap: 6 };
-
-const timeBtn = {
-  padding: 6,
-  borderRadius: 6,
-  border: "none",
-  cursor: "pointer",
+  background:"#fff",
+  borderRadius:18,
+  padding:18,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
 };
 
 const actionRow = {
-  display: "flex",
-  gap: 10,
-  marginTop: 20,
+  display:"flex",
+  gap:10,
+  marginTop:20
 };
 
 const primaryBtn = {
-  padding: 10,
-  borderRadius: 10,
-  border: "none",
-  background: "#16a34a",
-  color: "#fff",
-  cursor: "pointer",
+  padding:10,
+  borderRadius:10,
+  border:"none",
+  background:"#16a34a",
+  color:"#fff",
+  cursor:"pointer"
 };
 
 const centerBox = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 20,
-  marginTop: 40,
+  display:"flex",
+  flexDirection:"column",
+  alignItems:"center",
+  gap:20,
+  marginTop:40
 };
 
-const gameTitle = { fontWeight: 700 };
-const gameMeta = { fontSize: 12, color: "#64748b" };
+const gameTitle = { fontWeight:700 };
+const gameMeta = { fontSize:12, color:"#64748b" };
 
 function StepTile({ label, active, onClick }) {
   return (
     <div
       onClick={onClick}
       style={{
-        padding: 12,
-        borderRadius: 12,
+        padding:12,
+        borderRadius:12,
         background: active ? "#16a34a" : "#fff",
         color: active ? "#fff" : "#111",
-        textAlign: "center",
-        fontWeight: 700,
-        cursor: "pointer",
+        textAlign:"center",
+        fontWeight:700,
+        cursor:"pointer"
       }}
     >
       {label}
