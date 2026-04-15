@@ -70,25 +70,33 @@ export default function RefereeTimeSheetsPage() {
     .reduce((sum, c) => sum + GAME_PAY, 0);
 
   const headRef = refs.find(r => r.is_head_ref);
+  const headRefId = headRef?.id;
 
-  const paidDays = [
+  const headRefCheckins = checkins.filter(c => c.ref_id === headRefId);
+
+  const headRefDaysWorked = [
+    ...new Set(headRefCheckins.map(c => c.schedule_master_auto?.event_date))
+  ];
+
+  const headRefPaidDays = [
     ...new Set(
-      checkins
+      headRefCheckins
         .filter(c => c.paid)
         .map(c => c.schedule_master_auto?.event_date)
     )
   ];
 
-  const unpaidDays = [
-    ...new Set(
-      checkins
-        .filter(c => !c.paid)
-        .map(c => c.schedule_master_auto?.event_date)
-    )
-  ];
+  const headRefUnpaidDays = headRefDaysWorked.filter(
+    d => !headRefPaidDays.includes(d)
+  );
 
-  const headRefPaidTotal = headRef ? paidDays.length * HEAD_REF_WEEKLY : 0;
-  const headRefUnpaidTotal = headRef ? unpaidDays.length * HEAD_REF_WEEKLY : 0;
+  const headRefPaidTotal = headRef
+    ? headRefPaidDays.length * HEAD_REF_WEEKLY
+    : 0;
+
+  const headRefUnpaidTotal = headRef
+    ? headRefUnpaidDays.length * HEAD_REF_WEEKLY
+    : 0;
 
   const paidTotalFinal = paidTotal + headRefPaidTotal;
   const unpaidTotalFinal = unpaidTotal + headRefUnpaidTotal;
@@ -118,7 +126,6 @@ export default function RefereeTimeSheetsPage() {
   return (
     <div style={wrap}>
 
-      {/* TOP TILES */}
       <div style={statsGrid}>
         <StatTile label="Total Games" value={totalGames} />
         <StatTile label="Game Budget" value={`$${totalGameBudget}`} />
@@ -196,9 +203,17 @@ export default function RefereeTimeSheetsPage() {
                       </div>
                     ))}
 
+                    {/* 🔥 HEAD REF BONUS LINE ITEM */}
+                    {ref.is_head_ref && games.length > 0 && (
+                      <div style={gameRow}>
+                        <span>Head Ref Weekly Bonus</span>
+                        <span>${HEAD_REF_WEEKLY}</span>
+                      </div>
+                    )}
+
                     <div style={dayTotal}>
-                      ${games.length * GAME_PAY}
-                      {ref.is_head_ref && games.length > 0 && " + $20 Head Ref"}
+                      ${games.length * GAME_PAY +
+                        (ref.is_head_ref && games.length > 0 ? HEAD_REF_WEEKLY : 0)}
                     </div>
 
                     {isPaid && (
@@ -236,7 +251,7 @@ function StatTile({ label, value }) {
   );
 }
 
-/* STYLES */
+/* STYLES (UNCHANGED) */
 
 const wrap = { display:"flex", flexDirection:"column", gap:20, padding:20 };
 
