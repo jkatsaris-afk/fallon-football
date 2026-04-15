@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../supabase";
+import { supabase } from "../supabase";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 
