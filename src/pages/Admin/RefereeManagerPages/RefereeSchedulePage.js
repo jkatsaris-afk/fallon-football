@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../../supabase";
+import { supabase } from "../../supabase";
 
 /* 🔥 TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
@@ -76,9 +76,12 @@ export default function RefSchedulePage() {
     return map;
   }, [assignments]);
 
-  /* FILTERS */
-  const weeks = [...new Set(games.map((g) => g.week).filter(Boolean))];
+  /* 🔥 WEEK SORT FIX */
+  const weeks = [
+    ...new Set(games.map((g) => g.week).filter(Boolean)),
+  ].sort((a, b) => Number(a) - Number(b));
 
+  /* FILTER */
   const filteredGames = useMemo(() => {
     let filtered = [...games];
 
@@ -113,19 +116,25 @@ export default function RefSchedulePage() {
     const refereeId = selectedRefs[key];
     if (!refereeId) return;
 
-    const existing = assignmentsByGame[gameId] || [];
-    const current = existing[slot];
+    const role = slot === 0 ? "Ref 1" : "Ref 2";
 
-    if (current) {
+    const { data: existing } = await supabase
+      .from("ref_assignments")
+      .select("*")
+      .eq("game_id", gameId)
+      .eq("role", role)
+      .maybeSingle();
+
+    if (existing) {
       await supabase
         .from("ref_assignments")
         .update({ referee_id: refereeId })
-        .eq("id", current.id);
+        .eq("id", existing.id);
     } else {
       await supabase.from("ref_assignments").insert({
         game_id: gameId,
         referee_id: refereeId,
-        role: slot === 0 ? "Ref 1" : "Ref 2",
+        role,
       });
     }
 
@@ -137,15 +146,15 @@ export default function RefSchedulePage() {
   return (
     <div style={wrap}>
 
-      {/* 🔥 FILTER TILES */}
+      {/* FILTER TILES */}
       <div style={statsGrid}>
-        <FilterTile label="All Games" value={games.length} active={filter==="all"} onClick={()=>setFilter("all")} />
+        <FilterTile label="All" value={games.length} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Open" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===0).length} active={filter==="open"} onClick={()=>setFilter("open")} />
         <FilterTile label="1 Ref" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===1).length} active={filter==="partial"} onClick={()=>setFilter("partial")} />
         <FilterTile label="2 Refs" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length>=2).length} active={filter==="full"} onClick={()=>setFilter("full")} />
       </div>
 
-      {/* 🔥 WEEK TILES */}
+      {/* WEEK TILES */}
       <div style={weekTileGrid}>
         <WeekTile label="All Weeks" active={week==="all"} onClick={()=>setWeek("all")} />
         {weeks.map((w)=>(
@@ -153,34 +162,25 @@ export default function RefSchedulePage() {
         ))}
       </div>
 
-      {/* 🔥 GAME GRID */}
+      {/* GAME GRID */}
       <div style={grid}>
-        {filteredGames.map((game) => {
-          const gameAssignments = assignmentsByGame[game.id] || [];
+        {filteredGames.map((game)=>{
           const homeLogo = TEAM_LOGOS[game.team];
           const awayLogo = TEAM_LOGOS[game.opponent];
 
           return (
             <div key={game.id} style={card}>
-
               <div style={logoRow}>
                 {homeLogo && <img src={homeLogo} style={logo} />}
                 <div style={vs}>VS</div>
                 {awayLogo && <img src={awayLogo} style={logo} />}
               </div>
 
-              <div style={gameTitle}>
-                {game.team} vs {game.opponent}
-              </div>
-
-              <div style={gameMeta}>
-                Week {game.week} • {game.time} • {game.field}
-              </div>
+              <div style={gameTitle}>{game.team} vs {game.opponent}</div>
+              <div style={gameMeta}>Week {game.week} • {game.time} • {game.field}</div>
 
               {[0,1].map((slot)=>{
                 const key = `${game.id}-${slot}`;
-                const assignment = gameAssignments[slot];
-
                 return (
                   <div key={slot} style={slotRow}>
                     <div style={slotLabel}>{slot===0?"Ref 1":"Ref 2"}</div>
@@ -190,9 +190,7 @@ export default function RefSchedulePage() {
                       onChange={(e)=>setSelectedRefs(prev=>({...prev,[key]:e.target.value}))}
                       style={select}
                     >
-                      <option value="">
-                        {assignment ? "Change Ref" : "Assign Ref"}
-                      </option>
+                      <option value="">Assign Ref</option>
                       {refs.map(r=>(
                         <option key={r.id} value={r.id}>
                           {r.first_name} {r.last_name}
@@ -206,7 +204,6 @@ export default function RefSchedulePage() {
                   </div>
                 );
               })}
-
             </div>
           );
         })}
@@ -216,11 +213,10 @@ export default function RefSchedulePage() {
   );
 }
 
-/* 🔥 TILE COMPONENTS */
-
+/* TILE COMPONENTS */
 function FilterTile({ label, value, active, onClick }) {
   return (
-    <button onClick={onClick} style={{...statTile, ...(active ? activeStatTile : {})}}>
+    <button onClick={onClick} style={{...statTile, ...(active?activeStatTile:{})}}>
       <div style={statValue}>{value}</div>
       <div style={statLabel}>{label}</div>
     </button>
@@ -229,93 +225,41 @@ function FilterTile({ label, value, active, onClick }) {
 
 function WeekTile({ label, active, onClick }) {
   return (
-    <button onClick={onClick} style={{...weekTile, ...(active ? activeWeekTile : {})}}>
+    <button onClick={onClick} style={{...weekTile, ...(active?activeWeekTile:{})}}>
       {label}
     </button>
   );
 }
 
-/* 🔥 STYLES */
-
+/* STYLES */
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 
-const statsGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",
-  gap:12
-};
+const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12 };
+const weekTileGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 };
 
-const weekTileGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",
-  gap:10
-};
-
-const statTile = {
-  background:"#fff",
-  borderRadius:18,
-  padding:16,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  border:"none",
-  cursor:"pointer"
-};
-
+const statTile = { background:"#fff", borderRadius:18, padding:16, boxShadow:"0 8px 24px rgba(0,0,0,0.08)", border:"none", cursor:"pointer" };
 const activeStatTile = { outline:"2px solid #16a34a" };
 
-const weekTile = {
-  background:"#fff",
-  borderRadius:14,
-  padding:12,
-  boxShadow:"0 6px 18px rgba(0,0,0,0.08)",
-  border:"none",
-  cursor:"pointer",
-  fontWeight:700
-};
-
+const weekTile = { background:"#fff", borderRadius:14, padding:12, boxShadow:"0 6px 18px rgba(0,0,0,0.08)", border:"none", cursor:"pointer", fontWeight:700 };
 const activeWeekTile = { outline:"2px solid #2563eb" };
 
 const statValue = { fontSize:22, fontWeight:800 };
 const statLabel = { fontSize:12, color:"#64748b" };
 
-const grid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",
-  gap:16
-};
+const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:16 };
 
-const card = {
-  background:"#fff",
-  borderRadius:18,
-  padding:18,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
-};
+const card = { background:"#fff", borderRadius:18, padding:18, boxShadow:"0 8px 24px rgba(0,0,0,0.08)" };
 
-const logoRow = {
-  display:"flex",
-  justifyContent:"center",
-  alignItems:"center",
-  gap:10
-};
-
+const logoRow = { display:"flex", justifyContent:"center", alignItems:"center", gap:10 };
 const logo = { width:40, height:40 };
-
 const vs = { fontWeight:700 };
 
 const gameTitle = { textAlign:"center", fontWeight:700 };
-
 const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
 
 const slotRow = { display:"flex", gap:10, marginTop:10, alignItems:"center" };
-
 const slotLabel = { width:60, fontWeight:600 };
 
 const select = { flex:1, padding:6, borderRadius:8 };
 
-const btn = {
-  padding:"6px 10px",
-  borderRadius:8,
-  border:"none",
-  background:"#16a34a",
-  color:"#fff",
-  cursor:"pointer"
-};
+const btn = { padding:"6px 10px", borderRadius:8, border:"none", background:"#16a34a", color:"#fff", cursor:"pointer" };
