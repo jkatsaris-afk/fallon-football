@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../../supabase";
+import { supabase } from "../../supabase";
 
 /* TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
@@ -14,6 +14,7 @@ import LogoLions from "../../../resources/Detroit Lions.png";
 import LogoRaiders from "../../../resources/Las Vegas Raiders.png";
 import LogoRams from "../../../resources/Los Angeles Rams.png";
 import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
+import LogoRavens from "../../../resources/Baltimore Ravens.png"; // ✅ NEW
 
 const TEAM_LOGOS = {
   "49ers": Logo49ers,
@@ -28,6 +29,7 @@ const TEAM_LOGOS = {
   Raiders: LogoRaiders,
   Rams: LogoRams,
   Steelers: LogoSteelers,
+  Ravens: LogoRavens, // ✅ NEW
 };
 
 export default function RefSchedulePage() {
@@ -66,6 +68,7 @@ export default function RefSchedulePage() {
     setLoading(false);
   };
 
+  /* GROUP */
   const assignmentsByGame = useMemo(() => {
     const map = {};
     assignments.forEach((a) => {
@@ -75,10 +78,12 @@ export default function RefSchedulePage() {
     return map;
   }, [assignments]);
 
+  /* SORT WEEKS */
   const weeks = [
     ...new Set(games.map((g) => g.week).filter(Boolean)),
   ].sort((a, b) => Number(a) - Number(b));
 
+  /* FILTER */
   const filteredGames = useMemo(() => {
     let filtered = [...games];
 
@@ -107,6 +112,7 @@ export default function RefSchedulePage() {
     return filtered;
   }, [games, filter, week, assignmentsByGame]);
 
+  /* SAFE ASSIGN (no 409) */
   const assignRef = async (gameId, slot, refereeId) => {
     const role = slot === 0 ? "Ref 1" : "Ref 2";
 
