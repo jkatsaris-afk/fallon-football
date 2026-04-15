@@ -52,45 +52,44 @@ export default function RefAvailabilityPage({ user }) {
     const map = {};
 
     data?.forEach((a) => {
-      map[a.time_block] = a.available;
+      map[a.time_block] = a.available === true; // ✅ FIX
     });
 
     setAvailability(map);
   };
 
-  /* ---------------- TOGGLE (MATCH ADMIN) ---------------- */
+  /* ---------------- TOGGLE ---------------- */
 
   const toggle = (time) => {
-    setAvailability((prev) => {
-      const current = prev?.[time];
-
-      let next;
-      if (current === true) next = false;
-      else if (current === false) next = undefined;
-      else next = true;
-
-      return {
-        ...prev,
-        [time]: next,
-      };
-    });
+    setAvailability((prev) => ({
+      ...prev,
+      [time]: !prev[time],
+    }));
   };
 
   /* ---------------- SAVE ---------------- */
 
   const save = async () => {
     for (let time of TIMES) {
-      await supabase.from("ref_availability").upsert(
-        {
-          referee_id: refId,
-          week: selectedWeek,
-          time_block: time,
-          available: availability[time] ?? null,
-        },
-        {
-          onConflict: "referee_id,week,time_block",
-        }
-      );
+      const value = availability[time];
+
+      const { error } = await supabase
+        .from("ref_availability")
+        .upsert(
+          {
+            referee_id: refId,
+            week: selectedWeek,
+            time_block: time,
+            available: value === true, // ✅ FIX (no nulls)
+          },
+          {
+            onConflict: "referee_id,week,time_block", // ✅ requires DB constraint
+          }
+        );
+
+      if (error) {
+        console.error("SAVE ERROR:", error);
+      }
     }
 
     alert("Availability Saved");
@@ -139,11 +138,9 @@ export default function RefAvailabilityPage({ user }) {
                     background:
                       value === true
                         ? "#16a34a"
-                        : value === false
-                        ? "#ef4444"
                         : "#e5e7eb",
                     color:
-                      value === true || value === false
+                      value === true
                         ? "#fff"
                         : "#111",
                   }}
