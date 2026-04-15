@@ -33,6 +33,14 @@ export default function RefLayout({ page, setPage, children }) {
           onClick={() => setPage("refTime")}
         />
 
+        {/* 🔥 NEW TAB (ONLY ADDITION) */}
+        <NavItem
+          icon={<Calendar size={22} />}
+          label="Availability"
+          active={page === "refAvailability"}
+          onClick={() => setPage("refAvailability")}
+        />
+
         <NavItem
           icon={<User size={22} />}
           label="Profile"
