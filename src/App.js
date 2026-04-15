@@ -27,6 +27,9 @@ import RefTime from "./pages/Ref/RefTime";
 import RefProfile from "./pages/Ref/RefProfile";
 
 import Dashboard from "./pages/Admin/Dashboard";
+import AutoAssignPage from "./pages/Admin/RefereeManagerPages/AutoAssignPage"; // ✅ ADDED
+import RefereeSchedulePage from "./pages/Admin/RefereeManagerPages/RefereeSchedulePage"; // ✅ ADDED
+
 import LoginModal from "./components/LoginModal";
 
 import PublicLayout from "./layouts/PublicLayout";
@@ -38,9 +41,9 @@ export default function App() {
   const [page, setPage] = useState(null);
   const [adminPage, setAdminPage] = useState("dashboard");
   const [accessDenied, setAccessDenied] = useState(false);
-  const [ready, setReady] = useState(false); // 🔥 NEW
+  const [ready, setReady] = useState(false);
 
-  /* ================= INIT (ROUTING + AUTH BLOCKING) ================= */
+  /* ================= INIT ================= */
 
   useEffect(() => {
     const init = async () => {
@@ -57,6 +60,14 @@ export default function App() {
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/login") setPage("loginSelect");
 
+      // 🔥 ADD THIS BLOCK ONLY
+      else if (path === "/admin/auto-assign") {
+        await checkAdmin();
+        setPage("autoAssign");
+        setReady(true);
+        return;
+      }
+
       else if (path.startsWith("/admin")) {
         await checkAdmin();
         setReady(true);
@@ -71,7 +82,7 @@ export default function App() {
 
       else setPage("home");
 
-      setReady(true); // 🔥 unlock render ONLY here
+      setReady(true);
     };
 
     init();
@@ -150,6 +161,11 @@ export default function App() {
     if (page === "refProfile") window.history.pushState({}, "", "/ref/profile");
 
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
+
+    // 🔥 ADD THIS LINE ONLY
+    if (page === "autoAssign")
+      window.history.pushState({}, "", "/admin/auto-assign");
+
   }, [page]);
 
   /* ================= BLOCK RENDER ================= */
@@ -168,12 +184,29 @@ export default function App() {
 
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
+      {/* 🔥 ADMIN DASHBOARD */}
       {page === "dashboard" && (
         <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
+
+          {/* KEEP YOUR ORIGINAL */}
           <Dashboard adminPage={adminPage} setAdminPage={setAdminPage} />
+
+          {/* 🔥 ADD THIS ONLY (DO NOT REMOVE DASHBOARD) */}
+          {adminPage === "refSchedule" && (
+            <RefereeSchedulePage setPage={setPage} />
+          )}
+
         </AdminLayout>
       )}
 
+      {/* 🔥 ADD THIS BLOCK ONLY */}
+      {page === "autoAssign" && (
+        <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
+          <AutoAssignPage setPage={setPage} />
+        </AdminLayout>
+      )}
+
+      {/* REF APP */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -185,6 +218,7 @@ export default function App() {
           </RefLayout>
         )}
 
+      {/* PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
