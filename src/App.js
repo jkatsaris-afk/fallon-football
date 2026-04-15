@@ -27,8 +27,8 @@ import RefTime from "./pages/Ref/RefTime";
 import RefProfile from "./pages/Ref/RefProfile";
 
 import Dashboard from "./pages/Admin/Dashboard";
-import AutoAssignPage from "./pages/Admin/RefereeManagerPages/AutoAssignPage"; // ✅ ADDED
-import RefereeSchedulePage from "./pages/Admin/RefereeManagerPages/RefereeSchedulePage"; // ✅ ADDED
+import AutoAssignPage from "./pages/Admin/RefereeManagerPages/AutoAssignPage";
+import RefereeSchedulePage from "./pages/Admin/RefereeManagerPages/RefereeSchedulePage";
 
 import LoginModal from "./components/LoginModal";
 
@@ -60,7 +60,6 @@ export default function App() {
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/login") setPage("loginSelect");
 
-      // 🔥 ADD THIS BLOCK ONLY
       else if (path === "/admin/auto-assign") {
         await checkAdmin();
         setPage("autoAssign");
@@ -162,7 +161,6 @@ export default function App() {
 
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
 
-    // 🔥 ADD THIS LINE ONLY
     if (page === "autoAssign")
       window.history.pushState({}, "", "/admin/auto-assign");
 
@@ -184,24 +182,28 @@ export default function App() {
 
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
-      {/* 🔥 ADMIN DASHBOARD */}
+      {/* 🔥 FIX: PASS setPage HERE */}
       {page === "dashboard" && (
-        <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
-
-          {/* KEEP YOUR ORIGINAL */}
+        <AdminLayout
+          adminPage={adminPage}
+          setAdminPage={setAdminPage}
+          setPage={setPage} // ✅ THIS FIXES EVERYTHING
+        >
           <Dashboard adminPage={adminPage} setAdminPage={setAdminPage} />
 
-          {/* 🔥 ADD THIS ONLY (DO NOT REMOVE DASHBOARD) */}
           {adminPage === "refSchedule" && (
             <RefereeSchedulePage setPage={setPage} />
           )}
-
         </AdminLayout>
       )}
 
-      {/* 🔥 ADD THIS BLOCK ONLY */}
+      {/* 🔥 FIX: ALSO PASS HERE */}
       {page === "autoAssign" && (
-        <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
+        <AdminLayout
+          adminPage={adminPage}
+          setAdminPage={setAdminPage}
+          setPage={setPage} // ✅ REQUIRED
+        >
           <AutoAssignPage setPage={setPage} />
         </AdminLayout>
       )}
