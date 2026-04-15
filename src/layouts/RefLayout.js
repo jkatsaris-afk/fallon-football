@@ -1,42 +1,58 @@
-import { useState } from "react";
+import { Home, Calendar, Clock, User } from "lucide-react";
 
-import RefLayout from "./RefLayout";
-
-import RefDashboard from "../pages/Ref/RefDashboard";
-import RefSchedulePage from "../pages/Ref/RefSchedulePage";
-import RefTimePage from "../pages/Ref/RefTimePage";
-import RefAvailabilityPage from "../pages/Ref/RefAvailabilityPage";
-import RefProfilePage from "../pages/Ref/RefProfilePage";
-
-export default function RefPortal({ user }) {
-  // ✅ KEEP HOME AS DEFAULT
-  const [page, setPage] = useState("refDashboard");
-
+export default function RefLayout({ page, setPage, children }) {
   return (
-    <RefLayout page={page} setPage={setPage}>
+    <div className="app-container">
 
-      {/* ✅ ONLY ONE PAGE RENDERS AT A TIME */}
+      {/* CONTENT */}
+      <div className="content">
+        {children}
+      </div>
 
-      {page === "refDashboard" && (
-        <RefDashboard user={user} />
-      )}
+      {/* NAV */}
+      <div className="nav">
 
-      {page === "refSchedule" && (
-        <RefSchedulePage user={user} />
-      )}
+        <NavItem
+          icon={<Home size={22} />}
+          label="Home"
+          active={page === "refDashboard"}
+          onClick={() => setPage("refDashboard")}
+        />
 
-      {page === "refTime" && (
-        <RefTimePage user={user} />
-      )}
+        <NavItem
+          icon={<Calendar size={22} />}
+          label="Schedule"
+          active={page === "refSchedule"}
+          onClick={() => setPage("refSchedule")}
+        />
 
-      {page === "refAvailability" && (
-        <RefAvailabilityPage user={user} />
-      )}
+        <NavItem
+          icon={<Clock size={22} />}
+          label="Time"
+          active={page === "refTime"}
+          onClick={() => setPage("refTime")}
+        />
 
-      {page === "refProfile" && (
-        <RefProfilePage user={user} />
-      )}
+        <NavItem
+          icon={<User size={22} />}
+          label="Profile"
+          active={page === "refProfile"}
+          onClick={() => setPage("refProfile")}
+        />
 
-    </RefLayout>
+      </div>
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active, onClick }) {
+  return (
+    <div
+      className={`nav-item ${active ? "active" : ""}`}
+      onClick={onClick}
+    >
+      {icon}
+      <span>{label}</span>
+    </div>
   );
 }
