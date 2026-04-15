@@ -35,7 +35,7 @@ export default function RefereeTimeSheetsPage() {
     setLoading(false);
   };
 
-  /* 🔥 GROUP */
+  /* GROUP */
   const grouped = useMemo(() => {
     const map = {};
 
@@ -52,7 +52,7 @@ export default function RefereeTimeSheetsPage() {
     return map;
   }, [checkins]);
 
-  /* 🔥 BUDGET */
+  /* BUDGET */
   const totalGames = schedule.length;
   const uniqueDays = [...new Set(schedule.map(g => g.event_date))];
 
@@ -60,7 +60,7 @@ export default function RefereeTimeSheetsPage() {
   const totalHeadRefBudget = uniqueDays.length * HEAD_REF_WEEKLY;
   const totalBudget = totalGameBudget + totalHeadRefBudget;
 
-  /* 🔥 TOTALS */
+  /* TOTALS */
   const paidTotal = checkins
     .filter(c => c.paid)
     .reduce((sum, c) => sum + GAME_PAY, 0);
@@ -93,7 +93,7 @@ export default function RefereeTimeSheetsPage() {
   const paidTotalFinal = paidTotal + headRefPaidTotal;
   const unpaidTotalFinal = unpaidTotal + headRefUnpaidTotal;
 
-  /* 🔥 PAY DAY */
+  /* PAY DAY */
   const markDatePaid = async (refId, date) => {
     const rows = checkins.filter(
       (c) =>
@@ -118,7 +118,7 @@ export default function RefereeTimeSheetsPage() {
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP TILES */}
+      {/* TOP TILES */}
       <div style={statsGrid}>
         <StatTile label="Total Games" value={totalGames} />
         <StatTile label="Game Budget" value={`$${totalGameBudget}`} />
@@ -150,12 +150,10 @@ export default function RefereeTimeSheetsPage() {
         return (
           <div key={refId} style={card}>
 
-            {/* HEADER */}
             <div style={header}>
               <div>
                 <div style={name}>
                   {ref.first_name} {ref.last_name}
-                  {/* 🔥 ROLE TAG */}
                   <span style={roleTag}>
                     {ref.is_head_ref ? "Head Ref" : ref.role || "Assistant Ref"}
                   </span>
@@ -169,7 +167,6 @@ export default function RefereeTimeSheetsPage() {
               <div style={payBox}>${refTotal}</div>
             </div>
 
-            {/* DAYS */}
             <div style={dayGrid}>
               {Object.keys(days).map((date) => {
                 const games = days[date];
@@ -199,7 +196,6 @@ export default function RefereeTimeSheetsPage() {
                       </div>
                     ))}
 
-                    {/* 🔥 UPDATED DAY TOTAL */}
                     <div style={dayTotal}>
                       ${games.length * GAME_PAY}
                       {ref.is_head_ref && games.length > 0 && " + $20 Head Ref"}
@@ -230,7 +226,115 @@ export default function RefereeTimeSheetsPage() {
   );
 }
 
-/* 🔥 NEW STYLE */
+/* TILE */
+function StatTile({ label, value }) {
+  return (
+    <div style={tile}>
+      <div style={tileValue}>{value}</div>
+      <div style={tileLabel}>{label}</div>
+    </div>
+  );
+}
+
+/* STYLES */
+
+const wrap = { display:"flex", flexDirection:"column", gap:20, padding:20 };
+
+const statsGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
+  gap:14
+};
+
+const tile = {
+  background:"#fff",
+  borderRadius:18,
+  padding:18,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const tileValue = { fontSize:22, fontWeight:800 };
+const tileLabel = { fontSize:12, color:"#64748b" };
+
+const title = { fontSize:24, fontWeight:700 };
+
+const card = {
+  background:"#fff",
+  borderRadius:18,
+  padding:18,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const header = {
+  display:"flex",
+  justifyContent:"space-between",
+  flexWrap:"wrap",
+  marginBottom:10
+};
+
+const name = { fontWeight:700 };
+const sub = { fontSize:13, color:"#64748b" };
+
+const payBox = {
+  fontSize:22,
+  fontWeight:800,
+  color:"#16a34a"
+};
+
+const dayGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(220px,1fr))",
+  gap:12
+};
+
+const dayCard = {
+  background:"#f8fafc",
+  borderRadius:12,
+  padding:12,
+  border:"1px solid #e5e7eb"
+};
+
+const dayHeader = {
+  display:"flex",
+  justifyContent:"space-between",
+  fontWeight:700
+};
+
+const gameRow = {
+  display:"flex",
+  justifyContent:"space-between",
+  fontSize:13,
+  marginTop:4
+};
+
+const dayTotal = {
+  marginTop:8,
+  fontWeight:700,
+  color:"#16a34a",
+  fontSize:13
+};
+
+const paidBadge = {
+  marginTop:10,
+  background:"rgba(34,197,94,0.12)",
+  color:"#166534",
+  padding:"6px 10px",
+  borderRadius:999,
+  fontSize:12,
+  fontWeight:700,
+  textAlign:"center"
+};
+
+const payBtn = {
+  marginTop:10,
+  background:"rgba(34,197,94,0.12)",
+  color:"#166534",
+  border:"1px solid rgba(34,197,94,0.25)",
+  padding:"8px 12px",
+  borderRadius:10,
+  cursor:"pointer"
+};
+
 const roleTag = {
   marginLeft: 8,
   fontSize: 11,
