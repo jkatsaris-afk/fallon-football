@@ -25,6 +25,7 @@ import RefDashboard from "./pages/Ref/RefDashboard";
 import RefSchedule from "./pages/Ref/RefSchedule";
 import RefTime from "./pages/Ref/RefTime";
 import RefProfile from "./pages/Ref/RefProfile";
+import RefAvailabilityPage from "./pages/Ref/RefAvailabilityPage"; // ✅ ADDED
 
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
@@ -38,9 +39,7 @@ export default function App() {
   const [page, setPage] = useState(null);
   const [adminPage, setAdminPage] = useState("dashboard");
   const [accessDenied, setAccessDenied] = useState(false);
-  const [ready, setReady] = useState(false); // 🔥 NEW
-
-  /* ================= INIT (ROUTING + AUTH BLOCKING) ================= */
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -71,13 +70,11 @@ export default function App() {
 
       else setPage("home");
 
-      setReady(true); // 🔥 unlock render ONLY here
+      setReady(true);
     };
 
     init();
   }, []);
-
-  /* ================= AUTH ================= */
 
   const checkAdmin = async () => {
     const { data } = await supabase.auth.getUser();
@@ -113,8 +110,6 @@ export default function App() {
     setPage("refDashboard");
   };
 
-  /* ================= AUTH LISTENER ================= */
-
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_, session) => {
@@ -135,8 +130,6 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  /* ================= URL SYNC ================= */
-
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
     if (page === "signup") window.history.pushState({}, "", "/signup");
@@ -147,16 +140,13 @@ export default function App() {
     if (page === "refDashboard") window.history.pushState({}, "", "/ref");
     if (page === "refSchedule") window.history.pushState({}, "", "/ref/schedule");
     if (page === "refTime") window.history.pushState({}, "", "/ref/time");
+    if (page === "refAvailability") window.history.pushState({}, "", "/ref/availability"); // ✅ ADDED
     if (page === "refProfile") window.history.pushState({}, "", "/ref/profile");
 
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
   }, [page]);
 
-  /* ================= BLOCK RENDER ================= */
-
   if (!ready || page === null) return <LoadingScreen />;
-
-  /* ================= UI ================= */
 
   return (
     <>
@@ -181,6 +171,7 @@ export default function App() {
             {page === "refDashboard" && <RefDashboard />}
             {page === "refSchedule" && <RefSchedule />}
             {page === "refTime" && <RefTime />}
+            {page === "refAvailability" && <RefAvailabilityPage />} {/* ✅ ADDED */}
             {page === "refProfile" && <RefProfile />}
           </RefLayout>
         )}
