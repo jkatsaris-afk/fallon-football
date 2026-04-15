@@ -34,7 +34,7 @@ const TEAM_LOGOS = {
 };
 
 export default function RefSchedulePage() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // 🔥 FIXED
 
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
@@ -143,14 +143,14 @@ export default function RefSchedulePage() {
   return (
     <div style={wrap}>
 
-      {/* 🔥 TOP TILE ROW (UPDATED) */}
+      {/* 🔥 TOP TILE ROW */}
       <div style={statsGrid}>
         <FilterTile label="All" value={games.length} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Open" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===0).length} active={filter==="open"} onClick={()=>setFilter("open")} />
         <FilterTile label="1 Ref" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===1).length} active={filter==="partial"} onClick={()=>setFilter("partial")} />
         <FilterTile label="2 Refs" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length>=2).length} active={filter==="full"} onClick={()=>setFilter("full")} />
 
-        {/* 🔥 AUTO ASSIGN MOVED HERE */}
+        {/* 🔥 AUTO ASSIGN TILE */}
         <ActionTile
           label="Auto Assign"
           desc="Run scheduling workflow"
@@ -166,7 +166,7 @@ export default function RefSchedulePage() {
         ))}
       </div>
 
-      {/* GAME GRID (UNCHANGED) */}
+      {/* GAME GRID */}
       <div style={grid}>
         {filteredGames.map((game)=>{
           const homeLogo = TEAM_LOGOS[game.team];
@@ -182,7 +182,6 @@ export default function RefSchedulePage() {
 
               <div style={gameTitle}>{game.team} vs {game.opponent}</div>
               <div style={gameMeta}>Week {game.week} • {game.time} • {game.field}</div>
-              <div style={divisionBadge}>{game.division || "No Division"}</div>
 
               {[0,1].map((slot)=>{
                 const role = slot === 0 ? "Ref 1" : "Ref 2";
@@ -256,6 +255,7 @@ export default function RefSchedulePage() {
 }
 
 /* COMPONENTS */
+
 function FilterTile({ label, value, active, onClick }) {
   return (
     <button onClick={onClick} style={{...statTile, ...(active?activeStatTile:{})}}>
@@ -282,7 +282,8 @@ function WeekTile({ label, active, onClick }) {
   );
 }
 
-/* STYLES (UNCHANGED) */
+/* STYLES */
+
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12 };
 const weekTileGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 };
@@ -310,8 +311,6 @@ const vs = { fontWeight:700 };
 
 const gameTitle = { textAlign:"center", fontWeight:700 };
 const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
-
-const divisionBadge = { marginTop:8, background:"rgba(59,130,246,0.12)", color:"#1d4ed8", padding:"4px 10px", borderRadius:999, fontSize:12, textAlign:"center" };
 
 const slotRow = { display:"flex", gap:10, marginTop:10 };
 const slotLabel = { width:60 };
