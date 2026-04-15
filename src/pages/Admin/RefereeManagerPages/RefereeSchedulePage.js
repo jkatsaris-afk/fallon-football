@@ -14,7 +14,7 @@ import LogoLions from "../../../resources/Detroit Lions.png";
 import LogoRaiders from "../../../resources/Las Vegas Raiders.png";
 import LogoRams from "../../../resources/Los Angeles Rams.png";
 import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
-import LogoRavens from "../../../resources/Baltimore Ravens.png"; // ✅ NEW
+import LogoRavens from "../../../resources/Baltimore Ravens.png";
 
 const TEAM_LOGOS = {
   "49ers": Logo49ers,
@@ -29,7 +29,7 @@ const TEAM_LOGOS = {
   Raiders: LogoRaiders,
   Rams: LogoRams,
   Steelers: LogoSteelers,
-  Ravens: LogoRavens, // ✅ NEW
+  Ravens: LogoRavens,
 };
 
 export default function RefSchedulePage() {
@@ -40,6 +40,7 @@ export default function RefSchedulePage() {
   const [week, setWeek] = useState("all");
   const [selectedRefs, setSelectedRefs] = useState({});
   const [loading, setLoading] = useState(true);
+  const [showAvailability, setShowAvailability] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -68,7 +69,6 @@ export default function RefSchedulePage() {
     setLoading(false);
   };
 
-  /* GROUP */
   const assignmentsByGame = useMemo(() => {
     const map = {};
     assignments.forEach((a) => {
@@ -78,12 +78,10 @@ export default function RefSchedulePage() {
     return map;
   }, [assignments]);
 
-  /* SORT WEEKS */
   const weeks = [
     ...new Set(games.map((g) => g.week).filter(Boolean)),
   ].sort((a, b) => Number(a) - Number(b));
 
-  /* FILTER */
   const filteredGames = useMemo(() => {
     let filtered = [...games];
 
@@ -112,7 +110,6 @@ export default function RefSchedulePage() {
     return filtered;
   }, [games, filter, week, assignmentsByGame]);
 
-  /* SAFE ASSIGN (no 409) */
   const assignRef = async (gameId, slot, refereeId) => {
     const role = slot === 0 ? "Ref 1" : "Ref 2";
 
@@ -139,6 +136,34 @@ export default function RefSchedulePage() {
     loadData();
   };
 
+  const autoAssignWeek = async () => {
+    const gamesToAssign =
+      week === "all"
+        ? games
+        : games.filter((g) => String(g.week) === String(week));
+
+    for (const game of gamesToAssign) {
+      const existing = assignmentsByGame[game.id] || [];
+
+      const neededSlots = [0, 1].slice(existing.length);
+
+      for (const slot of neededSlots) {
+        const availableRef = refs.find((r) => {
+          const alreadyAssigned = existing.some(
+            (a) => a.referee_id === r.id
+          );
+          return !alreadyAssigned;
+        });
+
+        if (!availableRef) continue;
+
+        await assignRef(game.id, slot, availableRef.id);
+      }
+    }
+
+    loadData();
+  };
+
   if (loading) return <div style={wrap}>Loading...</div>;
 
   return (
@@ -150,6 +175,21 @@ export default function RefSchedulePage() {
         <FilterTile label="Open" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===0).length} active={filter==="open"} onClick={()=>setFilter("open")} />
         <FilterTile label="1 Ref" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===1).length} active={filter==="partial"} onClick={()=>setFilter("partial")} />
         <FilterTile label="2 Refs" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length>=2).length} active={filter==="full"} onClick={()=>setFilter("full")} />
+      </div>
+
+      {/* BIG ACTION TILES */}
+      <div style={actionTileWrap}>
+        <button style={bigActionTile} onClick={autoAssignWeek}>
+          <div style={bigActionTitle}>Auto Assign</div>
+          <div style={bigActionDesc}>
+            Assign refs for {week === "all" ? "all weeks" : `Week ${week}`}
+          </div>
+        </button>
+
+        <button style={bigSecondaryTile} onClick={() => setShowAvailability(true)}>
+          <div style={bigActionTitle}>Ref Availability</div>
+          <div style={bigActionDesc}>Manage weekly availability</div>
+        </button>
       </div>
 
       {/* WEEK TILES */}
@@ -168,7 +208,6 @@ export default function RefSchedulePage() {
 
           return (
             <div key={game.id} style={card}>
-
               <div style={logoRow}>
                 {homeLogo && <img src={homeLogo} style={logo} />}
                 <div style={vs}>VS</div>
@@ -177,7 +216,6 @@ export default function RefSchedulePage() {
 
               <div style={gameTitle}>{game.team} vs {game.opponent}</div>
               <div style={gameMeta}>Week {game.week} • {game.time} • {game.field}</div>
-
               <div style={divisionBadge}>{game.division || "No Division"}</div>
 
               {[0,1].map((slot)=>{
@@ -190,7 +228,6 @@ export default function RefSchedulePage() {
 
                 return (
                   <div key={slot} style={slotRow}>
-
                     <div style={slotLabel}>{role}</div>
 
                     {!isEditing && assignedRef && (
@@ -216,9 +253,7 @@ export default function RefSchedulePage() {
                         autoFocus
                         value={selectedRefs[key]}
                         onChange={async (e)=>{
-                          const value = e.target.value;
-                          await assignRef(game.id, slot, value);
-
+                          await assignRef(game.id, slot, e.target.value);
                           setSelectedRefs(prev=>{
                             const copy = {...prev};
                             delete copy[key];
@@ -242,7 +277,6 @@ export default function RefSchedulePage() {
                         ))}
                       </select>
                     )}
-
                   </div>
                 );
               })}
@@ -250,6 +284,25 @@ export default function RefSchedulePage() {
           );
         })}
       </div>
+
+      {/* MODAL */}
+      {showAvailability && (
+        <div style={modalOverlay}>
+          <div style={modalCard}>
+            <div style={modalTitle}>Ref Availability</div>
+
+            {refs.map((r) => (
+              <div key={r.id} style={modalRow}>
+                {r.first_name} {r.last_name}
+                <input type="checkbox" defaultChecked />
+              </div>
+            ))}
+
+            <button onClick={() => setShowAvailability(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -276,11 +329,18 @@ function WeekTile({ label, active, onClick }) {
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12 };
 const weekTileGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 };
+const actionTileWrap = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 };
 
-const statTile = { background:"#fff", borderRadius:18, padding:16, boxShadow:"0 8px 24px rgba(0,0,0,0.08)", border:"none", cursor:"pointer" };
+const bigActionTile = { background:"#16a34a", color:"#fff", borderRadius:20, padding:20, border:"none", cursor:"pointer" };
+const bigSecondaryTile = { background:"#2563eb", color:"#fff", borderRadius:20, padding:20, border:"none", cursor:"pointer" };
+
+const bigActionTitle = { fontSize:20, fontWeight:800 };
+const bigActionDesc = { fontSize:12, marginTop:6 };
+
+const statTile = { background:"#fff", borderRadius:18, padding:16, boxShadow:"0 8px 24px rgba(0,0,0,0.08)", border:"none" };
 const activeStatTile = { outline:"2px solid #16a34a" };
 
-const weekTile = { background:"#fff", borderRadius:14, padding:12, boxShadow:"0 6px 18px rgba(0,0,0,0.08)", border:"none", cursor:"pointer", fontWeight:700 };
+const weekTile = { background:"#fff", borderRadius:14, padding:12, boxShadow:"0 6px 18px rgba(0,0,0,0.08)", border:"none", fontWeight:700 };
 const activeWeekTile = { outline:"2px solid #2563eb" };
 
 const statValue = { fontSize:22, fontWeight:800 };
@@ -290,20 +350,24 @@ const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px
 
 const card = { background:"#fff", borderRadius:18, padding:18, boxShadow:"0 8px 24px rgba(0,0,0,0.08)" };
 
-const logoRow = { display:"flex", justifyContent:"center", alignItems:"center", gap:10 };
-const logo = { width:40, height:40 };
+const logoRow = { display:"flex", justifyContent:"center", gap:10 };
+const logo = { width:40 };
 const vs = { fontWeight:700 };
 
 const gameTitle = { textAlign:"center", fontWeight:700 };
 const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
 
-const divisionBadge = { marginTop:8, background:"rgba(59,130,246,0.12)", color:"#1d4ed8", padding:"4px 10px", borderRadius:999, fontSize:12, fontWeight:600, textAlign:"center" };
+const divisionBadge = { marginTop:8, background:"rgba(59,130,246,0.12)", color:"#1d4ed8", padding:"4px 10px", borderRadius:999, fontSize:12, textAlign:"center" };
 
-const slotRow = { display:"flex", gap:10, marginTop:10, alignItems:"center" };
-const slotLabel = { width:60, fontWeight:600 };
+const slotRow = { display:"flex", gap:10, marginTop:10 };
+const slotLabel = { width:60 };
 
-const select = { flex:1, padding:6, borderRadius:8 };
+const select = { flex:1 };
 
-const assignedRefBox = { flex:1, background:"#f1f5f9", padding:"6px 10px", borderRadius:8, cursor:"pointer" };
+const assignedRefBox = { flex:1, background:"#f1f5f9", padding:6, borderRadius:8 };
+const assignBtn = { flex:1, background:"#dcfce7", padding:6, borderRadius:8, textAlign:"center" };
 
-const assignBtn = { flex:1, background:"rgba(22,163,74,0.12)", color:"#166534", padding:"6px 10px", borderRadius:8, cursor:"pointer", textAlign:"center", fontWeight:600 };
+const modalOverlay = { position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.5)", display:"flex", justifyContent:"center", alignItems:"center" };
+const modalCard = { background:"#fff", padding:20, borderRadius:18, width:400 };
+const modalTitle = { fontWeight:800 };
+const modalRow = { display:"flex", justifyContent:"space-between", marginTop:10 };
