@@ -32,8 +32,7 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-export default function RefSchedulePage({ setPage }) { // 🔥 IMPORTANT
-
+export default function RefereeSchedulePage({ setPage }) {
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -148,10 +147,10 @@ export default function RefSchedulePage({ setPage }) { // 🔥 IMPORTANT
         <FilterTile label="1 Ref" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===1).length} active={filter==="partial"} onClick={()=>setFilter("partial")} />
         <FilterTile label="2 Refs" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length>=2).length} active={filter==="full"} onClick={()=>setFilter("full")} />
 
-        {/* 🔥 WORKING BUTTON */}
+        {/* 🔥 SIMPLE WORKING BUTTON */}
         <ActionTile
           label="Auto Assign"
-          desc="Run scheduling workflow"
+          desc="Open workflow"
           onClick={() => setPage("autoAssign")}
         />
       </div>
@@ -167,7 +166,6 @@ export default function RefSchedulePage({ setPage }) { // 🔥 IMPORTANT
       {/* GAME GRID */}
       <div style={grid}>
         {filteredGames.map((game)=>{
-
           const homeLogo = TEAM_LOGOS[game.team];
           const awayLogo = TEAM_LOGOS[game.opponent];
 
@@ -188,7 +186,6 @@ export default function RefSchedulePage({ setPage }) { // 🔥 IMPORTANT
                 Week {game.week} • {game.time} • {game.field}
               </div>
 
-              {/* 🔥 DIVISION BACK */}
               <div style={divisionBadge}>
                 {game.division || "No Division"}
               </div>
@@ -263,7 +260,8 @@ export default function RefSchedulePage({ setPage }) { // 🔥 IMPORTANT
   );
 }
 
-/* COMPONENTS */
+/* COMPONENTS + STYLES (unchanged) */
+
 function FilterTile({ label, value, active, onClick }) {
   return (
     <button onClick={onClick} style={{...statTile, ...(active?activeStatTile:{})}}>
