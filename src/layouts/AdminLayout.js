@@ -13,7 +13,7 @@ export default function AdminLayout({
   adminPage,
   setAdminPage,
   children,
-  setPage
+  setPage // 🔥 stays
 }) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -24,9 +24,18 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // 🔥 SAFE NAV FUNCTION (FIX)
+  const go = (p) => {
+    if (typeof setPage === "function") {
+      setPage(p);
+    } else {
+      console.error("setPage is not defined");
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
-    setPage("home");
+    go("home"); // 🔥 FIXED
   };
 
   return (
@@ -60,7 +69,6 @@ export default function AdminLayout({
           </button>
         </div>
 
-        {/* 🔥 FIX IS HERE */}
         <div
           style={content}
           onMouseDown={(e) => e.stopPropagation()}
