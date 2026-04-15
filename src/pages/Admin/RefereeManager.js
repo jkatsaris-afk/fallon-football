@@ -5,7 +5,7 @@ import RefereeStaffPage from "./RefereeManagerPages/RefereeStaffPage";
 import RefereeSchedulePage from "./RefereeManagerPages/RefereeSchedulePage";
 import RefereeTimeSheetsPage from "./RefereeManagerPages/RefereeTimeSheetsPage";
 
-// 🔥 CHANGED: replaced HeadRefPage import
+// 🔥 REPLACED HeadRefPage
 import AutoAssignPage from "./RefereeManagerPages/AutoAssignPage";
 
 export default function RefereeManager() {
@@ -54,36 +54,21 @@ export default function RefereeManager() {
   };
 
   const updateStatus = async (id, status) => {
-    const { error } = await supabase
-      .from("referees")
-      .update({ status })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error updating referee status:", error);
-      return;
-    }
-
+    await supabase.from("referees").update({ status }).eq("id", id);
     loadRefs();
   };
 
   const updateRole = async (ref, newRole) => {
-    const { error } = await supabase
+    await supabase
       .from("referees")
       .update({
         role: newRole === "head" ? "Head Ref" : "Assistant Ref",
       })
       .eq("id", ref.id);
 
-    if (error) {
-      console.error("Error updating referee role:", error);
-      return;
-    }
-
     loadRefs();
   };
 
-  /* 🔥 CHANGED: replaced "head" case with autoAssign */
   const renderSelectedPage = () => {
     try {
       switch (view) {
@@ -124,7 +109,6 @@ export default function RefereeManager() {
       }
     } catch (err) {
       console.error("Referee Manager crash:", err);
-
       return (
         <div style={{ padding: 20, color: "red" }}>
           ⚠️ Page crashed — check console
@@ -140,7 +124,7 @@ export default function RefereeManager() {
           <div>
             <h1 style={title}>Referee Manager</h1>
             <div style={subtitle}>
-              Manage referee staff, assignments, leadership, and payroll items.
+              Manage referee staff, assignments, and payroll items.
             </div>
           </div>
         </div>
@@ -160,7 +144,7 @@ export default function RefereeManager() {
             onClick={() => setView("schedule")}
           />
 
-          {/* 🔥 CHANGED TILE */}
+          {/* 🔥 REPLACED TILE */}
           <ManagerTile
             title="Auto Assign Wizard"
             desc="Automatically assign referees"
@@ -182,4 +166,110 @@ export default function RefereeManager() {
   );
 }
 
-/* UI BELOW UNCHANGED */
+/* 🔥 UI (RESTORED — THIS FIXES YOUR ERROR) */
+
+function ManagerTile({ title, desc, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...tile,
+        ...(active ? activeTile : {}),
+      }}
+    >
+      <div style={tileTitle}>{title}</div>
+      <div style={tileDesc}>{desc}</div>
+    </button>
+  );
+}
+
+const pageWrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
+
+const topSection = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
+};
+
+const titleRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const title = {
+  margin: 0,
+  fontSize: "28px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const subtitle = {
+  marginTop: 6,
+  color: "#64748b",
+  fontSize: "14px",
+};
+
+const tileGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 16,
+};
+
+const tile = {
+  textAlign: "left",
+  border: "none",
+  borderRadius: 18,
+  background: "#ffffff",
+  padding: 18,
+  cursor: "pointer",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  minHeight: 100,
+};
+
+const activeTile = {
+  outline: "2px solid #16a34a",
+  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
+};
+
+const tileTitle = {
+  fontSize: "16px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const tileDesc = {
+  marginTop: 8,
+  fontSize: "13px",
+  color: "#64748b",
+  lineHeight: 1.4,
+};
+
+const contentWrap = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const emptyStateCard = {
+  background: "#ffffff",
+  borderRadius: 18,
+  padding: 24,
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+};
+
+const emptyTitle = {
+  fontSize: "20px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const emptyText = {
+  marginTop: 8,
+  color: "#64748b",
+  fontSize: "14px",
+};
