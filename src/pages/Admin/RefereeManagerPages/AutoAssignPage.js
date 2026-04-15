@@ -25,7 +25,14 @@ export default function AutoAssignPage() {
     }
   }, [selectedWeek]);
 
-  /* ---------------- LOAD DATA ---------------- */
+  /* ---------------- HELPERS ---------------- */
+
+  const normalizeTime = (t) => {
+    if (!t) return null;
+    return t.replace(" AM", "").replace(" PM", "");
+  };
+
+  /* ---------------- LOAD ---------------- */
 
   const loadWeeks = async () => {
     const { data } = await supabase
@@ -86,23 +93,17 @@ export default function AutoAssignPage() {
   const saveAvailability = async () => {
     for (let refId in availability) {
       for (let time of TIMES) {
-        const { error } = await supabase
-          .from("ref_availability")
-          .upsert(
-            {
-              referee_id: refId,
-              week: selectedWeek,
-              time_block: time, // ✅ FIXED
-              available: availability[refId]?.[time] || false,
-            },
-            {
-              onConflict: "referee_id,week,time_block", // ✅ FIXED
-            }
-          );
-
-        if (error) {
-          console.error("Availability save error:", error);
-        }
+        await supabase.from("ref_availability").upsert(
+          {
+            referee_id: refId,
+            week: selectedWeek,
+            time_block: time,
+            available: availability[refId]?.[time] || false,
+          },
+          {
+            onConflict: "referee_id,week,time_block",
+          }
+        );
       }
     }
 
@@ -113,16 +114,30 @@ export default function AutoAssignPage() {
 
   const autoAssign = () => {
     let usage = {};
+    let assignedByTime = {};
 
     const result = games.map((game) => {
+      const gameTime = normalizeTime(game.event_time);
+
+      if (!assignedByTime[gameTime]) {
+        assignedByTime[gameTime] = new Set();
+      }
+
       const availableRefs = refs
-        .filter((ref) => availability?.[ref.id]?.[game.time])
+        .filter((ref) => {
+          const a = availability[ref.id];
+          return (
+            a?.[gameTime] &&
+            !assignedByTime[gameTime].has(ref.id)
+          );
+        })
         .sort((a, b) => (usage[a.id] || 0) - (usage[b.id] || 0));
 
       const selected = availableRefs.slice(0, 2);
 
       selected.forEach((r) => {
         usage[r.id] = (usage[r.id] || 0) + 1;
+        assignedByTime[gameTime].add(r.id);
       });
 
       return {
@@ -132,6 +147,7 @@ export default function AutoAssignPage() {
       };
     });
 
+    console.log("Assignments:", result);
     setAssignments(result);
     setStep(3);
   };
@@ -141,13 +157,15 @@ export default function AutoAssignPage() {
   const saveAssignments = async () => {
     for (let a of assignments) {
       for (let i = 0; i < a.refs.length; i++) {
+        const ref = a.refs[i];
+
         const { error } = await supabase
           .from("ref_assignments")
           .upsert(
             {
               game_id: a.gameId,
-              referee_id: a.refs[i].id,
-              role: i === 0 ? "Ref 1" : "Ref 2",
+              referee_id: ref.id,
+              role: i === 0 ? "ref1" : "ref2",
             },
             {
               onConflict: "game_id,role",
@@ -155,12 +173,12 @@ export default function AutoAssignPage() {
           );
 
         if (error) {
-          console.error("Assignment error:", error);
+          console.error("Assignment save error:", error);
         }
       }
     }
 
-    alert("Assignments Saved");
+    alert("Assignments Saved!");
   };
 
   /* ---------------- UI ---------------- */
@@ -242,15 +260,27 @@ export default function AutoAssignPage() {
           <div style={grid}>
             {assignments.map((a) => (
               <div key={a.gameId} style={card}>
-                <div style={name}>
+                <div style={gameTitle}>
                   {a.game.team} vs {a.game.opponent}
                 </div>
 
-                {a.refs.map((r, i) => (
-                  <div key={i}>
-                    Ref {i + 1}: {r.first_name}
-                  </div>
-                ))}
+                <div style={gameMeta}>
+                  {a.game.division} • {a.game.event_time}
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  {a.refs.length === 0 && (
+                    <div style={{ color: "red" }}>
+                      ⚠️ No refs available
+                    </div>
+                  )}
+
+                  {a.refs.map((r, i) => (
+                    <div key={i}>
+                      Ref {i + 1}: {r.first_name} {r.last_name}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -264,7 +294,7 @@ export default function AutoAssignPage() {
   );
 }
 
-/* ---------------- CLEAN UI ---------------- */
+/* ---------------- UI ---------------- */
 
 const wrap = { padding: 20 };
 
@@ -277,7 +307,7 @@ const stepGrid = {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+  gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
   gap: 12,
 };
 
@@ -322,6 +352,15 @@ const primaryBtn = {
   background: "#16a34a",
   color: "#fff",
   cursor: "pointer",
+};
+
+const gameTitle = {
+  fontWeight: 700,
+};
+
+const gameMeta = {
+  fontSize: 12,
+  color: "#64748b",
 };
 
 function StepTile({ label, active, onClick }) {
