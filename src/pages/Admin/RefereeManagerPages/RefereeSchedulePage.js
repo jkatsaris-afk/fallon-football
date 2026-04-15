@@ -1,193 +1,236 @@
-// 🔥 FULL FILE — SAFE TO COPY/PASTE
-
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../../supabase";
+import { supabase } from "../../supabase";
 
-import Logo49ers from "../../../resources/San Francisco 49ers.png";
-import LogoBengals from "../../../resources/Cincinnati Bengals.png";
-import LogoBills from "../../../resources/Buffalo Bills.png";
-import LogoBroncos from "../../../resources/Denver Broncos.png";
-import LogoChiefs from "../../../resources/Kansas City Chiefs.png";
-import LogoColts from "../../../resources/Indianapolis Colts.png";
-import LogoEagles from "../../../resources/Philadelphia Eagles.png";
-import LogoJets from "../../../resources/New York Jets.png";
-import LogoLions from "../../../resources/Detroit Lions.png";
-import LogoRaiders from "../../../resources/Las Vegas Raiders.png";
-import LogoRams from "../../../resources/Los Angeles Rams.png";
-import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
-
-const TEAM_LOGOS = {
-  "49ers": Logo49ers,
-  Bengals: LogoBengals,
-  Bills: LogoBills,
-  Broncos: LogoBroncos,
-  Chiefs: LogoChiefs,
-  Colts: LogoColts,
-  Eagles: LogoEagles,
-  Jets: LogoJets,
-  Lions: LogoLions,
-  Raiders: LogoRaiders,
-  Rams: LogoRams,
-  Steelers: LogoSteelers,
-};
-
-export default function RefereeSchedulePage() {
+export default function RefSchedulePage() {
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
-  const [teams, setTeams] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [week, setWeek] = useState("all");
   const [selectedRefs, setSelectedRefs] = useState({});
-  const [filter, setFilter] = useState("all");
-  const [weekFilter, setWeekFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState(null);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    loadPageData();
+    loadData();
   }, []);
 
-  const loadPageData = async () => {
+  const loadData = async () => {
     setLoading(true);
-    setMessage("");
 
-    const [gamesRes, refsRes, assignmentsRes, teamsRes] = await Promise.all([
-      supabase.from("schedule_master_auto").select("*").ilike("event_type", "%game%"),
-      supabase.from("referees").select("*").eq("status", "approved"),
-      supabase.from("ref_assignments").select("*, referees(*)"),
-      supabase.from("teams").select("id, name"),
-    ]);
+    const { data: gameData } = await supabase
+      .from("schedule_master_auto")
+      .select("*")
+      .ilike("event_type", "%game%");
 
-    setGames(gamesRes.data || []);
-    setRefs(refsRes.data || []);
-    setAssignments(assignmentsRes.data || []);
-    setTeams(teamsRes.data || []);
+    const { data: refData } = await supabase
+      .from("referees")
+      .select("*")
+      .eq("status", "approved");
+
+    const { data: assignmentData } = await supabase
+      .from("ref_assignments")
+      .select("*");
+
+    setGames(gameData || []);
+    setRefs(refData || []);
+    setAssignments(assignmentData || []);
     setLoading(false);
   };
 
+  /* GROUP ASSIGNMENTS */
   const assignmentsByGame = useMemo(() => {
     const map = {};
     assignments.forEach((a) => {
-      if (!a.game_id) return; // ✅ FIX
       if (!map[a.game_id]) map[a.game_id] = [];
       map[a.game_id].push(a);
     });
     return map;
   }, [assignments]);
 
-  const getAssignmentsForGame = (gameId) => assignmentsByGame[gameId] || [];
+  /* WEEK FILTER */
+  const weeks = [...new Set(games.map((g) => g.week).filter(Boolean))];
 
-  const getRefName = (ref) =>
-    `${ref?.first_name || ""} ${ref?.last_name || ""}`.trim();
+  const filteredGames =
+    week === "all" ? games : games.filter((g) => g.week === week);
 
-  const getRefConflictReason = (ref, game, excludeId = null) => {
-    const sameTime = assignments.some((a) => {
-      if (a.referee_id !== ref.id) return false;
-      if (excludeId && a.id === excludeId) return false;
-
-      const g = games.find((x) => x.id === a.game_id); // ✅ FIX
-      if (!g) return false;
-
-      return g.event_date === game.event_date && g.time === game.time;
-    });
-
-    if (sameTime) return "Already assigned same time";
-    return null;
-  };
-
-  const assignRefToSlot = async (game, slotIndex) => {
-    const key = `${game.id}-${slotIndex}`;
+  /* ASSIGN REF */
+  const assignRef = async (gameId, slot) => {
+    const key = `${gameId}-${slot}`;
     const refereeId = selectedRefs[key];
     if (!refereeId) return;
 
-    const currentAssignments = getAssignmentsForGame(game.id);
-    const currentAssignment = currentAssignments[slotIndex] || null;
+    const existing = assignmentsByGame[gameId] || [];
+    const current = existing[slot];
 
-    setSavingKey(key);
-
-    let error;
-
-    if (currentAssignment) {
-      const res = await supabase
+    if (current) {
+      await supabase
         .from("ref_assignments")
         .update({ referee_id: refereeId })
-        .eq("id", currentAssignment.id);
-
-      error = res.error;
+        .eq("id", current.id);
     } else {
-      const res = await supabase.from("ref_assignments").insert({
-        game_id: game.id, // ✅ FIX
+      await supabase.from("ref_assignments").insert({
+        game_id: gameId,
         referee_id: refereeId,
-        role: slotIndex === 0 ? "Ref 1" : "Ref 2", // ✅ FIX
+        role: slot === 0 ? "Ref 1" : "Ref 2",
       });
-
-      error = res.error;
     }
 
-    if (error) {
-      console.error(error);
-      setMessage("Error saving assignment");
-      setSavingKey(null);
-      return;
-    }
-
-    await loadPageData();
-    setSavingKey(null);
+    loadData();
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div style={wrap}>Loading...</div>;
 
   return (
-    <div>
-      {games.map((game) => {
-        const gameAssignments = getAssignmentsForGame(game.id);
+    <div style={wrap}>
 
-        return (
-          <div key={game.id}>
-            <h3>
-              {game.team} vs {game.opponent}
-            </h3>
+      {/* FILTER TILE */}
+      <div style={filterRow}>
+        <select
+          value={week}
+          onChange={(e) => setWeek(e.target.value)}
+          style={select}
+        >
+          <option value="all">All Weeks</option>
+          {weeks.map((w) => (
+            <option key={w} value={w}>
+              Week {w}
+            </option>
+          ))}
+        </select>
+      </div>
 
-            {[0, 1].map((slotIndex) => {
-              const assignment = gameAssignments[slotIndex];
-              const assignedRef = assignment?.referees;
+      {/* GAME TILES */}
+      <div style={grid}>
+        {filteredGames.map((game) => {
+          const gameAssignments = assignmentsByGame[game.id] || [];
 
-              const key = `${game.id}-${slotIndex}`;
+          return (
+            <div key={game.id} style={card}>
 
-              return (
-                <div key={slotIndex}>
-                  <div>
-                    {assignedRef
-                      ? getRefName(assignedRef)
-                      : "No referee assigned"}
-                  </div>
-
-                  <select
-                    value={selectedRefs[key] || ""}
-                    onChange={(e) =>
-                      setSelectedRefs((p) => ({
-                        ...p,
-                        [key]: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">Select ref</option>
-                    {refs.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {getRefName(r)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button onClick={() => assignRefToSlot(game, slotIndex)}>
-                    {savingKey === key ? "Saving..." : "Assign"}
-                  </button>
+              <div style={gameHeader}>
+                <div style={gameTitle}>
+                  {game.team} vs {game.opponent}
                 </div>
-              );
-            })}
-          </div>
-        );
-      })}
+                <div style={gameMeta}>
+                  {game.event_date} • {game.time} • {game.field}
+                </div>
+              </div>
+
+              {/* REF SLOTS */}
+              {[0, 1].map((slot) => {
+                const assignment = gameAssignments[slot];
+                const key = `${game.id}-${slot}`;
+
+                return (
+                  <div key={slot} style={slotRow}>
+
+                    <div style={slotLabel}>
+                      {slot === 0 ? "Ref 1" : "Ref 2"}
+                    </div>
+
+                    <select
+                      value={selectedRefs[key] || ""}
+                      onChange={(e) =>
+                        setSelectedRefs((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      style={select}
+                    >
+                      <option value="">
+                        {assignment ? "Change Ref" : "Assign Ref"}
+                      </option>
+
+                      {refs.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.first_name} {r.last_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      style={btn}
+                      onClick={() => assignRef(game.id, slot)}
+                    >
+                      Save
+                    </button>
+
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
     </div>
   );
 }
+
+/* 🔥 STYLES — YOUR TILE STYLE */
+
+const wrap = {
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
+
+const filterRow = {
+  display: "flex",
+  justifyContent: "flex-start",
+};
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+  gap: 16,
+};
+
+const card = {
+  background: "#fff",
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+};
+
+const gameHeader = {
+  marginBottom: 12,
+};
+
+const gameTitle = {
+  fontWeight: 700,
+  fontSize: 16,
+};
+
+const gameMeta = {
+  fontSize: 12,
+  color: "#64748b",
+};
+
+const slotRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  marginTop: 10,
+};
+
+const slotLabel = {
+  width: 60,
+  fontWeight: 600,
+};
+
+const select = {
+  flex: 1,
+  padding: 6,
+  borderRadius: 8,
+};
+
+const btn = {
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "none",
+  background: "#16a34a",
+  color: "#fff",
+  cursor: "pointer",
+};
