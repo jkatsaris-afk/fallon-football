@@ -2,11 +2,11 @@ import { useState } from "react";
 
 import RefLayout from "./RefLayout";
 
-import RefDashboard from "./RefDashboard";
-import RefSchedulePage from "./RefSchedulePage";
-import RefTimePage from "./RefTimePage";
-import RefAvailabilityPage from "./RefAvailabilityPage";
-import RefProfilePage from "./RefProfilePage";
+import RefDashboard from "../pages/Ref/RefDashboard";
+import RefSchedulePage from "../pages/Ref/RefSchedulePage";
+import RefTimePage from "../pages/Ref/RefTimePage";
+import RefAvailabilityPage from "../pages/Ref/RefAvailabilityPage";
+import RefProfilePage from "../pages/Ref/RefProfilePage";
 
 export default function RefPortal({ user }) {
   // ✅ KEEP HOME AS DEFAULT
