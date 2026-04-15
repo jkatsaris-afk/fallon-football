@@ -27,6 +27,9 @@ import RefTime from "./pages/Ref/RefTime";
 import RefProfile from "./pages/Ref/RefProfile";
 
 import Dashboard from "./pages/Admin/Dashboard";
+import RefereeSchedulePage from "./pages/Admin/RefereeManagerPages/RefereeSchedulePage"; // ✅ ADDED
+import AutoAssignPage from "./pages/Admin/RefereeManagerPages/AutoAssignPage"; // ✅ ADDED
+
 import LoginModal from "./components/LoginModal";
 
 import PublicLayout from "./layouts/PublicLayout";
@@ -38,9 +41,7 @@ export default function App() {
   const [page, setPage] = useState(null);
   const [adminPage, setAdminPage] = useState("dashboard");
   const [accessDenied, setAccessDenied] = useState(false);
-  const [ready, setReady] = useState(false); // 🔥 NEW
-
-  /* ================= INIT (ROUTING + AUTH BLOCKING) ================= */
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -71,13 +72,11 @@ export default function App() {
 
       else setPage("home");
 
-      setReady(true); // 🔥 unlock render ONLY here
+      setReady(true);
     };
 
     init();
   }, []);
-
-  /* ================= AUTH ================= */
 
   const checkAdmin = async () => {
     const { data } = await supabase.auth.getUser();
@@ -113,8 +112,6 @@ export default function App() {
     setPage("refDashboard");
   };
 
-  /* ================= AUTH LISTENER ================= */
-
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_, session) => {
@@ -135,8 +132,6 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  /* ================= URL SYNC ================= */
-
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
     if (page === "signup") window.history.pushState({}, "", "/signup");
@@ -152,11 +147,7 @@ export default function App() {
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
   }, [page]);
 
-  /* ================= BLOCK RENDER ================= */
-
   if (!ready || page === null) return <LoadingScreen />;
-
-  /* ================= UI ================= */
 
   return (
     <>
@@ -168,12 +159,26 @@ export default function App() {
 
       {page === "adminLogin" && <LoginModal setPage={setPage} />}
 
+      {/* 🔥 FIXED ADMIN AREA */}
       {page === "dashboard" && (
         <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
-          <Dashboard adminPage={adminPage} setAdminPage={setAdminPage} />
+
+          {adminPage === "dashboard" && (
+            <Dashboard adminPage={adminPage} setAdminPage={setAdminPage} />
+          )}
+
+          {adminPage === "referees" && (
+            <RefereeSchedulePage setAdminPage={setAdminPage} />
+          )}
+
+          {adminPage === "autoAssign" && (
+            <AutoAssignPage setAdminPage={setAdminPage} />
+          )}
+
         </AdminLayout>
       )}
 
+      {/* REF APP */}
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -185,6 +190,7 @@ export default function App() {
           </RefLayout>
         )}
 
+      {/* PUBLIC */}
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         (!page.startsWith("ref") ||
