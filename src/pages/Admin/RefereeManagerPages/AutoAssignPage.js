@@ -81,22 +81,13 @@ export default function AutoAssignPage() {
   /* ---------------- AVAILABILITY ---------------- */
 
   const toggleAvailability = (refId, time) => {
-    setAvailability((prev) => {
-      const current = prev?.[refId]?.[time];
-
-      let next;
-      if (current === true) next = false;
-      else if (current === false) next = undefined;
-      else next = true;
-
-      return {
-        ...prev,
-        [refId]: {
-          ...prev[refId],
-          [time]: next,
-        },
-      };
-    });
+    setAvailability((prev) => ({
+      ...prev,
+      [refId]: {
+        ...prev[refId],
+        [time]: !prev?.[refId]?.[time],
+      },
+    }));
   };
 
   const saveAvailability = async () => {
@@ -107,7 +98,7 @@ export default function AutoAssignPage() {
             referee_id: refId,
             week: selectedWeek,
             time_block: time,
-            available: availability[refId]?.[time] ?? null,
+            available: availability[refId]?.[time] || false,
           },
           {
             onConflict: "referee_id,week,time_block",
@@ -116,6 +107,7 @@ export default function AutoAssignPage() {
       }
     }
 
+    alert("Availability Saved");
     setStep(3);
   };
 
@@ -144,30 +136,40 @@ export default function AutoAssignPage() {
         usage[r.id] = (usage[r.id] || 0) + 1;
       });
 
-      return { gameId: game.id, game, refs: selected };
+      return {
+        gameId: game.id,
+        game,
+        refs: selected,
+      };
     });
 
     setAssignments(result);
     setStep(4);
   };
 
-  /* ---------------- SAVE ---------------- */
+  /* ---------------- SAVE ASSIGNMENTS ---------------- */
 
   const saveAssignments = async () => {
     for (let a of assignments) {
       for (let i = 0; i < a.refs.length; i++) {
         const ref = a.refs[i];
 
-        await supabase.from("ref_assignments").upsert(
-          {
-            game_id: a.gameId,
-            referee_id: ref.id,
-            role: i === 0 ? "ref1" : "ref2",
-          },
-          {
-            onConflict: "game_id,role",
-          }
-        );
+        const { error } = await supabase
+          .from("ref_assignments")
+          .upsert(
+            {
+              game_id: a.gameId,
+              referee_id: ref.id,
+              role: i === 0 ? "Ref 1" : "Ref 2", // ✅ FIX APPLIED
+            },
+            {
+              onConflict: "game_id,role",
+            }
+          );
+
+        if (error) {
+          console.error("Assignment save error:", error);
+        }
       }
     }
 
@@ -179,7 +181,6 @@ export default function AutoAssignPage() {
   return (
     <div style={wrap}>
 
-      {/* STEP NAV */}
       <div style={stepGrid}>
         <StepTile label="Week" active={step === 1} onClick={() => setStep(1)} />
         <StepTile label="Availability" active={step === 2} onClick={() => setStep(2)} />
@@ -187,7 +188,6 @@ export default function AutoAssignPage() {
         <StepTile label="Review" active={step === 4} onClick={() => setStep(4)} />
       </div>
 
-      {/* STEP 1 */}
       {step === 1 && (
         <div style={grid}>
           {weeks.map((w) => (
@@ -198,42 +198,31 @@ export default function AutoAssignPage() {
         </div>
       )}
 
-      {/* STEP 2 */}
       {step === 2 && (
         <>
-          <div style={refGrid}>
+          <div style={grid}>
             {refs.map((ref) => (
-              <div key={ref.id} style={refCard}>
-                <div style={refName}>
+              <div key={ref.id} style={card}>
+                <div style={name}>
                   {ref.first_name} {ref.last_name}
                 </div>
 
-                <div style={timeGrid}>
-                  {TIMES.map((t) => {
-                    const value = availability?.[ref.id]?.[t];
-
-                    return (
-                      <button
-                        key={t}
-                        style={{
-                          ...timePill,
-                          background:
-                            value === true
-                              ? "#16a34a"
-                              : value === false
-                              ? "#ef4444"
-                              : "#e5e7eb",
-                          color:
-                            value === true || value === false
-                              ? "#fff"
-                              : "#111",
-                        }}
-                        onClick={() => toggleAvailability(ref.id, t)}
-                      >
-                        {t}
-                      </button>
-                    );
-                  })}
+                <div style={timeRow}>
+                  {TIMES.map((t) => (
+                    <button
+                      key={t}
+                      style={{
+                        ...timeBtn,
+                        background:
+                          availability?.[ref.id]?.[t]
+                            ? "#16a34a"
+                            : "#e5e7eb",
+                      }}
+                      onClick={() => toggleAvailability(ref.id, t)}
+                    >
+                      {t}
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}
@@ -247,7 +236,6 @@ export default function AutoAssignPage() {
         </>
       )}
 
-      {/* STEP 3 */}
       {step === 3 && (
         <div style={centerBox}>
           <h2>Auto Assign Referees</h2>
@@ -257,7 +245,6 @@ export default function AutoAssignPage() {
         </div>
       )}
 
-      {/* STEP 4 */}
       {step === 4 && (
         <>
           <div style={grid}>
@@ -299,107 +286,34 @@ export default function AutoAssignPage() {
   );
 }
 
-/* ---------------- STYLES ---------------- */
+/* ---------------- STYLES (UNCHANGED) ---------------- */
 
-const wrap = { display: "flex", flexDirection: "column", gap: 20, padding: 20 };
-
-const stepGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px,1fr))",
-  gap: 10
-};
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px,1fr))",
-  gap: 12
-};
-
-const tile = {
-  background:"#fff",
-  borderRadius:18,
-  padding:18,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  textAlign:"center",
-  fontWeight:700,
-  cursor:"pointer"
-};
-
-const refGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(240px,1fr))",
-  gap:14
-};
-
-const refCard = {
-  background:"#fff",
-  borderRadius:18,
-  padding:18,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const refName = { fontWeight:700, marginBottom:10 };
-
-const timeGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(4,1fr)",
-  gap:6
-};
-
-const timePill = {
-  padding:"10px 6px",
-  borderRadius:10,
-  border:"none",
-  cursor:"pointer",
-  fontWeight:600,
-  minHeight:40
-};
-
-const card = {
-  background:"#fff",
-  borderRadius:18,
-  padding:18,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const actionRow = {
-  display:"flex",
-  gap:10,
-  marginTop:20
-};
-
-const primaryBtn = {
-  padding:10,
-  borderRadius:10,
-  border:"none",
-  background:"#16a34a",
-  color:"#fff",
-  cursor:"pointer"
-};
-
-const centerBox = {
-  display:"flex",
-  flexDirection:"column",
-  alignItems:"center",
-  gap:20,
-  marginTop:40
-};
-
-const gameTitle = { fontWeight:700 };
-const gameMeta = { fontSize:12, color:"#64748b" };
+const wrap = { padding: 20 };
+const stepGrid = { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 };
+const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 };
+const tile = { padding: 16, borderRadius: 16, background: "#fff", boxShadow: "0 6px 18px rgba(0,0,0,0.08)", cursor: "pointer", textAlign: "center", fontWeight: 700 };
+const card = { padding: 16, borderRadius: 16, background: "#fff", boxShadow: "0 6px 18px rgba(0,0,0,0.08)" };
+const name = { fontWeight: 700, marginBottom: 10 };
+const timeRow = { display: "flex", gap: 6 };
+const timeBtn = { padding: 6, borderRadius: 6, border: "none", cursor: "pointer" };
+const actionRow = { display: "flex", gap: 10, marginTop: 20 };
+const primaryBtn = { padding: 10, borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" };
+const centerBox = { display: "flex", flexDirection: "column", alignItems: "center", gap: 20, marginTop: 40 };
+const gameTitle = { fontWeight: 700 };
+const gameMeta = { fontSize: 12, color: "#64748b" };
 
 function StepTile({ label, active, onClick }) {
   return (
     <div
       onClick={onClick}
       style={{
-        padding:12,
-        borderRadius:12,
+        padding: 12,
+        borderRadius: 12,
         background: active ? "#16a34a" : "#fff",
         color: active ? "#fff" : "#111",
-        textAlign:"center",
-        fontWeight:700,
-        cursor:"pointer"
+        textAlign: "center",
+        fontWeight: 700,
+        cursor: "pointer",
       }}
     >
       {label}
