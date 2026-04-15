@@ -69,38 +69,6 @@ export default function RefereeTimeSheetsPage() {
     .filter(c => !c.paid)
     .reduce((sum, c) => sum + GAME_PAY, 0);
 
-  const headRef = refs.find(r => r.is_head_ref);
-  const headRefId = headRef?.id;
-
-  const headRefCheckins = checkins.filter(c => c.ref_id === headRefId);
-
-  const headRefDaysWorked = [
-    ...new Set(headRefCheckins.map(c => c.schedule_master_auto?.event_date))
-  ];
-
-  const headRefPaidDays = [
-    ...new Set(
-      headRefCheckins
-        .filter(c => c.paid)
-        .map(c => c.schedule_master_auto?.event_date)
-    )
-  ];
-
-  const headRefUnpaidDays = headRefDaysWorked.filter(
-    d => !headRefPaidDays.includes(d)
-  );
-
-  const headRefPaidTotal = headRef
-    ? headRefPaidDays.length * HEAD_REF_WEEKLY
-    : 0;
-
-  const headRefUnpaidTotal = headRef
-    ? headRefUnpaidDays.length * HEAD_REF_WEEKLY
-    : 0;
-
-  const paidTotalFinal = paidTotal + headRefPaidTotal;
-  const unpaidTotalFinal = unpaidTotal + headRefUnpaidTotal;
-
   /* PAY DAY */
   const markDatePaid = async (refId, date) => {
     const rows = checkins.filter(
@@ -131,8 +99,8 @@ export default function RefereeTimeSheetsPage() {
         <StatTile label="Game Budget" value={`$${totalGameBudget}`} />
         <StatTile label="Head Ref Budget" value={`$${totalHeadRefBudget}`} />
         <StatTile label="Total Budget" value={`$${totalBudget}`} />
-        <StatTile label="Paid" value={`$${paidTotalFinal}`} />
-        <StatTile label="Unpaid" value={`$${unpaidTotalFinal}`} />
+        <StatTile label="Paid" value={`$${paidTotal}`} />
+        <StatTile label="Unpaid" value={`$${unpaidTotal}`} />
       </div>
 
       <h2 style={title}>Referee Pay Manager</h2>
@@ -142,6 +110,8 @@ export default function RefereeTimeSheetsPage() {
         const days = grouped[refId];
         if (!ref) return null;
 
+        const isHeadRef = ref.role === "Head Ref";
+
         let refTotal = 0;
 
         Object.keys(days).forEach(date => {
@@ -149,7 +119,7 @@ export default function RefereeTimeSheetsPage() {
 
           refTotal += games.length * GAME_PAY;
 
-          if (ref.is_head_ref && games.length > 0) {
+          if (isHeadRef && games.length > 0) {
             refTotal += HEAD_REF_WEEKLY;
           }
         });
@@ -162,7 +132,7 @@ export default function RefereeTimeSheetsPage() {
                 <div style={name}>
                   {ref.first_name} {ref.last_name}
                   <span style={roleTag}>
-                    {ref.is_head_ref ? "Head Ref" : ref.role || "Assistant Ref"}
+                    {ref.role || "Assistant Ref"}
                   </span>
                 </div>
                 <div style={sub}>
@@ -183,7 +153,7 @@ export default function RefereeTimeSheetsPage() {
 
                 const unpaidDayTotal =
                   unpaid.length * GAME_PAY +
-                  (ref.is_head_ref && unpaid.length > 0 ? HEAD_REF_WEEKLY : 0);
+                  (isHeadRef && unpaid.length > 0 ? HEAD_REF_WEEKLY : 0);
 
                 return (
                   <div key={date} style={dayCard}>
@@ -203,17 +173,17 @@ export default function RefereeTimeSheetsPage() {
                       </div>
                     ))}
 
-                    {/* 🔥 HEAD REF BONUS LINE ITEM */}
-                    {ref.is_head_ref && games.length > 0 && (
+                    {/* 🔥 HEAD REF LINE ITEM (FIXED) */}
+                    {isHeadRef && games.length > 0 && (
                       <div style={gameRow}>
-                        <span>Head Ref Weekly Bonus</span>
+                        <span>Head Ref Weekly</span>
                         <span>${HEAD_REF_WEEKLY}</span>
                       </div>
                     )}
 
                     <div style={dayTotal}>
                       ${games.length * GAME_PAY +
-                        (ref.is_head_ref && games.length > 0 ? HEAD_REF_WEEKLY : 0)}
+                        (isHeadRef && games.length > 0 ? HEAD_REF_WEEKLY : 0)}
                     </div>
 
                     {isPaid && (
