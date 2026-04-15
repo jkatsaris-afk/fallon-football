@@ -1,6 +1,35 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
 
+/* 🔥 TEAM LOGOS */
+import Logo49ers from "../../../resources/San Francisco 49ers.png";
+import LogoBengals from "../../../resources/Cincinnati Bengals.png";
+import LogoBills from "../../../resources/Buffalo Bills.png";
+import LogoBroncos from "../../../resources/Denver Broncos.png";
+import LogoChiefs from "../../../resources/Kansas City Chiefs.png";
+import LogoColts from "../../../resources/Indianapolis Colts.png";
+import LogoEagles from "../../../resources/Philadelphia Eagles.png";
+import LogoJets from "../../../resources/New York Jets.png";
+import LogoLions from "../../../resources/Detroit Lions.png";
+import LogoRaiders from "../../../resources/Las Vegas Raiders.png";
+import LogoRams from "../../../resources/Los Angeles Rams.png";
+import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
+
+const TEAM_LOGOS = {
+  "49ers": Logo49ers,
+  Bengals: LogoBengals,
+  Bills: LogoBills,
+  Broncos: LogoBroncos,
+  Chiefs: LogoChiefs,
+  Colts: LogoColts,
+  Eagles: LogoEagles,
+  Jets: LogoJets,
+  Lions: LogoLions,
+  Raiders: LogoRaiders,
+  Rams: LogoRams,
+  Steelers: LogoSteelers,
+};
+
 export default function RefSchedulePage() {
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
@@ -52,7 +81,7 @@ export default function RefSchedulePage() {
   const filteredGames =
     week === "all" ? games : games.filter((g) => g.week === week);
 
-  /* ASSIGN REF */
+  /* ASSIGN */
   const assignRef = async (gameId, slot) => {
     const key = `${gameId}-${slot}`;
     const refereeId = selectedRefs[key];
@@ -82,37 +111,55 @@ export default function RefSchedulePage() {
   return (
     <div style={wrap}>
 
-      {/* FILTER TILE */}
-      <div style={filterRow}>
-        <select
-          value={week}
-          onChange={(e) => setWeek(e.target.value)}
-          style={select}
-        >
-          <option value="all">All Weeks</option>
+      {/* 🔥 WEEK FILTER TILE */}
+      <div style={filterTile}>
+        <div style={filterLabel}>Week Filter</div>
+
+        <div style={filterOptions}>
+          <button
+            style={week === "all" ? activeFilterBtn : filterBtn}
+            onClick={() => setWeek("all")}
+          >
+            All
+          </button>
+
           {weeks.map((w) => (
-            <option key={w} value={w}>
+            <button
+              key={w}
+              style={week === w ? activeFilterBtn : filterBtn}
+              onClick={() => setWeek(w)}
+            >
               Week {w}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
-      {/* GAME TILES */}
+      {/* 🔥 GAME GRID */}
       <div style={grid}>
         {filteredGames.map((game) => {
           const gameAssignments = assignmentsByGame[game.id] || [];
 
+          const homeLogo = TEAM_LOGOS[game.team];
+          const awayLogo = TEAM_LOGOS[game.opponent];
+
           return (
             <div key={game.id} style={card}>
 
-              <div style={gameHeader}>
-                <div style={gameTitle}>
-                  {game.team} vs {game.opponent}
-                </div>
-                <div style={gameMeta}>
-                  {game.event_date} • {game.time} • {game.field}
-                </div>
+              {/* 🔥 LOGO HEADER */}
+              <div style={logoRow}>
+                {homeLogo && <img src={homeLogo} style={logo} />}
+                <div style={vs}>VS</div>
+                {awayLogo && <img src={awayLogo} style={logo} />}
+              </div>
+
+              {/* GAME INFO */}
+              <div style={gameTitle}>
+                {game.team} vs {game.opponent}
+              </div>
+
+              <div style={gameMeta}>
+                {game.event_date} • {game.time} • {game.field}
               </div>
 
               {/* REF SLOTS */}
@@ -158,6 +205,7 @@ export default function RefSchedulePage() {
                   </div>
                 );
               })}
+
             </div>
           );
         })}
@@ -167,7 +215,7 @@ export default function RefSchedulePage() {
   );
 }
 
-/* 🔥 STYLES — YOUR TILE STYLE */
+/* 🔥 STYLES */
 
 const wrap = {
   padding: 20,
@@ -176,9 +224,37 @@ const wrap = {
   gap: 20,
 };
 
-const filterRow = {
+const filterTile = {
+  background: "#fff",
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+};
+
+const filterLabel = {
+  fontWeight: 700,
+  marginBottom: 10,
+};
+
+const filterOptions = {
   display: "flex",
-  justifyContent: "flex-start",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const filterBtn = {
+  padding: "6px 12px",
+  borderRadius: 999,
+  border: "1px solid #e5e7eb",
+  background: "#f8fafc",
+  cursor: "pointer",
+};
+
+const activeFilterBtn = {
+  ...filterBtn,
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
 };
 
 const grid = {
@@ -194,16 +270,32 @@ const card = {
   boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
 };
 
-const gameHeader = {
-  marginBottom: 12,
+const logoRow = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: 10,
+  marginBottom: 10,
+};
+
+const logo = {
+  width: 40,
+  height: 40,
+  objectFit: "contain",
+};
+
+const vs = {
+  fontWeight: 700,
+  fontSize: 12,
 };
 
 const gameTitle = {
+  textAlign: "center",
   fontWeight: 700,
-  fontSize: 16,
 };
 
 const gameMeta = {
+  textAlign: "center",
   fontSize: 12,
   color: "#64748b",
 };
