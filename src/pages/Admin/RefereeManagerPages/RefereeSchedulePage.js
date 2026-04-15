@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
-import { useNavigate } from "react-router-dom";
 
 /* TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
@@ -33,8 +32,7 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-export default function RefSchedulePage() {
-  const navigate = useNavigate(); // 🔥 FIXED
+export default function RefSchedulePage({ setPage }) { // 🔥 IMPORTANT
 
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
@@ -150,11 +148,11 @@ export default function RefSchedulePage() {
         <FilterTile label="1 Ref" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===1).length} active={filter==="partial"} onClick={()=>setFilter("partial")} />
         <FilterTile label="2 Refs" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length>=2).length} active={filter==="full"} onClick={()=>setFilter("full")} />
 
-        {/* 🔥 AUTO ASSIGN TILE */}
+        {/* 🔥 WORKING BUTTON */}
         <ActionTile
           label="Auto Assign"
           desc="Run scheduling workflow"
-          onClick={() => navigate("/admin/auto-assign")}
+          onClick={() => setPage("autoAssign")}
         />
       </div>
 
@@ -169,19 +167,31 @@ export default function RefSchedulePage() {
       {/* GAME GRID */}
       <div style={grid}>
         {filteredGames.map((game)=>{
+
           const homeLogo = TEAM_LOGOS[game.team];
           const awayLogo = TEAM_LOGOS[game.opponent];
 
           return (
             <div key={game.id} style={card}>
+
               <div style={logoRow}>
                 {homeLogo && <img src={homeLogo} style={logo} />}
                 <div style={vs}>VS</div>
                 {awayLogo && <img src={awayLogo} style={logo} />}
               </div>
 
-              <div style={gameTitle}>{game.team} vs {game.opponent}</div>
-              <div style={gameMeta}>Week {game.week} • {game.time} • {game.field}</div>
+              <div style={gameTitle}>
+                {game.team} vs {game.opponent}
+              </div>
+
+              <div style={gameMeta}>
+                Week {game.week} • {game.time} • {game.field}
+              </div>
+
+              {/* 🔥 DIVISION BACK */}
+              <div style={divisionBadge}>
+                {game.division || "No Division"}
+              </div>
 
               {[0,1].map((slot)=>{
                 const role = slot === 0 ? "Ref 1" : "Ref 2";
@@ -196,8 +206,7 @@ export default function RefSchedulePage() {
                     <div style={slotLabel}>{role}</div>
 
                     {!isEditing && assignedRef && (
-                      <div
-                        style={assignedRefBox}
+                      <div style={assignedRefBox}
                         onClick={() => setSelectedRefs(prev => ({...prev, [key]: assignedRef.id}))}
                       >
                         {assignedRef.first_name} {assignedRef.last_name}
@@ -205,8 +214,7 @@ export default function RefSchedulePage() {
                     )}
 
                     {!isEditing && !assignedRef && (
-                      <div
-                        style={assignBtn}
+                      <div style={assignBtn}
                         onClick={() => setSelectedRefs(prev => ({...prev, [key]: ""}))}
                       >
                         Assign Ref
@@ -245,6 +253,7 @@ export default function RefSchedulePage() {
                   </div>
                 );
               })}
+
             </div>
           );
         })}
@@ -255,7 +264,6 @@ export default function RefSchedulePage() {
 }
 
 /* COMPONENTS */
-
 function FilterTile({ label, value, active, onClick }) {
   return (
     <button onClick={onClick} style={{...statTile, ...(active?activeStatTile:{})}}>
@@ -283,7 +291,6 @@ function WeekTile({ label, active, onClick }) {
 }
 
 /* STYLES */
-
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12 };
 const weekTileGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 };
@@ -309,8 +316,19 @@ const logoRow = { display:"flex", justifyContent:"center", gap:10 };
 const logo = { width:40 };
 const vs = { fontWeight:700 };
 
-const gameTitle = { textAlign:"center", fontWeight:700 };
+const gameTitle = { textAlign:"center", fontWeight:700, marginTop:6 };
 const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
+
+const divisionBadge = {
+  marginTop: 8,
+  background: "rgba(59,130,246,0.12)",
+  color: "#1d4ed8",
+  padding: "4px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  textAlign: "center",
+  fontWeight: 600
+};
 
 const slotRow = { display:"flex", gap:10, marginTop:10 };
 const slotLabel = { width:60 };
