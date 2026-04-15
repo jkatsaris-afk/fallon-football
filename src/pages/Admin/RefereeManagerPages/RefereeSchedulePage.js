@@ -32,7 +32,8 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-export default function RefereeSchedulePage({ setAdminPage }) { // 🔥 FIX 1
+export default function RefereeSchedulePage({ setAdminPage }) {
+
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -109,50 +110,45 @@ export default function RefereeSchedulePage({ setAdminPage }) { // 🔥 FIX 1
     return filtered;
   }, [games, filter, week, assignmentsByGame]);
 
-  const assignRef = async (gameId, slot, refereeId) => {
-    const role = slot === 0 ? "Ref 1" : "Ref 2";
-
-    const { data: existing } = await supabase
-      .from("ref_assignments")
-      .select("*")
-      .eq("game_id", gameId)
-      .eq("role", role)
-      .maybeSingle();
-
-    if (existing) {
-      await supabase
-        .from("ref_assignments")
-        .update({ referee_id: refereeId })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("ref_assignments").insert({
-        game_id: gameId,
-        referee_id: refereeId,
-        role,
-      });
-    }
-
-    loadData();
-  };
-
-  if (loading) return <div style={wrap}>Loading...</div>;
+  if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
-    <div style={wrap}>
+    <div style={{ padding: 20 }}>
 
-      {/* 🔥 TOP TILE ROW */}
-      <div style={statsGrid}>
-        <FilterTile label="All" value={games.length} active={filter==="all"} onClick={()=>setFilter("all")} />
-        <FilterTile label="Open" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===0).length} active={filter==="open"} onClick={()=>setFilter("open")} />
-        <FilterTile label="1 Ref" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===1).length} active={filter==="partial"} onClick={()=>setFilter("partial")} />
-        <FilterTile label="2 Refs" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length>=2).length} active={filter==="full"} onClick={()=>setFilter("full")} />
+      {/* 🔥 AUTO ASSIGN BUTTON */}
+      <button
+        onClick={() => setAdminPage("autoAssign")}
+        style={{
+          padding: 12,
+          borderRadius: 10,
+          background: "#16a34a",
+          color: "#fff",
+          border: "none",
+          marginBottom: 20,
+          cursor: "pointer"
+        }}
+      >
+        Auto Assign
+      </button>
 
-        {/* 🔥 FIX 2 */}
-        <ActionTile
-          label="Auto Assign"
-          desc="Open workflow"
-          onClick={() => setAdminPage("autoAssign")}
-        />
-      </div>
+      {filteredGames.map((game) => (
+        <div key={game.id} style={{ marginBottom: 16 }}>
 
-      {/* EVERYTHING ELSE UNCHANGED */}
+          <div>
+            {game.team} vs {game.opponent}
+          </div>
+
+          <div>
+            Week {game.week} • {game.time} • {game.field}
+          </div>
+
+          <div>
+            {game.division || "No Division"}
+          </div>
+
+        </div>
+      ))}
+
+    </div>
+  );
+}
