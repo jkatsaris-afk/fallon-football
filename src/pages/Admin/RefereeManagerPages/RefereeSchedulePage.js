@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabase";
 
-/* 🔥 TEAM LOGOS */
+/* TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
 import LogoBengals from "../../../resources/Cincinnati Bengals.png";
 import LogoBills from "../../../resources/Buffalo Bills.png";
@@ -66,7 +66,6 @@ export default function RefSchedulePage() {
     setLoading(false);
   };
 
-  /* GROUP */
   const assignmentsByGame = useMemo(() => {
     const map = {};
     assignments.forEach((a) => {
@@ -76,12 +75,10 @@ export default function RefSchedulePage() {
     return map;
   }, [assignments]);
 
-  /* 🔥 WEEK SORT FIX */
   const weeks = [
     ...new Set(games.map((g) => g.week).filter(Boolean)),
   ].sort((a, b) => Number(a) - Number(b));
 
-  /* FILTER */
   const filteredGames = useMemo(() => {
     let filtered = [...games];
 
@@ -110,12 +107,7 @@ export default function RefSchedulePage() {
     return filtered;
   }, [games, filter, week, assignmentsByGame]);
 
-  /* ASSIGN */
-  const assignRef = async (gameId, slot) => {
-    const key = `${gameId}-${slot}`;
-    const refereeId = selectedRefs[key];
-    if (!refereeId) return;
-
+  const assignRef = async (gameId, slot, refereeId) => {
     const role = slot === 0 ? "Ref 1" : "Ref 2";
 
     const { data: existing } = await supabase
@@ -170,6 +162,7 @@ export default function RefSchedulePage() {
 
           return (
             <div key={game.id} style={card}>
+
               <div style={logoRow}>
                 {homeLogo && <img src={homeLogo} style={logo} />}
                 <div style={vs}>VS</div>
@@ -179,28 +172,71 @@ export default function RefSchedulePage() {
               <div style={gameTitle}>{game.team} vs {game.opponent}</div>
               <div style={gameMeta}>Week {game.week} • {game.time} • {game.field}</div>
 
+              <div style={divisionBadge}>{game.division || "No Division"}</div>
+
               {[0,1].map((slot)=>{
+                const role = slot === 0 ? "Ref 1" : "Ref 2";
+                const assignment = (assignmentsByGame[game.id] || []).find(a => a.role === role);
+                const assignedRef = refs.find(r => r.id === assignment?.referee_id);
+
                 const key = `${game.id}-${slot}`;
+                const isEditing = selectedRefs[key] !== undefined;
+
                 return (
                   <div key={slot} style={slotRow}>
-                    <div style={slotLabel}>{slot===0?"Ref 1":"Ref 2"}</div>
 
-                    <select
-                      value={selectedRefs[key] || ""}
-                      onChange={(e)=>setSelectedRefs(prev=>({...prev,[key]:e.target.value}))}
-                      style={select}
-                    >
-                      <option value="">Assign Ref</option>
-                      {refs.map(r=>(
-                        <option key={r.id} value={r.id}>
-                          {r.first_name} {r.last_name}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={slotLabel}>{role}</div>
 
-                    <button style={btn} onClick={()=>assignRef(game.id,slot)}>
-                      Save
-                    </button>
+                    {!isEditing && assignedRef && (
+                      <div
+                        style={assignedRefBox}
+                        onClick={() => setSelectedRefs(prev => ({...prev, [key]: assignedRef.id}))}
+                      >
+                        {assignedRef.first_name} {assignedRef.last_name}
+                      </div>
+                    )}
+
+                    {!isEditing && !assignedRef && (
+                      <div
+                        style={assignBtn}
+                        onClick={() => setSelectedRefs(prev => ({...prev, [key]: ""}))}
+                      >
+                        Assign Ref
+                      </div>
+                    )}
+
+                    {isEditing && (
+                      <select
+                        autoFocus
+                        value={selectedRefs[key]}
+                        onChange={async (e)=>{
+                          const value = e.target.value;
+                          await assignRef(game.id, slot, value);
+
+                          setSelectedRefs(prev=>{
+                            const copy = {...prev};
+                            delete copy[key];
+                            return copy;
+                          });
+                        }}
+                        onBlur={()=>{
+                          setSelectedRefs(prev=>{
+                            const copy = {...prev};
+                            delete copy[key];
+                            return copy;
+                          });
+                        }}
+                        style={select}
+                      >
+                        <option value="">Select Ref</option>
+                        {refs.map(r=>(
+                          <option key={r.id} value={r.id}>
+                            {r.first_name} {r.last_name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
                   </div>
                 );
               })}
@@ -208,12 +244,11 @@ export default function RefSchedulePage() {
           );
         })}
       </div>
-
     </div>
   );
 }
 
-/* TILE COMPONENTS */
+/* COMPONENTS */
 function FilterTile({ label, value, active, onClick }) {
   return (
     <button onClick={onClick} style={{...statTile, ...(active?activeStatTile:{})}}>
@@ -233,7 +268,6 @@ function WeekTile({ label, active, onClick }) {
 
 /* STYLES */
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
-
 const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12 };
 const weekTileGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 };
 
@@ -257,9 +291,13 @@ const vs = { fontWeight:700 };
 const gameTitle = { textAlign:"center", fontWeight:700 };
 const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
 
+const divisionBadge = { marginTop:8, background:"rgba(59,130,246,0.12)", color:"#1d4ed8", padding:"4px 10px", borderRadius:999, fontSize:12, fontWeight:600, textAlign:"center" };
+
 const slotRow = { display:"flex", gap:10, marginTop:10, alignItems:"center" };
 const slotLabel = { width:60, fontWeight:600 };
 
 const select = { flex:1, padding:6, borderRadius:8 };
 
-const btn = { padding:"6px 10px", borderRadius:8, border:"none", background:"#16a34a", color:"#fff", cursor:"pointer" };
+const assignedRefBox = { flex:1, background:"#f1f5f9", padding:"6px 10px", borderRadius:8, cursor:"pointer" };
+
+const assignBtn = { flex:1, background:"rgba(22,163,74,0.12)", color:"#166534", padding:"6px 10px", borderRadius:8, cursor:"pointer", textAlign:"center", fontWeight:600 };
