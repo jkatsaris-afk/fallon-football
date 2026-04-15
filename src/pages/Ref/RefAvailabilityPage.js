@@ -4,19 +4,50 @@ import { supabase } from "../../supabase";
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 
 export default function RefAvailabilityPage({ user }) {
+  const [weeks, setWeeks] = useState([]);
+  const [selectedWeek, setSelectedWeek] = useState(null);
+
+  const [refId, setRefId] = useState(null);
   const [availability, setAvailability] = useState({});
-  const [week, setWeek] = useState(1);
 
   useEffect(() => {
-    loadAvailability();
-  }, [week]);
+    loadWeeks();
+    getRefId();
+  }, []);
+
+  useEffect(() => {
+    if (refId && selectedWeek) {
+      loadAvailability();
+    }
+  }, [refId, selectedWeek]);
+
+  /* ---------------- LOAD ---------------- */
+
+  const loadWeeks = async () => {
+    const { data } = await supabase
+      .from("schedule_master_auto")
+      .select("week");
+
+    const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
+    setWeeks(unique);
+  };
+
+  const getRefId = async () => {
+    const { data } = await supabase
+      .from("referees")
+      .select("id")
+      .eq("auth_id", user.id)
+      .single();
+
+    if (data) setRefId(data.id);
+  };
 
   const loadAvailability = async () => {
     const { data } = await supabase
       .from("ref_availability")
       .select("*")
-      .eq("referee_id", user.id)
-      .eq("week", week);
+      .eq("referee_id", refId)
+      .eq("week", selectedWeek);
 
     const map = {};
 
@@ -27,21 +58,34 @@ export default function RefAvailabilityPage({ user }) {
     setAvailability(map);
   };
 
+  /* ---------------- TOGGLE (MATCH ADMIN) ---------------- */
+
   const toggle = (time) => {
-    setAvailability((prev) => ({
-      ...prev,
-      [time]: !prev[time],
-    }));
+    setAvailability((prev) => {
+      const current = prev?.[time];
+
+      let next;
+      if (current === true) next = false;
+      else if (current === false) next = undefined;
+      else next = true;
+
+      return {
+        ...prev,
+        [time]: next,
+      };
+    });
   };
+
+  /* ---------------- SAVE ---------------- */
 
   const save = async () => {
     for (let time of TIMES) {
       await supabase.from("ref_availability").upsert(
         {
-          referee_id: user.id,
-          week,
+          referee_id: refId,
+          week: selectedWeek,
           time_block: time,
-          available: availability[time] || false,
+          available: availability[time] ?? null,
         },
         {
           onConflict: "referee_id,week,time_block",
@@ -52,78 +96,148 @@ export default function RefAvailabilityPage({ user }) {
     alert("Availability Saved");
   };
 
+  /* ---------------- UI ---------------- */
+
   return (
     <div style={wrap}>
-      <div style={title}>My Availability</div>
 
-      <div style={grid}>
-        {TIMES.map((t) => {
-          const value = availability[t];
+      {/* WEEK SELECT */}
+      {!selectedWeek && (
+        <>
+          <div style={title}>Select Week</div>
 
-          return (
-            <button
-              key={t}
-              style={{
-                ...pill,
-                background:
-                  value === true
-                    ? "#16a34a"
-                    : value === false
-                    ? "#ef4444"
-                    : "#e5e7eb",
-                color:
-                  value === true || value === false
-                    ? "#fff"
-                    : "#111",
-              }}
-              onClick={() => toggle(t)}
-            >
-              {t}
+          <div style={grid}>
+            {weeks.map((w) => (
+              <div
+                key={w}
+                style={tile}
+                onClick={() => setSelectedWeek(w)}
+              >
+                Week {w}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* AVAILABILITY */}
+      {selectedWeek && (
+        <>
+          <div style={title}>
+            Week {selectedWeek} Availability
+          </div>
+
+          <div style={timeGrid}>
+            {TIMES.map((t) => {
+              const value = availability?.[t];
+
+              return (
+                <button
+                  key={t}
+                  style={{
+                    ...timeBtn,
+                    background:
+                      value === true
+                        ? "#16a34a"
+                        : value === false
+                        ? "#ef4444"
+                        : "#e5e7eb",
+                    color:
+                      value === true || value === false
+                        ? "#fff"
+                        : "#111",
+                  }}
+                  onClick={() => toggle(t)}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={actionRow}>
+            <button style={primaryBtn} onClick={save}>
+              Save
             </button>
-          );
-        })}
-      </div>
 
-      <button style={saveBtn} onClick={save}>
-        Save Availability
-      </button>
+            <button
+              style={secondaryBtn}
+              onClick={() => setSelectedWeek(null)}
+            >
+              Change Week
+            </button>
+          </div>
+        </>
+      )}
+
     </div>
   );
 }
 
-/* STYLES */
+/* ---------------- STYLES ---------------- */
 
 const wrap = {
-  padding: 16,
+  padding: 20,
   display: "flex",
   flexDirection: "column",
-  gap: 20,
+  gap: 20
 };
 
 const title = {
   fontSize: 20,
-  fontWeight: 700,
+  fontWeight: 700
 };
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(100px,1fr))",
-  gap: 10,
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))",
+  gap: 12
 };
 
-const pill = {
-  padding: 14,
-  borderRadius: 12,
-  border: "none",
-  fontWeight: 600,
+const tile = {
+  background: "#fff",
+  padding: 18,
+  borderRadius: 16,
+  textAlign: "center",
+  fontWeight: 700,
   cursor: "pointer",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
 };
 
-const saveBtn = {
+const timeGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4,1fr)",
+  gap: 8
+};
+
+const timeBtn = {
+  padding: 12,
+  borderRadius: 10,
+  border: "none",
+  cursor: "pointer",
+  fontWeight: 600
+};
+
+const actionRow = {
+  display: "flex",
+  gap: 10
+};
+
+const primaryBtn = {
+  flex: 1,
   padding: 12,
   borderRadius: 12,
   border: "none",
   background: "#16a34a",
   color: "#fff",
-  fontWeight: 600,
+  fontWeight: 600
+};
+
+const secondaryBtn = {
+  flex: 1,
+  padding: 12,
+  borderRadius: 12,
+  border: "none",
+  background: "#e5e7eb",
+  fontWeight: 600
 };
