@@ -7,6 +7,9 @@ export default function RefereeTimeSheetsPage() {
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const GAME_PAY = 20;
+  const HEAD_REF_WEEKLY = 20;
+
   useEffect(() => {
     loadData();
   }, []);
@@ -49,17 +52,46 @@ export default function RefereeTimeSheetsPage() {
     return map;
   }, [checkins]);
 
-  /* 🔥 TOTALS */
+  /* 🔥 BUDGET */
   const totalGames = schedule.length;
-  const totalPayout = totalGames * 40;
+  const uniqueDays = [...new Set(schedule.map(g => g.event_date))];
 
+  const totalGameBudget = totalGames * 40; // 2 refs per game
+  const totalHeadRefBudget = uniqueDays.length * HEAD_REF_WEEKLY;
+  const totalBudget = totalGameBudget + totalHeadRefBudget;
+
+  /* 🔥 TOTALS */
   const paidTotal = checkins
     .filter(c => c.paid)
-    .reduce((sum, c) => sum + (c.pay || 40), 0);
+    .reduce((sum, c) => sum + GAME_PAY, 0);
 
   const unpaidTotal = checkins
     .filter(c => !c.paid)
-    .reduce((sum, c) => sum + (c.pay || 40), 0);
+    .reduce((sum, c) => sum + GAME_PAY, 0);
+
+  const headRef = refs.find(r => r.is_head_ref);
+
+  const paidDays = [
+    ...new Set(
+      checkins
+        .filter(c => c.paid)
+        .map(c => c.schedule_master_auto?.event_date)
+    )
+  ];
+
+  const unpaidDays = [
+    ...new Set(
+      checkins
+        .filter(c => !c.paid)
+        .map(c => c.schedule_master_auto?.event_date)
+    )
+  ];
+
+  const headRefPaidTotal = headRef ? paidDays.length * HEAD_REF_WEEKLY : 0;
+  const headRefUnpaidTotal = headRef ? unpaidDays.length * HEAD_REF_WEEKLY : 0;
+
+  const paidTotalFinal = paidTotal + headRefPaidTotal;
+  const unpaidTotalFinal = unpaidTotal + headRefUnpaidTotal;
 
   /* 🔥 PAY DAY */
   const markDatePaid = async (refId, date) => {
@@ -89,9 +121,11 @@ export default function RefereeTimeSheetsPage() {
       {/* 🔥 TOP TILES */}
       <div style={statsGrid}>
         <StatTile label="Total Games" value={totalGames} />
-        <StatTile label="Game Payout" value={`$${totalPayout}`} />
-        <StatTile label="Paid" value={`$${paidTotal}`} />
-        <StatTile label="Unpaid" value={`$${unpaidTotal}`} />
+        <StatTile label="Game Budget" value={`$${totalGameBudget}`} />
+        <StatTile label="Head Ref Budget" value={`$${totalHeadRefBudget}`} />
+        <StatTile label="Total Budget" value={`$${totalBudget}`} />
+        <StatTile label="Paid" value={`$${paidTotalFinal}`} />
+        <StatTile label="Unpaid" value={`$${unpaidTotalFinal}`} />
       </div>
 
       <h2 style={title}>Referee Pay Manager</h2>
@@ -104,14 +138,18 @@ export default function RefereeTimeSheetsPage() {
         let refTotal = 0;
 
         Object.keys(days).forEach(date => {
-          refTotal += days[date].length * 40;
-          if (ref.is_head_ref) refTotal += 20;
+          const games = days[date];
+
+          refTotal += games.length * GAME_PAY;
+
+          if (ref.is_head_ref && games.length > 0) {
+            refTotal += HEAD_REF_WEEKLY;
+          }
         });
 
         return (
           <div key={refId} style={card}>
 
-            {/* HEADER */}
             <div style={header}>
               <div>
                 <div style={name}>
@@ -126,7 +164,6 @@ export default function RefereeTimeSheetsPage() {
               <div style={payBox}>${refTotal}</div>
             </div>
 
-            {/* DAYS */}
             <div style={dayGrid}>
               {Object.keys(days).map((date) => {
                 const games = days[date];
@@ -135,8 +172,8 @@ export default function RefereeTimeSheetsPage() {
                 const isPaid = unpaid.length === 0;
 
                 const unpaidDayTotal =
-                  unpaid.length * 40 +
-                  (ref.is_head_ref && unpaid.length ? 20 : 0);
+                  unpaid.length * GAME_PAY +
+                  (ref.is_head_ref && unpaid.length > 0 ? HEAD_REF_WEEKLY : 0);
 
                 return (
                   <div key={date} style={dayCard}>
@@ -152,21 +189,19 @@ export default function RefereeTimeSheetsPage() {
                           {g.schedule_master_auto?.team || "Team"} vs{" "}
                           {g.schedule_master_auto?.opponent || "Opponent"}
                         </span>
-                        <span>$40</span>
+                        <span>${GAME_PAY}</span>
                       </div>
                     ))}
 
                     <div style={dayTotal}>
-                      ${games.length * 40}
-                      {ref.is_head_ref && " + $20 Head"}
+                      ${games.length * GAME_PAY}
+                      {ref.is_head_ref && games.length > 0 && " + $20 Head"}
                     </div>
 
-                    {/* 🔥 PAID BADGE */}
                     {isPaid && (
                       <div style={paidBadge}>PAID</div>
                     )}
 
-                    {/* 🔥 PAY BUTTON */}
                     {!isPaid && (
                       <button
                         style={payBtn}
@@ -198,7 +233,7 @@ function StatTile({ label, value }) {
   );
 }
 
-/* STYLES */
+/* STYLES (UNCHANGED) */
 
 const wrap = { display:"flex", flexDirection:"column", gap:20, padding:20 };
 
