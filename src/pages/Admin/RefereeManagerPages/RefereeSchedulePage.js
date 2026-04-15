@@ -32,8 +32,7 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-export default function RefereeSchedulePage({ setAdminPage }) {
-
+export default function RefereeSchedulePage({ setPage }) {
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -110,27 +109,53 @@ export default function RefereeSchedulePage({ setAdminPage }) {
     return filtered;
   }, [games, filter, week, assignmentsByGame]);
 
+  const assignRef = async (gameId, slot, refereeId) => {
+    const role = slot === 0 ? "Ref 1" : "Ref 2";
+
+    const { data: existing } = await supabase
+      .from("ref_assignments")
+      .select("*")
+      .eq("game_id", gameId)
+      .eq("role", role)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("ref_assignments")
+        .update({ referee_id: refereeId })
+        .eq("id", existing.id);
+    } else {
+      await supabase.from("ref_assignments").insert({
+        game_id: gameId,
+        referee_id: refereeId,
+        role,
+      });
+    }
+
+    loadData();
+  };
+
   if (loading) return <div style={wrap}>Loading...</div>;
 
   return (
     <div style={wrap}>
 
-      {/* TOP TILE ROW */}
+      {/* 🔥 TOP TILE ROW */}
       <div style={statsGrid}>
         <FilterTile label="All" value={games.length} active={filter==="all"} onClick={()=>setFilter("all")} />
         <FilterTile label="Open" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===0).length} active={filter==="open"} onClick={()=>setFilter("open")} />
         <FilterTile label="1 Ref" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length===1).length} active={filter==="partial"} onClick={()=>setFilter("partial")} />
         <FilterTile label="2 Refs" value={games.filter(g=>(assignmentsByGame[g.id]||[]).length>=2).length} active={filter==="full"} onClick={()=>setFilter("full")} />
 
-        {/* FIXED BUTTON */}
+        {/* 🔥 SIMPLE WORKING BUTTON */}
         <ActionTile
           label="Auto Assign"
           desc="Open workflow"
-          onClick={() => setAdminPage("autoAssign")}
+          onClick={() => setPage("autoAssign")}
         />
       </div>
 
-      {/* WEEK FILTER */}
+      {/* WEEK TILES */}
       <div style={weekTileGrid}>
         <WeekTile label="All Weeks" active={week==="all"} onClick={()=>setWeek("all")} />
         {weeks.map((w)=>(
@@ -141,7 +166,6 @@ export default function RefereeSchedulePage({ setAdminPage }) {
       {/* GAME GRID */}
       <div style={grid}>
         {filteredGames.map((game)=>{
-
           const homeLogo = TEAM_LOGOS[game.team];
           const awayLogo = TEAM_LOGOS[game.opponent];
 
@@ -166,6 +190,67 @@ export default function RefereeSchedulePage({ setAdminPage }) {
                 {game.division || "No Division"}
               </div>
 
+              {[0,1].map((slot)=>{
+                const role = slot === 0 ? "Ref 1" : "Ref 2";
+                const assignment = (assignmentsByGame[game.id] || []).find(a => a.role === role);
+                const assignedRef = refs.find(r => r.id === assignment?.referee_id);
+
+                const key = `${game.id}-${slot}`;
+                const isEditing = selectedRefs[key] !== undefined;
+
+                return (
+                  <div key={slot} style={slotRow}>
+                    <div style={slotLabel}>{role}</div>
+
+                    {!isEditing && assignedRef && (
+                      <div style={assignedRefBox}
+                        onClick={() => setSelectedRefs(prev => ({...prev, [key]: assignedRef.id}))}
+                      >
+                        {assignedRef.first_name} {assignedRef.last_name}
+                      </div>
+                    )}
+
+                    {!isEditing && !assignedRef && (
+                      <div style={assignBtn}
+                        onClick={() => setSelectedRefs(prev => ({...prev, [key]: ""}))}
+                      >
+                        Assign Ref
+                      </div>
+                    )}
+
+                    {isEditing && (
+                      <select
+                        autoFocus
+                        value={selectedRefs[key]}
+                        onChange={async (e)=>{
+                          await assignRef(game.id, slot, e.target.value);
+                          setSelectedRefs(prev=>{
+                            const copy = {...prev};
+                            delete copy[key];
+                            return copy;
+                          });
+                        }}
+                        onBlur={()=>{
+                          setSelectedRefs(prev=>{
+                            const copy = {...prev};
+                            delete copy[key];
+                            return copy;
+                          });
+                        }}
+                        style={select}
+                      >
+                        <option value="">Select Ref</option>
+                        {refs.map(r=>(
+                          <option key={r.id} value={r.id}>
+                            {r.first_name} {r.last_name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
+
             </div>
           );
         })}
@@ -175,7 +260,7 @@ export default function RefereeSchedulePage({ setAdminPage }) {
   );
 }
 
-/* COMPONENTS (UNCHANGED) */
+/* COMPONENTS + STYLES (unchanged) */
 
 function FilterTile({ label, value, active, onClick }) {
   return (
@@ -203,65 +288,34 @@ function WeekTile({ label, active, onClick }) {
   );
 }
 
-/* STYLES (RESTORED) */
+/* STYLES */
+const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
+const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12 };
+const weekTileGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10 };
 
-const wrap = {
-  padding: 20,
-  display: "flex",
-  flexDirection: "column",
-  gap: 20
-};
+const actionTile = { background:"#16a34a", color:"#fff", borderRadius:18, padding:16, border:"none", cursor:"pointer" };
+const actionTitle = { fontSize:18, fontWeight:800 };
+const actionDesc = { fontSize:12 };
 
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
-  gap: 12
-};
+const statTile = { background:"#fff", borderRadius:18, padding:16, boxShadow:"0 8px 24px rgba(0,0,0,0.08)", border:"none" };
+const activeStatTile = { outline:"2px solid #16a34a" };
 
-const weekTileGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
-  gap: 10
-};
+const weekTile = { background:"#fff", borderRadius:14, padding:12, boxShadow:"0 6px 18px rgba(0,0,0,0.08)", border:"none", fontWeight:700 };
+const activeWeekTile = { outline:"2px solid #2563eb" };
 
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))",
-  gap: 16
-};
+const statValue = { fontSize:22, fontWeight:800 };
+const statLabel = { fontSize:12, color:"#64748b" };
 
-const card = {
-  background: "#fff",
-  borderRadius: 18,
-  padding: 18,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
-};
+const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:16 };
 
-const logoRow = {
-  display: "flex",
-  justifyContent: "center",
-  gap: 10
-};
+const card = { background:"#fff", borderRadius:18, padding:18, boxShadow:"0 8px 24px rgba(0,0,0,0.08)" };
 
-const logo = {
-  width: 40
-};
+const logoRow = { display:"flex", justifyContent:"center", gap:10 };
+const logo = { width:40 };
+const vs = { fontWeight:700 };
 
-const vs = {
-  fontWeight: 700
-};
-
-const gameTitle = {
-  textAlign: "center",
-  fontWeight: 700,
-  marginTop: 6
-};
-
-const gameMeta = {
-  textAlign: "center",
-  fontSize: 12,
-  color: "#64748b"
-};
+const gameTitle = { textAlign:"center", fontWeight:700, marginTop:6 };
+const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
 
 const divisionBadge = {
   marginTop: 8,
@@ -274,55 +328,10 @@ const divisionBadge = {
   fontWeight: 600
 };
 
-const statTile = {
-  background: "#fff",
-  borderRadius: 18,
-  padding: 16,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-  border: "none"
-};
+const slotRow = { display:"flex", gap:10, marginTop:10 };
+const slotLabel = { width:60 };
 
-const activeStatTile = {
-  outline: "2px solid #16a34a"
-};
+const select = { flex:1 };
 
-const statValue = {
-  fontSize: 22,
-  fontWeight: 800
-};
-
-const statLabel = {
-  fontSize: 12,
-  color: "#64748b"
-};
-
-const actionTile = {
-  background: "#16a34a",
-  color: "#fff",
-  borderRadius: 18,
-  padding: 16,
-  border: "none",
-  cursor: "pointer"
-};
-
-const actionTitle = {
-  fontSize: 18,
-  fontWeight: 800
-};
-
-const actionDesc = {
-  fontSize: 12
-};
-
-const weekTile = {
-  background: "#fff",
-  borderRadius: 14,
-  padding: 12,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-  border: "none",
-  fontWeight: 700
-};
-
-const activeWeekTile = {
-  outline: "2px solid #2563eb"
-};
+const assignedRefBox = { flex:1, background:"#f1f5f9", padding:6, borderRadius:8 };
+const assignBtn = { flex:1, background:"#dcfce7", padding:6, borderRadius:8, textAlign:"center" };
