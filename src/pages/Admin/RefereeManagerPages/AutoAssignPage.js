@@ -25,11 +25,16 @@ export default function AutoAssignPage() {
     }
   }, [selectedWeek]);
 
-  /* ---------------- HELPERS ---------------- */
+  /* ---------------- FIXED TIME NORMALIZER ---------------- */
 
   const normalizeTime = (t) => {
     if (!t) return null;
-    return t.replace(" AM", "").replace(" PM", "");
+
+    return t
+      .toString()
+      .replace(" AM", "")
+      .replace(" PM", "")
+      .trim();
   };
 
   /* ---------------- LOAD ---------------- */
@@ -72,7 +77,11 @@ export default function AutoAssignPage() {
 
     data?.forEach((a) => {
       if (!map[a.referee_id]) map[a.referee_id] = {};
-      map[a.referee_id][a.time_block] = a.available;
+
+      // normalize here too 🔥
+      const time = normalizeTime(a.time_block);
+
+      map[a.referee_id][time] = a.available;
     });
 
     setAvailability(map);
@@ -110,26 +119,23 @@ export default function AutoAssignPage() {
     alert("Availability Saved");
   };
 
-  /* ---------------- AUTO ASSIGN ---------------- */
+  /* ---------------- FIXED AUTO ASSIGN ---------------- */
 
   const autoAssign = () => {
     let usage = {};
-    let assignedByTime = {};
 
     const result = games.map((game) => {
       const gameTime = normalizeTime(game.event_time);
 
-      if (!assignedByTime[gameTime]) {
-        assignedByTime[gameTime] = new Set();
-      }
-
       const availableRefs = refs
         .filter((ref) => {
           const a = availability[ref.id];
-          return (
-            a?.[gameTime] &&
-            !assignedByTime[gameTime].has(ref.id)
-          );
+
+          // 🔥 KEY FIXES
+          if (!a) return true;
+          if (a[gameTime] === undefined) return true;
+
+          return a[gameTime] === true;
         })
         .sort((a, b) => (usage[a.id] || 0) - (usage[b.id] || 0));
 
@@ -137,7 +143,6 @@ export default function AutoAssignPage() {
 
       selected.forEach((r) => {
         usage[r.id] = (usage[r.id] || 0) + 1;
-        assignedByTime[gameTime].add(r.id);
       });
 
       return {
@@ -147,6 +152,7 @@ export default function AutoAssignPage() {
       };
     });
 
+    console.log("Assignments:", result);
     setAssignments(result);
   };
 
@@ -178,7 +184,6 @@ export default function AutoAssignPage() {
   return (
     <div style={wrap}>
 
-      {/* STEP NAV */}
       <div style={stepGrid}>
         <StepTile label="Week" active={step === 1} onClick={() => setStep(1)} />
         <StepTile label="Availability" active={step === 2} onClick={() => setStep(2)} />
