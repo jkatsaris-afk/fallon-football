@@ -147,9 +147,7 @@ export default function AutoAssignPage() {
       };
     });
 
-    console.log("Assignments:", result);
     setAssignments(result);
-    setStep(3);
   };
 
   /* ---------------- SAVE ASSIGNMENTS ---------------- */
@@ -159,22 +157,16 @@ export default function AutoAssignPage() {
       for (let i = 0; i < a.refs.length; i++) {
         const ref = a.refs[i];
 
-        const { error } = await supabase
-          .from("ref_assignments")
-          .upsert(
-            {
-              game_id: a.gameId,
-              referee_id: ref.id,
-              role: i === 0 ? "ref1" : "ref2",
-            },
-            {
-              onConflict: "game_id,role",
-            }
-          );
-
-        if (error) {
-          console.error("Assignment save error:", error);
-        }
+        await supabase.from("ref_assignments").upsert(
+          {
+            game_id: a.gameId,
+            referee_id: ref.id,
+            role: i === 0 ? "ref1" : "ref2",
+          },
+          {
+            onConflict: "game_id,role",
+          }
+        );
       }
     }
 
@@ -191,6 +183,7 @@ export default function AutoAssignPage() {
         <StepTile label="Week" active={step === 1} onClick={() => setStep(1)} />
         <StepTile label="Availability" active={step === 2} onClick={() => setStep(2)} />
         <StepTile label="Assign" active={step === 3} onClick={() => setStep(3)} />
+        <StepTile label="Review" active={step === 4} onClick={() => setStep(4)} />
       </div>
 
       {/* STEP 1 */}
@@ -243,12 +236,14 @@ export default function AutoAssignPage() {
           </div>
 
           <div style={actionRow}>
-            <button style={primaryBtn} onClick={saveAvailability}>
+            <button
+              style={primaryBtn}
+              onClick={async () => {
+                await saveAvailability();
+                setStep(3);
+              }}
+            >
               Save Availability
-            </button>
-
-            <button style={primaryBtn} onClick={autoAssign}>
-              Auto Assign
             </button>
           </div>
         </>
@@ -256,6 +251,23 @@ export default function AutoAssignPage() {
 
       {/* STEP 3 */}
       {step === 3 && (
+        <div style={centerBox}>
+          <h2>Auto Assign Referees</h2>
+
+          <button
+            style={primaryBtn}
+            onClick={() => {
+              autoAssign();
+              setStep(4);
+            }}
+          >
+            Run Auto Assign
+          </button>
+        </div>
+      )}
+
+      {/* STEP 4 */}
+      {step === 4 && (
         <>
           <div style={grid}>
             {assignments.map((a) => (
@@ -285,22 +297,24 @@ export default function AutoAssignPage() {
             ))}
           </div>
 
-          <button style={primaryBtn} onClick={saveAssignments}>
-            Save Assignments
-          </button>
+          <div style={actionRow}>
+            <button style={primaryBtn} onClick={saveAssignments}>
+              Approve & Save
+            </button>
+          </div>
         </>
       )}
     </div>
   );
 }
 
-/* ---------------- UI ---------------- */
+/* ---------------- STYLES ---------------- */
 
 const wrap = { padding: 20 };
 
 const stepGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(3,1fr)",
+  gridTemplateColumns: "repeat(4,1fr)",
   gap: 10,
   marginBottom: 20,
 };
@@ -354,14 +368,16 @@ const primaryBtn = {
   cursor: "pointer",
 };
 
-const gameTitle = {
-  fontWeight: 700,
+const centerBox = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 20,
+  marginTop: 40,
 };
 
-const gameMeta = {
-  fontSize: 12,
-  color: "#64748b",
-};
+const gameTitle = { fontWeight: 700 };
+const gameMeta = { fontSize: 12, color: "#64748b" };
 
 function StepTile({ label, active, onClick }) {
   return (
