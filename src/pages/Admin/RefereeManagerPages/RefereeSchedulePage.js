@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../supabase";
+import { supabase } from "../../../supabase";
 
 /* 🔥 TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
