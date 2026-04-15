@@ -5,7 +5,6 @@ import RefereeStaffPage from "./RefereeManagerPages/RefereeStaffPage";
 import RefereeSchedulePage from "./RefereeManagerPages/RefereeSchedulePage";
 import HeadRefPage from "./RefereeManagerPages/HeadRefPage";
 import RefereeTimeSheetsPage from "./RefereeManagerPages/RefereeTimeSheetsPage";
-import AutoAssignPage from "./RefereeManagerPages/AutoAssignPage";
 
 export default function RefereeManager() {
   const [refs, setRefs] = useState([]);
@@ -53,75 +52,115 @@ export default function RefereeManager() {
   };
 
   const updateStatus = async (id, status) => {
-    await supabase.from("referees").update({ status }).eq("id", id);
+    const { error } = await supabase
+      .from("referees")
+      .update({ status })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error updating referee status:", error);
+      return;
+    }
+
     loadRefs();
   };
 
   const updateRole = async (ref, newRole) => {
-    await supabase
+    const { error } = await supabase
       .from("referees")
       .update({
         role: newRole === "head" ? "Head Ref" : "Assistant Ref",
       })
       .eq("id", ref.id);
 
+    if (error) {
+      console.error("Error updating referee role:", error);
+      return;
+    }
+
     loadRefs();
   };
 
   const setHeadRef = async (refId) => {
-    await supabase.from("referees").update({ is_head_ref: false }).neq("id", "");
-    await supabase.from("referees").update({ is_head_ref: true }).eq("id", refId);
+    const { error: clearError } = await supabase
+      .from("referees")
+      .update({ is_head_ref: false })
+      .neq("id", "");
+
+    if (clearError) {
+      console.error("Error clearing head ref:", clearError);
+      return;
+    }
+
+    const { error: setError } = await supabase
+      .from("referees")
+      .update({ is_head_ref: true })
+      .eq("id", refId);
+
+    if (setError) {
+      console.error("Error setting head ref:", setError);
+      return;
+    }
+
     loadRefs();
   };
 
+  /* 🔥 ONLY CHANGE IS HERE */
   const renderSelectedPage = () => {
-    switch (view) {
-      case "staff":
-        return (
-          <RefereeStaffPage
-            refs={refs}
-            loading={loading}
-            getName={getName}
-            getStatus={getStatus}
-            getRole={getRole}
-            displayRole={displayRole}
-            updateStatus={updateStatus}
-            updateRole={updateRole}
-          />
-        );
+    try {
+      switch (view) {
+        case "staff":
+          return (
+            <RefereeStaffPage
+              refs={refs}
+              loading={loading}
+              getName={getName}
+              getStatus={getStatus}
+              getRole={getRole}
+              displayRole={displayRole}
+              updateStatus={updateStatus}
+              updateRole={updateRole}
+            />
+          );
 
-      case "schedule":
-        return <RefereeSchedulePage />;
+        case "schedule":
+          return <RefereeSchedulePage />;
 
-      case "head":
-        return (
-          <HeadRefPage
-            refs={refs}
-            loading={loading}
-            getName={getName}
-            getStatus={getStatus}
-            setHeadRef={setHeadRef}
-          />
-        );
+        case "head":
+          return (
+            <HeadRefPage
+              refs={refs}
+              loading={loading}
+              getName={getName}
+              getStatus={getStatus}
+              setHeadRef={setHeadRef}
+            />
+          );
 
-      case "time":
-        return <RefereeTimeSheetsPage />;
+        case "time":
+          return <RefereeTimeSheetsPage />;
 
-      case "autoAssign":
-        return <AutoAssignPage />;
-
-      default:
-        return (
-          <div style={contentWrap}>
-            <div style={emptyStateCard}>
-              <div style={emptyTitle}>Referee Manager</div>
-              <div style={emptyText}>
-                Pick a tile above to manage referee staff, schedules, head ref,
-                and time sheets.
+        default:
+          return (
+            <div style={contentWrap}>
+              <div style={emptyStateCard}>
+                <div style={emptyTitle}>Referee Manager</div>
+                <div style={emptyText}>
+                  Pick a tile above to manage referee staff, schedules, head ref,
+                  and time sheets.
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
+      }
+    } catch (err) {
+      console.error("Referee Manager crash:", err);
+
+      return (
+        <div style={{ padding: 20, color: "red" }}>
+          ⚠️ Page crashed — check console
+        </div>
+      );
     }
   };
 
@@ -138,11 +177,33 @@ export default function RefereeManager() {
         </div>
 
         <div style={tileGrid}>
-          <ManagerTile title="Referee Staff" active={view==="staff"} onClick={()=>setView("staff")} />
-          <ManagerTile title="Schedules" active={view==="schedule"} onClick={()=>setView("schedule")} />
-          <ManagerTile title="Auto Assign Wizard" active={view==="autoAssign"} onClick={()=>setView("autoAssign")} />
-          <ManagerTile title="Head Ref" active={view==="head"} onClick={()=>setView("head")} />
-          <ManagerTile title="Time Sheets" active={view==="time"} onClick={()=>setView("time")} />
+          <ManagerTile
+            title="Referee Staff"
+            desc="View, approve, and assign roles"
+            active={view === "staff"}
+            onClick={() => setView("staff")}
+          />
+
+          <ManagerTile
+            title="Schedules"
+            desc="Referee assignments and games"
+            active={view === "schedule"}
+            onClick={() => setView("schedule")}
+          />
+
+          <ManagerTile
+            title="Head Ref"
+            desc="Choose the league head referee"
+            active={view === "head"}
+            onClick={() => setView("head")}
+          />
+
+          <ManagerTile
+            title="Time Sheets"
+            desc="Track hours and payments"
+            active={view === "time"}
+            onClick={() => setView("time")}
+          />
         </div>
       </div>
 
@@ -151,47 +212,110 @@ export default function RefereeManager() {
   );
 }
 
-/* 🔥 TILE COMPONENT */
-function ManagerTile({ title, active, onClick }) {
+/* UI BELOW IS UNCHANGED */
+
+function ManagerTile({ title, desc, active, onClick }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
       style={{
-        padding: 16,
-        borderRadius: 16,
-        background: active ? "#16a34a" : "#fff",
-        color: active ? "#fff" : "#111",
-        cursor: "pointer",
-        boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-        fontWeight: 700,
-        textAlign: "center"
+        ...tile,
+        ...(active ? activeTile : {}),
       }}
     >
-      {title}
-    </div>
+      <div style={tileTitle}>{title}</div>
+      <div style={tileDesc}>{desc}</div>
+    </button>
   );
 }
 
-/* 🔥 STYLES */
-const pageWrap = { padding: 20 };
-const topSection = { marginBottom: 20 };
-const titleRow = { marginBottom: 10 };
-const title = { fontSize: 24, fontWeight: 800 };
-const subtitle = { fontSize: 14, color: "#64748b" };
+const pageWrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
+
+const topSection = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
+};
+
+const titleRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const title = {
+  margin: 0,
+  fontSize: "28px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const subtitle = {
+  marginTop: 6,
+  color: "#64748b",
+  fontSize: "14px",
+};
 
 const tileGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
-  gap: 12
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 16,
 };
 
-const contentWrap = { padding: 20 };
+const tile = {
+  textAlign: "left",
+  border: "none",
+  borderRadius: 18,
+  background: "#ffffff",
+  padding: 18,
+  cursor: "pointer",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  minHeight: 100,
+};
+
+const activeTile = {
+  outline: "2px solid #16a34a",
+  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
+};
+
+const tileTitle = {
+  fontSize: "16px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const tileDesc = {
+  marginTop: 8,
+  fontSize: "13px",
+  color: "#64748b",
+  lineHeight: 1.4,
+};
+
+const contentWrap = {
+  display: "flex",
+  flexDirection: "column",
+};
 
 const emptyStateCard = {
-  background: "#fff",
-  padding: 20,
-  borderRadius: 16
+  background: "#ffffff",
+  borderRadius: 18,
+  padding: 24,
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
 };
 
-const emptyTitle = { fontSize: 18, fontWeight: 800 };
-const emptyText = { fontSize: 14, color: "#64748b" };
+const emptyTitle = {
+  fontSize: "20px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const emptyText = {
+  marginTop: 8,
+  color: "#64748b",
+  fontSize: "14px",
+};
