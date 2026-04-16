@@ -17,7 +17,7 @@ import LogoRams from "../../../resources/Los Angeles Rams.png";
 import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
 import LogoRavens from "../../../resources/Baltimore Ravens.png";
 
-/* 🔥 LOGO MAP */
+/* 🔥 LOGO MAP (PROPER CASE KEYS) */
 const TEAM_LOGOS = {
   "49ers": Logo49ers,
   Bengals: LogoBengals,
@@ -32,23 +32,6 @@ const TEAM_LOGOS = {
   Rams: LogoRams,
   Steelers: LogoSteelers,
   Ravens: LogoRavens,
-};
-
-/* 🔥 DB → DISPLAY MAP */
-const TEAM_NAME_MAP = {
-  SF: "49ers",
-  CIN: "Bengals",
-  BUF: "Bills",
-  DEN: "Broncos",
-  KC: "Chiefs",
-  IND: "Colts",
-  PHI: "Eagles",
-  NYJ: "Jets",
-  DET: "Lions",
-  LV: "Raiders",
-  LAR: "Rams",
-  PIT: "Steelers",
-  BAL: "Ravens",
 };
 
 export default function CoachStaffPage() {
@@ -91,6 +74,13 @@ export default function CoachStaffPage() {
     }
 
     setLoadingState(false);
+  };
+
+  /* 🔥 FIX: normalize lowercase → Proper Case */
+  const formatTeamName = (name) => {
+    if (!name) return "";
+    if (name === "49ers") return "49ers"; // special case
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
   };
 
   const getName = (c) =>
@@ -177,7 +167,7 @@ export default function CoachStaffPage() {
             const team = getCoachTeam(coach);
 
             const rawName = team?.nfl_team?.short_name;
-            const teamName = TEAM_NAME_MAP[rawName] || rawName;
+            const teamName = formatTeamName(rawName);
             const logo = TEAM_LOGOS[teamName];
 
             return (
@@ -273,17 +263,14 @@ export default function CoachStaffPage() {
 /* STAT TILE */
 function StatTile({ label, value, active, onClick }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        background: "#fff",
-        borderRadius: 18,
-        padding: 18,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-        cursor: "pointer",
-        outline: active ? "2px solid #16a34a" : "none"
-      }}
-    >
+    <div onClick={onClick} style={{
+      background: "#fff",
+      borderRadius: 18,
+      padding: 18,
+      boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+      cursor: "pointer",
+      outline: active ? "2px solid #16a34a" : "none"
+    }}>
       <div style={{ fontSize: 26, fontWeight: 800 }}>{value}</div>
       <div style={{ fontSize: 12, color: "#64748b" }}>{label}</div>
     </div>
