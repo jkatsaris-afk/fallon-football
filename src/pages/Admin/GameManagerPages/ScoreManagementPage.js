@@ -32,23 +32,31 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-/* 🔥 normalize names */
 const normalize = (name) => {
   if (!name) return "";
   const lower = name.toLowerCase();
-
   if (lower.includes("49")) return "49ers";
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 };
 
-export default function ScoreManagementPage() {
+const getWeek = (dateStr) => {
+  if (!dateStr) return 1;
+  const start = new Date("2026-03-01");
+  const gameDate = new Date(dateStr);
+  const diff = Math.floor((gameDate - start) / (1000 * 60 * 60 * 24));
+  return Math.floor(diff / 7) + 1;
+};
+
+export default function ScoreManagementPage({ setGameId, setTab }) {
   const [games, setGames] = useState([]);
   const [liveGames, setLiveGames] = useState([]);
+  const [finalGames, setFinalGames] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState("all");
 
   useEffect(() => {
     loadGames();
     loadLiveGames();
+    loadFinalGames();
   }, []);
 
   const loadGames = async () => {
@@ -68,59 +76,82 @@ export default function ScoreManagementPage() {
     setLiveGames(data || []);
   };
 
+  const loadFinalGames = async () => {
+    const { data } = await supabase
+      .from("game_scores")
+      .select("*");
+
+    setFinalGames(data || []);
+  };
+
   const startGame = async (game) => {
-    await supabase.from("games_live").insert({
+    const { data } = await supabase.from("games_live")
+      .insert({
+        schedule_id: game.id,
+        home_team: game.team,
+        away_team: game.opponent,
+        home_score: 0,
+        away_score: 0,
+        status: "live"
+      })
+      .select()
+      .single();
+
+    setGameId(data.id);
+    setTab("live");
+  };
+
+  const resumeGame = (game) => {
+    const existing = liveGames.find(g => g.schedule_id === game.id);
+    if (!existing) return;
+    setGameId(existing.id);
+    setTab("live");
+  };
+
+  const enterFinal = async (game) => {
+    const home = prompt("Home Score?");
+    const away = prompt("Away Score?");
+    if (!home || !away) return;
+
+    await supabase.from("game_scores").insert({
       schedule_id: game.id,
       home_team: game.team,
       away_team: game.opponent,
-      home_score: 0,
-      away_score: 0,
-      status: "live"
+      home_score: parseInt(home),
+      away_score: parseInt(away)
     });
 
-    loadLiveGames();
+    loadFinalGames();
   };
 
-  /* 🔥 STATS */
-  const stats = useMemo(() => {
-    const total = games.length;
-    const scored = liveGames.length;
-    const unscored = total - scored;
+  const getStatus = (game) => {
+    if (finalGames.find(g => g.schedule_id === game.id)) return "final";
+    if (liveGames.find(g => g.schedule_id === game.id)) return "live";
+    return "not-started";
+  };
 
-    return { total, scored, unscored };
-  }, [games, liveGames]);
-
-  /* 🔥 WEEK LIST */
-  const weeks = useMemo(() => {
-    const unique = [...new Set(games.map(g => g.week || "Unknown"))];
-    return ["all", ...unique];
+  const gamesWithWeek = useMemo(() => {
+    return games.map(g => ({ ...g, week: getWeek(g.event_date) }));
   }, [games]);
 
-  /* 🔥 FILTERED GAMES */
+  const weeks = useMemo(() => {
+    const unique = [...new Set(gamesWithWeek.map(g => g.week))];
+    return ["all", ...unique.sort((a,b)=>a-b)];
+  }, [gamesWithWeek]);
+
   const filteredGames = useMemo(() => {
-    if (selectedWeek === "all") return games;
-    return games.filter(g => g.week === selectedWeek);
-  }, [games, selectedWeek]);
+    if (selectedWeek === "all") return gamesWithWeek;
+    return gamesWithWeek.filter(g => g.week === selectedWeek);
+  }, [gamesWithWeek, selectedWeek]);
 
   return (
     <div style={wrap}>
 
-      {/* 🔥 STATS */}
-      <div style={statsGrid}>
-        <StatTile label="Games Scored" value={stats.scored} />
-        <StatTile label="Total Games" value={stats.total} />
-        <StatTile label="Unscored Games" value={stats.unscored} />
-      </div>
-
-      {/* 🔥 WEEK FILTER */}
       <div style={weekGrid}>
         {weeks.map(w => (
           <div
             key={w}
-            style={{
-              ...weekTile,
-              ...(selectedWeek === w ? activeTile : {})
-            }}
+            style={{ ...weekTile, ...(selectedWeek === w ? activeTile : {}) }}
             onClick={() => setSelectedWeek(w)}
           >
             {w === "all" ? "All" : `Week ${w}`}
@@ -128,11 +159,11 @@ export default function ScoreManagementPage() {
         ))}
       </div>
 
-      {/* 🔥 GAME CARDS */}
       <div style={grid}>
         {filteredGames.map(g => {
           const home = normalize(g.team);
           const away = normalize(g.opponent);
+          const status = getStatus(g);
 
           return (
             <div key={g.id} style={card}>
@@ -144,12 +175,29 @@ export default function ScoreManagementPage() {
               </div>
 
               <div style={sub}>
-                {g.event_date} • {g.event_time} • {g.field}
+                Week {g.week} • {g.event_time} • {g.field}
               </div>
 
-              <button style={btn} onClick={() => startGame(g)}>
-                Start Game
-              </button>
+              {status === "not-started" && (
+                <div style={btnRow}>
+                  <button style={btn} onClick={() => startGame(g)}>
+                    Start Game
+                  </button>
+                  <button style={btnGray} onClick={() => enterFinal(g)}>
+                    Enter Final
+                  </button>
+                </div>
+              )}
+
+              {status === "live" && (
+                <button style={btnBlue} onClick={() => resumeGame(g)}>
+                  Resume Game
+                </button>
+              )}
+
+              {status === "final" && (
+                <div style={finalBadge}>Final</div>
+              )}
 
             </div>
           );
@@ -160,7 +208,7 @@ export default function ScoreManagementPage() {
   );
 }
 
-/* 🔥 TEAM BLOCK */
+/* COMPONENTS */
 function Team({ logo, name }) {
   return (
     <div style={teamWrap}>
@@ -170,92 +218,88 @@ function Team({ logo, name }) {
   );
 }
 
-/* 🔥 STAT TILE */
-function StatTile({ label, value }) {
-  return (
-    <div style={statTile}>
-      <div style={statValue}>{value}</div>
-      <div style={statLabel}>{label}</div>
-    </div>
-  );
-}
-
 /* STYLES */
-
-const wrap = { display: "flex", flexDirection: "column", gap: 20 };
-
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))",
-  gap: 14
-};
-
-const statTile = {
-  background: "#fff",
-  borderRadius: 18,
-  padding: 18,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const statValue = { fontSize: 26, fontWeight: 800 };
-const statLabel = { fontSize: 12, color: "#64748b" };
+const wrap = { display:"flex", flexDirection:"column", gap:20 };
 
 const weekGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(100px,1fr))",
-  gap: 10
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(100px,1fr))",
+  gap:10
 };
 
 const weekTile = {
-  background: "#fff",
-  padding: 10,
-  borderRadius: 12,
-  textAlign: "center",
-  cursor: "pointer"
+  background:"#fff",
+  padding:10,
+  borderRadius:12,
+  textAlign:"center",
+  cursor:"pointer"
 };
 
-const activeTile = {
-  outline: "2px solid #16a34a"
-};
+const activeTile = { outline:"2px solid #16a34a" };
 
 const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px,1fr))",
-  gap: 16
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(240px,1fr))",
+  gap:16
 };
 
 const card = {
-  padding: 16,
-  borderRadius: 16,
-  background: "#f8fafc",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+  padding:16,
+  borderRadius:16,
+  background:"#f8fafc",
+  boxShadow:"0 6px 18px rgba(0,0,0,0.06)"
 };
 
 const matchupRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
+  display:"flex",
+  justifyContent:"space-between",
+  alignItems:"center"
 };
 
-const vs = { fontWeight: 700 };
+const vs = { fontWeight:700 };
 
 const teamWrap = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 6
+  display:"flex",
+  flexDirection:"column",
+  alignItems:"center",
+  gap:6
 };
 
-const logoStyle = { width: 32, height: 32 };
+const logoStyle = { width:32, height:32 };
 
-const sub = { fontSize: 12, color: "#64748b", marginTop: 8 };
+const sub = { fontSize:12, color:"#64748b", marginTop:8 };
+
+const btnRow = { display:"flex", gap:8, marginTop:10 };
 
 const btn = {
-  marginTop: 10,
-  padding: "8px 12px",
-  borderRadius: 8,
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer"
+  padding:"8px 12px",
+  borderRadius:8,
+  background:"#16a34a",
+  color:"#fff",
+  border:"none"
+};
+
+const btnGray = {
+  padding:"8px 12px",
+  borderRadius:8,
+  background:"#6b7280",
+  color:"#fff",
+  border:"none"
+};
+
+const btnBlue = {
+  marginTop:10,
+  padding:"8px 12px",
+  borderRadius:8,
+  background:"#2563eb",
+  color:"#fff",
+  border:"none"
+};
+
+const finalBadge = {
+  marginTop:10,
+  padding:"6px 10px",
+  borderRadius:8,
+  background:"#e5e7eb",
+  textAlign:"center"
 };
