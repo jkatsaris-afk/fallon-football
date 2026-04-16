@@ -34,13 +34,17 @@ export default function AutoAssignPage() {
 
   /* ---------------- LOAD ---------------- */
 
+  // 🔥 FIXED WEEKS (FORCED FULL SEASON)
   const loadWeeks = async () => {
     const { data } = await supabase
       .from("schedule_master_auto")
       .select("week");
 
-    const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
-    setWeeks(unique);
+    const dbWeeks = [...new Set((data || []).map((g) => g.week))];
+
+    const fullWeeks = [1, 2, 3, 4, 5, 6, 7, "Championship"];
+
+    setWeeks(fullWeeks);
   };
 
   const loadRefs = async () => {
@@ -52,21 +56,37 @@ export default function AutoAssignPage() {
     setRefs(data || []);
   };
 
+  // 🔥 UPDATED FOR CHAMPIONSHIP
   const loadGames = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("schedule_master_auto")
       .select("*")
-      .eq("week", selectedWeek)
       .ilike("event_type", "%game%");
+
+    if (selectedWeek === "Championship") {
+      query = query.ilike("event_type", "%champ%");
+    } else {
+      query = query.eq("week", selectedWeek);
+    }
+
+    const { data } = await query;
 
     setGames(data || []);
   };
 
+  // 🔥 UPDATED FOR CHAMPIONSHIP
   const loadAvailability = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("ref_availability")
-      .select("*")
-      .eq("week", selectedWeek);
+      .select("*");
+
+    if (selectedWeek === "Championship") {
+      query = query.eq("week", 8); // 👈 use 8 for championship
+    } else {
+      query = query.eq("week", selectedWeek);
+    }
+
+    const { data } = await query;
 
     const map = {};
 
@@ -96,7 +116,7 @@ export default function AutoAssignPage() {
         await supabase.from("ref_availability").upsert(
           {
             referee_id: refId,
-            week: selectedWeek,
+            week: selectedWeek === "Championship" ? 8 : selectedWeek,
             time_block: time,
             available: availability[refId]?.[time] || false,
           },
@@ -160,7 +180,7 @@ export default function AutoAssignPage() {
             {
               game_id: a.gameId,
               referee_id: ref.id,
-              role: i === 0 ? "Ref 1" : "Ref 2", // ✅ FIX APPLIED
+              role: i === 0 ? "Ref 1" : "Ref 2",
             },
             {
               onConflict: "game_id,role",
@@ -192,7 +212,7 @@ export default function AutoAssignPage() {
         <div style={grid}>
           {weeks.map((w) => (
             <div key={w} style={tile} onClick={() => { setSelectedWeek(w); setStep(2); }}>
-              Week {w}
+              {typeof w === "number" ? `Week ${w}` : w}
             </div>
           ))}
         </div>
