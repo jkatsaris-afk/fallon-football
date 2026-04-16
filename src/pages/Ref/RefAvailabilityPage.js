@@ -3,7 +3,6 @@ import { supabase } from "../../supabase";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 
-/* 🔥 MATCH ADMIN LOGIC */
 const normalizeTime = (t) => {
   if (!t) return null;
   return t.toString().replace(" AM", "").replace(" PM", "").trim();
@@ -30,56 +29,37 @@ export default function RefAvailabilityPage({ user }) {
   /* ---------------- LOAD ---------------- */
 
   const loadWeeks = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("schedule_master_auto")
       .select("week");
-
-    if (error) {
-      console.error("Weeks load error:", error);
-      return;
-    }
 
     const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
     setWeeks(unique);
   };
 
   const getRefId = async () => {
-    if (!user?.id) return;
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("referees")
       .select("id")
       .eq("auth_id", user.id)
       .single();
 
-    if (error) {
-      console.error("Ref lookup error:", error);
-      return;
-    }
-
     if (data) setRefId(data.id);
   };
 
   const loadAvailability = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("ref_availability")
       .select("*")
       .eq("referee_id", refId)
       .eq("week", selectedWeek);
 
-    if (error) {
-      console.error("Availability load error:", error);
-      return;
-    }
-
     const map = {};
 
     data?.forEach((a) => {
-      const time = normalizeTime(a.time_block); // 🔥 FIX
+      const time = normalizeTime(a.time_block);
       map[time] = a.available;
     });
-
-    console.log("Loaded availability:", map);
 
     setAvailability(map);
   };
@@ -87,15 +67,17 @@ export default function RefAvailabilityPage({ user }) {
   /* ---------------- TOGGLE + LIVE SAVE ---------------- */
 
   const toggle = async (time) => {
-    if (!refId || !selectedWeek) {
-      console.warn("Missing refId or week");
-      return;
-    }
+    if (!refId || !selectedWeek) return;
 
     const current = availability?.[time];
 
-    // default TRUE if not set
-    const newValue = current === undefined ? false : !current;
+    let newValue;
+
+    if (current === undefined) {
+      newValue = true; // gray → green
+    } else {
+      newValue = !current; // toggle true/false
+    }
 
     // update UI instantly
     setAvailability((prev) => ({
@@ -103,35 +85,21 @@ export default function RefAvailabilityPage({ user }) {
       [time]: newValue,
     }));
 
-    console.log("Saving:", {
-      refId,
-      selectedWeek,
-      time,
-      newValue,
-    });
-
-    const { error } = await supabase
+    await supabase
       .from("ref_availability")
       .upsert(
         [
           {
             referee_id: refId,
             week: selectedWeek,
-            time_block: normalizeTime(time), // 🔥 FIX
+            time_block: normalizeTime(time),
             available: newValue,
           },
         ],
         {
           onConflict: ["referee_id", "week", "time_block"],
         }
-      )
-      .select();
-
-    if (error) {
-      console.error("LIVE SAVE ERROR:", error);
-    } else {
-      console.log("Saved OK");
-    }
+      );
   };
 
   /* ---------------- UI ---------------- */
@@ -158,7 +126,7 @@ export default function RefAvailabilityPage({ user }) {
         ))}
       </div>
 
-      {/* TIME BLOCKS */}
+      {/* TIMES */}
       {selectedWeek && (
         <>
           <div style={subTitle}>Week {selectedWeek}</div>
@@ -167,16 +135,24 @@ export default function RefAvailabilityPage({ user }) {
             {TIMES.map((t) => {
               const value = availability?.[t];
 
-              const isAvailable =
-                value === undefined || value === true;
+              let bg = "#e5e7eb"; // gray
+              let color = "#111";
+
+              if (value === true) {
+                bg = "#16a34a"; // green
+                color = "#fff";
+              } else if (value === false) {
+                bg = "#dc2626"; // red
+                color = "#fff";
+              }
 
               return (
                 <button
                   key={t}
                   style={{
                     ...timeBtn,
-                    background: isAvailable ? "#16a34a" : "#e5e7eb",
-                    color: isAvailable ? "#fff" : "#111",
+                    background: bg,
+                    color: color,
                   }}
                   onClick={() => toggle(t)}
                 >
@@ -187,7 +163,7 @@ export default function RefAvailabilityPage({ user }) {
           </div>
 
           <div style={hint}>
-            Tap to toggle (auto-saves)
+            Gray = not set • Green = available • Red = unavailable
           </div>
         </>
       )}
