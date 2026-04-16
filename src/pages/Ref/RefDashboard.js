@@ -68,14 +68,32 @@ export default function RefDashboard() {
     }
   };
 
-  /* 🔥 FIXED IMAGE BUILDER */
+  /* 🔥 IMAGE BUILDER */
   const getProfileImage = (file) => {
     if (!file) return null;
 
     const SUPABASE_URL = "https://qfgxbzqhwpscjpflxqfs.supabase.co";
-    const BUCKET = "profile-images"; // ✅ CORRECT BUCKET
+    const BUCKET = "profile-images";
 
     return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${file}`;
+  };
+
+  /* 🔥 PHONE FORMATTER */
+  const formatPhone = (phone) => {
+    if (!phone) return "";
+
+    const digits = phone.replace(/\D/g, "");
+
+    if (digits.length !== 10) return phone;
+
+    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  };
+
+  /* 🔥 TEL LINK BUILDER */
+  const phoneLink = (phone) => {
+    if (!phone) return "#";
+    const digits = phone.replace(/\D/g, "");
+    return `tel:${digits}`;
   };
 
   if (!ref) return <div style={{ padding: 20 }}>Loading...</div>;
@@ -138,7 +156,14 @@ export default function RefDashboard() {
                 {headRef.first_name} {headRef.last_name}
               </div>
 
-              <div style={subText}>{headRef.phone}</div>
+              {/* 🔥 CLICKABLE PHONE */}
+              <a
+                href={phoneLink(headRef.phone)}
+                style={phoneStyle}
+              >
+                {formatPhone(headRef.phone)}
+              </a>
+
             </div>
           )}
         </Tile>
@@ -255,6 +280,13 @@ const avatarFallback = {
 const headRefName = {
   fontWeight: 700,
   fontSize: 16
+};
+
+const phoneStyle = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: "#2563eb",
+  textDecoration: "none"
 };
 
 const gameRow = {
