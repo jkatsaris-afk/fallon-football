@@ -13,11 +13,13 @@ import { useState } from "react";
 
 export default function PublicLayout({ children }) {
   const [showSignupMenu, setShowSignupMenu] = useState(false);
+  const [showLoginMenu, setShowLoginMenu] = useState(false);
 
   const currentPath = window.location.pathname;
 
   const goTo = (path) => {
     setShowSignupMenu(false);
+    setShowLoginMenu(false);
     window.location.href = path;
   };
 
@@ -34,15 +36,18 @@ export default function PublicLayout({ children }) {
         {children}
       </div>
 
-      {/* BACKDROP */}
-      {showSignupMenu && (
+      {/* 🔥 SHARED BACKDROP */}
+      {(showSignupMenu || showLoginMenu) && (
         <div
           className="popup-backdrop"
-          onClick={() => setShowSignupMenu(false)}
+          onClick={() => {
+            setShowSignupMenu(false);
+            setShowLoginMenu(false);
+          }}
         />
       )}
 
-      {/* SIGNUP POPUP */}
+      {/* 🔥 SIGNUP POPUP */}
       {showSignupMenu && (
         <div className="popup-wrap">
           <div className="popup-card" onClick={(e) => e.stopPropagation()}>
@@ -63,6 +68,33 @@ export default function PublicLayout({ children }) {
               icon={<Flag size={20} />}
               label="Referee"
               onClick={() => goTo("/ref-signup")}
+            />
+
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 NEW LOGIN POPUP */}
+      {showLoginMenu && (
+        <div className="popup-wrap">
+          <div className="popup-card" onClick={(e) => e.stopPropagation()}>
+
+            <PopupItem
+              icon={<Flag size={20} />}
+              label="Referee"
+              onClick={() => goTo("/ref-login")}
+            />
+
+            <PopupItem
+              icon={<Shield size={20} />}
+              label="Coach"
+              onClick={() => goTo("/coach-login")}
+            />
+
+            <PopupItem
+              icon={<Users size={20} />}
+              label="Parent"
+              onClick={() => goTo("/parent-login")}
             />
 
           </div>
@@ -103,20 +135,26 @@ export default function PublicLayout({ children }) {
             currentPath === "/coach-signup" ||
             currentPath === "/ref-signup"
           }
-          onClick={() => setShowSignupMenu(prev => !prev)}
+          onClick={() => {
+            setShowLoginMenu(false);
+            setShowSignupMenu(prev => !prev);
+          }}
         />
 
-        {/* LOGIN */}
+        {/* 🔥 LOGIN */}
         <NavItem
           icon={<LogIn size={22} />}
           label="Login"
           active={
-            currentPath === "/login" ||
-            currentPath === "/coach-login" ||
+            showLoginMenu ||
             currentPath === "/ref-login" ||
+            currentPath === "/coach-login" ||
             currentPath === "/parent-login"
           }
-          onClick={() => goTo("/login")}
+          onClick={() => {
+            setShowSignupMenu(false);
+            setShowLoginMenu(prev => !prev);
+          }}
         />
 
       </div>
