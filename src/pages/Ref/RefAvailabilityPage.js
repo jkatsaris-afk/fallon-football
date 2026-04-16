@@ -52,47 +52,44 @@ export default function RefAvailabilityPage({ user }) {
     const map = {};
 
     data?.forEach((a) => {
-      map[a.time_block] = a.available === true; // ✅ FIX
+      map[a.time_block] = a.available;
     });
 
     setAvailability(map);
   };
 
-  /* ---------------- TOGGLE ---------------- */
+  /* ---------------- TOGGLE + LIVE SAVE ---------------- */
 
-  const toggle = (time) => {
+  const toggle = async (time) => {
+    const current = availability?.[time];
+
+    // default TRUE if undefined
+    const newValue = current === undefined ? false : !current;
+
+    // update UI instantly
     setAvailability((prev) => ({
       ...prev,
-      [time]: !prev[time],
+      [time]: newValue,
     }));
-  };
 
-  /* ---------------- SAVE ---------------- */
+    // save instantly
+    const { error } = await supabase
+      .from("ref_availability")
+      .upsert(
+        {
+          referee_id: refId,
+          week: selectedWeek,
+          time_block: time,
+          available: newValue,
+        },
+        {
+          onConflict: "referee_id,week,time_block",
+        }
+      );
 
-  const save = async () => {
-    for (let time of TIMES) {
-      const value = availability[time];
-
-      const { error } = await supabase
-        .from("ref_availability")
-        .upsert(
-          {
-            referee_id: refId,
-            week: selectedWeek,
-            time_block: time,
-            available: value === true, // ✅ FIX (no nulls)
-          },
-          {
-            onConflict: "referee_id,week,time_block", // ✅ requires DB constraint
-          }
-        );
-
-      if (error) {
-        console.error("SAVE ERROR:", error);
-      }
+    if (error) {
+      console.error("LIVE SAVE ERROR:", error);
     }
-
-    alert("Availability Saved");
   };
 
   /* ---------------- UI ---------------- */
@@ -100,30 +97,31 @@ export default function RefAvailabilityPage({ user }) {
   return (
     <div style={wrap}>
 
-      {/* WEEK SELECT */}
-      {!selectedWeek && (
-        <>
-          <div style={title}>Select Week</div>
+      {/* HEADER */}
+      <div style={title}>My Availability</div>
 
-          <div style={grid}>
-            {weeks.map((w) => (
-              <div
-                key={w}
-                style={tile}
-                onClick={() => setSelectedWeek(w)}
-              >
-                Week {w}
-              </div>
-            ))}
+      {/* WEEK SELECT (ALWAYS VISIBLE) */}
+      <div style={weekRow}>
+        {weeks.map((w) => (
+          <div
+            key={w}
+            style={{
+              ...weekTile,
+              background: selectedWeek === w ? "#16a34a" : "#fff",
+              color: selectedWeek === w ? "#fff" : "#111",
+            }}
+            onClick={() => setSelectedWeek(w)}
+          >
+            W{w}
           </div>
-        </>
-      )}
+        ))}
+      </div>
 
-      {/* AVAILABILITY */}
+      {/* TIME BLOCKS */}
       {selectedWeek && (
         <>
-          <div style={title}>
-            Week {selectedWeek} Availability
+          <div style={subTitle}>
+            Week {selectedWeek}
           </div>
 
           <div style={timeGrid}>
@@ -136,11 +134,11 @@ export default function RefAvailabilityPage({ user }) {
                   style={{
                     ...timeBtn,
                     background:
-                      value === true
-                        ? "#16a34a"
+                      value === undefined || value === true
+                        ? "#16a34a"   // ✅ default available
                         : "#e5e7eb",
                     color:
-                      value === true
+                      value === undefined || value === true
                         ? "#fff"
                         : "#111",
                   }}
@@ -152,17 +150,8 @@ export default function RefAvailabilityPage({ user }) {
             })}
           </div>
 
-          <div style={actionRow}>
-            <button style={primaryBtn} onClick={save}>
-              Save
-            </button>
-
-            <button
-              style={secondaryBtn}
-              onClick={() => setSelectedWeek(null)}
-            >
-              Change Week
-            </button>
+          <div style={hint}>
+            Tap to toggle availability (auto-saves)
           </div>
         </>
       )}
@@ -177,64 +166,51 @@ const wrap = {
   padding: 20,
   display: "flex",
   flexDirection: "column",
-  gap: 20
+  gap: 16
 };
 
 const title = {
-  fontSize: 20,
-  fontWeight: 700
+  fontSize: 22,
+  fontWeight: 800
 };
 
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))",
-  gap: 12
+const subTitle = {
+  fontSize: 16,
+  fontWeight: 600
 };
 
-const tile = {
-  background: "#fff",
-  padding: 18,
-  borderRadius: 16,
+const weekRow = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto"
+};
+
+const weekTile = {
+  minWidth: 60,
+  padding: 10,
+  borderRadius: 12,
   textAlign: "center",
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
+  boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
 };
 
 const timeGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(4,1fr)",
-  gap: 8
-};
-
-const timeBtn = {
-  padding: 12,
-  borderRadius: 10,
-  border: "none",
-  cursor: "pointer",
-  fontWeight: 600
-};
-
-const actionRow = {
-  display: "flex",
   gap: 10
 };
 
-const primaryBtn = {
-  flex: 1,
-  padding: 12,
+const timeBtn = {
+  padding: 14,
   borderRadius: 12,
   border: "none",
-  background: "#16a34a",
-  color: "#fff",
-  fontWeight: 600
+  cursor: "pointer",
+  fontWeight: 700,
+  fontSize: 14
 };
 
-const secondaryBtn = {
-  flex: 1,
-  padding: 12,
-  borderRadius: 12,
-  border: "none",
-  background: "#e5e7eb",
-  fontWeight: 600
+const hint = {
+  fontSize: 12,
+  color: "#64748b"
 };
