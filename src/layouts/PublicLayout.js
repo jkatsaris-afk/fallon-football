@@ -11,17 +11,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-export default function PublicLayout({ children, page, setPage }) {
+export default function PublicLayout({ children }) {
   const [showSignupMenu, setShowSignupMenu] = useState(false);
 
-  const handleNav = (target) => {
-    setShowSignupMenu(false);
-    setPage(target);
-  };
+  const currentPath = window.location.pathname;
 
-  const handleSignupSelect = (target) => {
+  const goTo = (path) => {
     setShowSignupMenu(false);
-    setPage(target);
+    window.location.href = path;
   };
 
   return (
@@ -45,7 +42,7 @@ export default function PublicLayout({ children, page, setPage }) {
         />
       )}
 
-      {/* POPUP */}
+      {/* SIGNUP POPUP */}
       {showSignupMenu && (
         <div className="popup-wrap">
           <div className="popup-card" onClick={(e) => e.stopPropagation()}>
@@ -53,19 +50,19 @@ export default function PublicLayout({ children, page, setPage }) {
             <PopupItem
               icon={<Users size={20} />}
               label="Player"
-              onClick={() => handleSignupSelect("signUp")}
+              onClick={() => goTo("/signup")}
             />
 
             <PopupItem
               icon={<Shield size={20} />}
               label="Coach"
-              onClick={() => handleSignupSelect("coachSignup")}
+              onClick={() => goTo("/coach-signup")}
             />
 
             <PopupItem
               icon={<Flag size={20} />}
               label="Referee"
-              onClick={() => handleSignupSelect("refSignup")}
+              onClick={() => goTo("/ref-signup")}
             />
 
           </div>
@@ -78,46 +75,48 @@ export default function PublicLayout({ children, page, setPage }) {
         <NavItem
           icon={<Home size={22} />}
           label="Home"
-          active={page === "home"}
-          onClick={() => handleNav("home")}
+          active={currentPath === "/"}
+          onClick={() => goTo("/")}
         />
 
         <NavItem
           icon={<Calendar size={22} />}
           label="Schedule"
-          active={page === "schedule"}
-          onClick={() => handleNav("schedule")}
+          active={currentPath === "/schedule"}
+          onClick={() => goTo("/schedule")}
         />
 
         <NavItem
           icon={<Trophy size={22} />}
           label="Scores"
-          active={page === "scoreboard"}
-          onClick={() => handleNav("scoreboard")}
+          active={currentPath === "/scoreboard"}
+          onClick={() => goTo("/scoreboard")}
         />
 
+        {/* SIGN UP */}
         <NavItem
           icon={<UserPlus size={22} />}
           label="Sign Up"
           active={
             showSignupMenu ||
-            page === "signUp" ||
-            page === "coachSignup" ||
-            page === "refSignup"
+            currentPath === "/signup" ||
+            currentPath === "/coach-signup" ||
+            currentPath === "/ref-signup"
           }
           onClick={() => setShowSignupMenu(prev => !prev)}
         />
 
+        {/* LOGIN */}
         <NavItem
           icon={<LogIn size={22} />}
           label="Login"
           active={
-            page === "loginSelect" ||
-            page === "coachLogin" ||
-            page === "refLogin" ||
-            page === "parentLogin"
+            currentPath === "/login" ||
+            currentPath === "/coach-login" ||
+            currentPath === "/ref-login" ||
+            currentPath === "/parent-login"
           }
-          onClick={() => handleNav("loginSelect")}
+          onClick={() => goTo("/login")}
         />
 
       </div>
@@ -125,6 +124,7 @@ export default function PublicLayout({ children, page, setPage }) {
   );
 }
 
+/* NAV ITEM */
 function NavItem({ icon, label, active, onClick }) {
   return (
     <div
@@ -137,6 +137,7 @@ function NavItem({ icon, label, active, onClick }) {
   );
 }
 
+/* POPUP ITEM */
 function PopupItem({ icon, label, onClick }) {
   return (
     <div className="popup-item" onClick={onClick}>
