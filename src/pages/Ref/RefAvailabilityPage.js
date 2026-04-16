@@ -15,8 +15,6 @@ export default function RefAvailabilityPage() {
   const [refId, setRefId] = useState(null);
   const [availability, setAvailability] = useState({});
 
-  /* ---------------- INIT ---------------- */
-
   useEffect(() => {
     loadWeeks();
     getRefId();
@@ -31,14 +29,9 @@ export default function RefAvailabilityPage() {
   /* ---------------- LOAD ---------------- */
 
   const loadWeeks = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("schedule_master_auto")
       .select("week");
-
-    if (error) {
-      console.error("Weeks load error:", error);
-      return;
-    }
 
     const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
     setWeeks(unique);
@@ -48,45 +41,23 @@ export default function RefAvailabilityPage() {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
 
-    console.log("AUTH USER:", user);
+    if (!user) return;
 
-    if (!user) {
-      console.warn("NO AUTH USER");
-      return;
-    }
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("referees")
       .select("*")
       .eq("auth_id", user.id)
       .maybeSingle();
 
-    console.log("REF LOOKUP:", data);
-
-    if (error) {
-      console.error("Ref lookup error:", error);
-      return;
-    }
-
-    if (!data) {
-      console.warn("NO REF FOUND FOR USER");
-      return;
-    }
-
-    setRefId(data.id);
+    if (data) setRefId(data.id);
   };
 
   const loadAvailability = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("ref_availability")
       .select("*")
       .eq("referee_id", refId)
       .eq("week", selectedWeek);
-
-    if (error) {
-      console.error("Availability load error:", error);
-      return;
-    }
 
     const map = {};
 
@@ -95,32 +66,26 @@ export default function RefAvailabilityPage() {
       map[time] = a.available;
     });
 
-    console.log("LOADED AVAIL:", map);
-
     setAvailability(map);
   };
 
   /* ---------------- TOGGLE ---------------- */
 
   const toggle = async (time) => {
-    if (!refId || !selectedWeek) {
-      console.warn("Missing refId or week");
-      return;
-    }
+    if (!refId || !selectedWeek) return;
 
     const current = availability?.[time];
 
     let newValue;
-    if (current === undefined) newValue = true; // gray → green
-    else newValue = !current; // toggle
+    if (current === undefined) newValue = true;
+    else newValue = !current;
 
-    // update UI instantly
     setAvailability((prev) => ({
       ...prev,
       [time]: newValue,
     }));
 
-    const { error } = await supabase
+    await supabase
       .from("ref_availability")
       .upsert(
         [
@@ -134,82 +99,89 @@ export default function RefAvailabilityPage() {
         {
           onConflict: ["referee_id", "week", "time_block"],
         }
-      )
-      .select();
-
-    if (error) {
-      console.error("SAVE ERROR:", error);
-    } else {
-      console.log("SAVE SUCCESS");
-    }
+      );
   };
+
+  /* ---------------- STATS ---------------- */
+
+  const totalSet = Object.keys(availability).length;
+  const totalAvailable = Object.values(availability).filter(v => v === true).length;
 
   /* ---------------- UI ---------------- */
 
   return (
     <div style={wrap}>
 
-      <div style={title}>My Availability</div>
+      {/* HEADER */}
+      <div style={header}>My Availability</div>
+
+      {/* STATS */}
+      <div style={statsGrid}>
+        <StatTile label="Set Slots" value={totalSet} />
+        <StatTile label="Available" value={totalAvailable} />
+      </div>
 
       {/* WEEK SELECT */}
-      <div style={weekRow}>
+      <div style={weekGrid}>
         {weeks.map((w) => (
           <div
             key={w}
             style={{
-              ...weekTile,
-              background: selectedWeek === w ? "#16a34a" : "#fff",
-              color: selectedWeek === w ? "#fff" : "#111",
+              ...weekCard,
+              border: selectedWeek === w ? "2px solid #16a34a" : "2px solid transparent",
             }}
             onClick={() => setSelectedWeek(w)}
           >
-            W{w}
+            Week {w}
           </div>
         ))}
       </div>
 
       {/* TIME BLOCKS */}
       {selectedWeek && (
-        <>
-          <div style={subTitle}>Week {selectedWeek}</div>
+        <div style={timeGrid}>
+          {TIMES.map((t) => {
+            const value = availability?.[t];
 
-          <div style={timeGrid}>
-            {TIMES.map((t) => {
-              const value = availability?.[t];
+            let bg = "#f1f5f9"; // cleaner gray
+            let color = "#111";
 
-              let bg = "#e5e7eb"; // gray
-              let color = "#111";
+            if (value === true) {
+              bg = "#16a34a";
+              color = "#fff";
+            } else if (value === false) {
+              bg = "#dc2626";
+              color = "#fff";
+            }
 
-              if (value === true) {
-                bg = "#16a34a"; // green
-                color = "#fff";
-              } else if (value === false) {
-                bg = "#dc2626"; // red
-                color = "#fff";
-              }
-
-              return (
-                <button
-                  key={t}
-                  style={{
-                    ...timeBtn,
-                    background: bg,
-                    color: color,
-                  }}
-                  onClick={() => toggle(t)}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={hint}>
-            Gray = not set • Green = available • Red = unavailable
-          </div>
-        </>
+            return (
+              <div
+                key={t}
+                style={{
+                  ...timeCard,
+                  background: bg,
+                  color: color,
+                }}
+                onClick={() => toggle(t)}
+              >
+                <div style={timeText}>{t}</div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
+    </div>
+  );
+}
+
+/* ---------------- COMPONENTS ---------------- */
+
+function StatTile({ label, value }) {
+  return (
+    <div style={statCard}>
+      <div style={statValue}>{value}</div>
+      <div style={statLabel}>{label}</div>
     </div>
   );
 }
@@ -217,53 +189,76 @@ export default function RefAvailabilityPage() {
 /* ---------------- STYLES ---------------- */
 
 const wrap = {
-  padding: 20,
+  padding: 16,
+  maxWidth: 700,
+  margin: "0 auto",
   display: "flex",
   flexDirection: "column",
   gap: 16
 };
 
-const title = {
+const header = {
+  fontSize: 24,
+  fontWeight: 800,
+  textAlign: "center"
+};
+
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2,1fr)",
+  gap: 12
+};
+
+const statCard = {
+  background: "#fff",
+  padding: 16,
+  borderRadius: 16,
+  textAlign: "center",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.08)"
+};
+
+const statValue = {
   fontSize: 22,
-  fontWeight: 800
+  fontWeight: 800,
+  color: "#16a34a"
 };
 
-const subTitle = {
-  fontSize: 16,
-  fontWeight: 600
+const statLabel = {
+  fontSize: 12,
+  color: "#64748b"
 };
 
-const weekRow = {
-  display: "flex",
-  gap: 8,
-  overflowX: "auto"
+const weekGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(100px,1fr))",
+  gap: 10
 };
 
-const weekTile = {
-  minWidth: 60,
-  padding: 10,
-  borderRadius: 12,
+const weekCard = {
+  padding: 14,
+  borderRadius: 14,
+  background: "#fff",
   textAlign: "center",
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
 };
 
 const timeGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(4,1fr)",
-  gap: 10
+  gridTemplateColumns: "repeat(2,1fr)",
+  gap: 12
 };
 
-const timeBtn = {
-  padding: 14,
-  borderRadius: 12,
-  border: "none",
+const timeCard = {
+  padding: 22,
+  borderRadius: 18,
+  textAlign: "center",
+  fontWeight: 800,
   cursor: "pointer",
-  fontWeight: 700
+  boxShadow: "0 10px 25px rgba(0,0,0,0.08)"
 };
 
-const hint = {
-  fontSize: 12,
-  color: "#64748b"
+const timeText = {
+  fontSize: 18
 };
