@@ -5,6 +5,11 @@ import { useState } from "react";
 export default function PublicLayout({ children, page, setPage }) {
   const [showSignupMenu, setShowSignupMenu] = useState(false);
 
+  const handleNav = (target) => {
+    setShowSignupMenu(false); // 🔥 CLOSE MENU ON NAV
+    setPage(target);
+  };
+
   const handleSignupSelect = (target) => {
     setShowSignupMenu(false);
     setPage(target);
@@ -23,10 +28,18 @@ export default function PublicLayout({ children, page, setPage }) {
         {children}
       </div>
 
+      {/* 🔥 BACKDROP (CLICK TO CLOSE) */}
+      {showSignupMenu && (
+        <div
+          className="popup-backdrop"
+          onClick={() => setShowSignupMenu(false)}
+        />
+      )}
+
       {/* 🔥 SIGNUP POPUP */}
       {showSignupMenu && (
         <div className="popup-wrap">
-          <div className="popup-card">
+          <div className="popup-card" onClick={(e) => e.stopPropagation()}>
 
             <PopupItem
               icon={<Users size={20} />}
@@ -57,24 +70,24 @@ export default function PublicLayout({ children, page, setPage }) {
           icon={<Home size={22} />}
           label="Home"
           active={page === "home"}
-          onClick={() => setPage("home")}
+          onClick={() => handleNav("home")}
         />
 
         <NavItem
           icon={<Calendar size={22} />}
           label="Schedule"
           active={page === "schedule"}
-          onClick={() => setPage("schedule")}
+          onClick={() => handleNav("schedule")}
         />
 
         <NavItem
           icon={<Trophy size={22} />}
           label="Scores"
           active={page === "scoreboard"}
-          onClick={() => setPage("scoreboard")}
+          onClick={() => handleNav("scoreboard")}
         />
 
-        {/* 🔥 SIGN UP (NOW POPUP) */}
+        {/* 🔥 SIGN UP POPUP TOGGLE */}
         <NavItem
           icon={<UserPlus size={22} />}
           label="Sign Up"
@@ -91,7 +104,7 @@ export default function PublicLayout({ children, page, setPage }) {
             page === "refLogin" ||
             page === "parentLogin"
           }
-          onClick={() => setPage("loginSelect")}
+          onClick={() => handleNav("loginSelect")}
         />
 
       </div>
