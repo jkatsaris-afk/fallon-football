@@ -15,12 +15,16 @@ export default function RefAvailabilityPage({ user }) {
   const [refId, setRefId] = useState(null);
   const [availability, setAvailability] = useState({});
 
+  /* ---------------- INIT ---------------- */
+
   useEffect(() => {
+    console.log("USER:", user);
     loadWeeks();
     getRefId();
   }, []);
 
   useEffect(() => {
+    console.log("refId:", refId, "week:", selectedWeek);
     if (refId && selectedWeek) {
       loadAvailability();
     }
@@ -29,30 +33,63 @@ export default function RefAvailabilityPage({ user }) {
   /* ---------------- LOAD ---------------- */
 
   const loadWeeks = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("schedule_master_auto")
       .select("week");
 
+    if (error) {
+      console.error("Weeks error:", error);
+      return;
+    }
+
     const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
+    console.log("WEEKS:", unique);
+
     setWeeks(unique);
   };
 
   const getRefId = async () => {
-    const { data } = await supabase
-      .from("referees")
-      .select("id")
-      .eq("auth_id", user.id)
-      .single();
+    if (!user?.id) {
+      console.warn("NO USER ID");
+      return;
+    }
 
-    if (data) setRefId(data.id);
+    const { data, error } = await supabase
+      .from("referees")
+      .select("*")
+      .eq("auth_id", user.id)
+      .maybeSingle(); // 🔥 safer
+
+    console.log("REF LOOKUP:", data);
+
+    if (error) {
+      console.error("Ref lookup error:", error);
+      return;
+    }
+
+    if (!data) {
+      console.warn("NO REF FOUND FOR USER");
+      return;
+    }
+
+    setRefId(data.id);
   };
 
   const loadAvailability = async () => {
-    const { data } = await supabase
+    console.log("LOADING AVAILABILITY FOR:", refId, selectedWeek);
+
+    const { data, error } = await supabase
       .from("ref_availability")
       .select("*")
       .eq("referee_id", refId)
       .eq("week", selectedWeek);
+
+    console.log("AVAIL DATA:", data);
+
+    if (error) {
+      console.error("Availability error:", error);
+      return;
+    }
 
     const map = {};
 
@@ -64,28 +101,30 @@ export default function RefAvailabilityPage({ user }) {
     setAvailability(map);
   };
 
-  /* ---------------- TOGGLE + LIVE SAVE ---------------- */
+  /* ---------------- TOGGLE ---------------- */
 
   const toggle = async (time) => {
-    if (!refId || !selectedWeek) return;
+    console.log("CLICK:", time);
+
+    if (!refId || !selectedWeek) {
+      console.warn("BLOCKED CLICK - missing refId or week");
+      return;
+    }
 
     const current = availability?.[time];
 
     let newValue;
+    if (current === undefined) newValue = true;
+    else newValue = !current;
 
-    if (current === undefined) {
-      newValue = true; // gray → green
-    } else {
-      newValue = !current; // toggle true/false
-    }
+    console.log("NEW VALUE:", newValue);
 
-    // update UI instantly
     setAvailability((prev) => ({
       ...prev,
       [time]: newValue,
     }));
 
-    await supabase
+    const { error } = await supabase
       .from("ref_availability")
       .upsert(
         [
@@ -99,17 +138,22 @@ export default function RefAvailabilityPage({ user }) {
         {
           onConflict: ["referee_id", "week", "time_block"],
         }
-      );
+      )
+      .select();
+
+    if (error) {
+      console.error("SAVE ERROR:", error);
+    } else {
+      console.log("SAVE SUCCESS");
+    }
   };
 
   /* ---------------- UI ---------------- */
 
   return (
     <div style={wrap}>
-
       <div style={title}>My Availability</div>
 
-      {/* WEEK SELECT */}
       <div style={weekRow}>
         {weeks.map((w) => (
           <div
@@ -119,109 +163,68 @@ export default function RefAvailabilityPage({ user }) {
               background: selectedWeek === w ? "#16a34a" : "#fff",
               color: selectedWeek === w ? "#fff" : "#111",
             }}
-            onClick={() => setSelectedWeek(w)}
+            onClick={() => {
+              console.log("SELECT WEEK:", w);
+              setSelectedWeek(w);
+            }}
           >
             W{w}
           </div>
         ))}
       </div>
 
-      {/* TIMES */}
       {selectedWeek && (
-        <>
-          <div style={subTitle}>Week {selectedWeek}</div>
+        <div style={timeGrid}>
+          {TIMES.map((t) => {
+            const value = availability?.[t];
 
-          <div style={timeGrid}>
-            {TIMES.map((t) => {
-              const value = availability?.[t];
+            let bg = "#e5e7eb";
+            let color = "#111";
 
-              let bg = "#e5e7eb"; // gray
-              let color = "#111";
+            if (value === true) {
+              bg = "#16a34a";
+              color = "#fff";
+            } else if (value === false) {
+              bg = "#dc2626";
+              color = "#fff";
+            }
 
-              if (value === true) {
-                bg = "#16a34a"; // green
-                color = "#fff";
-              } else if (value === false) {
-                bg = "#dc2626"; // red
-                color = "#fff";
-              }
-
-              return (
-                <button
-                  key={t}
-                  style={{
-                    ...timeBtn,
-                    background: bg,
-                    color: color,
-                  }}
-                  onClick={() => toggle(t)}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={hint}>
-            Gray = not set • Green = available • Red = unavailable
-          </div>
-        </>
+            return (
+              <button
+                key={t}
+                style={{ ...timeBtn, background: bg, color }}
+                onClick={() => toggle(t)}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
       )}
-
     </div>
   );
 }
 
 /* ---------------- STYLES ---------------- */
 
-const wrap = {
-  padding: 20,
-  display: "flex",
-  flexDirection: "column",
-  gap: 16
-};
-
-const title = {
-  fontSize: 22,
-  fontWeight: 800
-};
-
-const subTitle = {
-  fontSize: 16,
-  fontWeight: 600
-};
-
-const weekRow = {
-  display: "flex",
-  gap: 8,
-  overflowX: "auto"
-};
-
+const wrap = { padding: 20 };
+const title = { fontSize: 22, fontWeight: 800 };
+const weekRow = { display: "flex", gap: 8 };
 const weekTile = {
-  minWidth: 60,
   padding: 10,
   borderRadius: 12,
-  textAlign: "center",
-  fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
+  fontWeight: 700,
 };
-
 const timeGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(4,1fr)",
-  gap: 10
+  gap: 10,
+  marginTop: 20,
 };
-
 const timeBtn = {
   padding: 14,
   borderRadius: 12,
   border: "none",
   cursor: "pointer",
-  fontWeight: 700
-};
-
-const hint = {
-  fontSize: 12,
-  color: "#64748b"
 };
