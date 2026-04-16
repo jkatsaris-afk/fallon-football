@@ -1,242 +1,238 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+import CoachStaffPage from "./CoachManagerPages/CoachStaffPage";
+
 export default function CoachManager() {
   const [coaches, setCoaches] = useState([]);
+  const [view, setView] = useState("dashboard");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadCoaches();
   }, []);
 
-  /* ================= LOAD ================= */
-
   const loadCoaches = async () => {
+    setLoading(true);
+
     const { data, error } = await supabase
       .from("coaches")
       .select("*")
-      .order("first_name", { ascending: true })
-      .order("last_name", { ascending: true });
-
-    if (error) console.error(error);
-
-    setCoaches(data || []);
-  };
-
-  /* ================= HELPERS ================= */
-
-  const getName = (c) => {
-    return `${c.first_name || ""} ${c.last_name || ""}`.trim();
-  };
-
-  const getRole = (c) => {
-    if (!c.role) return "assistant";
-
-    const role = c.role.toLowerCase();
-
-    if (role.includes("coach")) return "coach";
-    if (role.includes("assistant")) return "assistant";
-
-    return "assistant";
-  };
-
-  const displayRole = (c) => {
-    if (!c.role) return "Assistant";
-
-    const role = c.role.toLowerCase();
-
-    if (role.includes("coach")) return "Head Coach";
-    if (role.includes("assistant")) return "Assistant";
-
-    return c.role;
-  };
-
-  const getStatus = (c) => {
-    return c.status || "pending";
-  };
-
-  /* ================= UPDATE ================= */
-
-  const updateStatus = async (id, status) => {
-    const { error } = await supabase
-      .from("coaches")
-      .update({ status })
-      .eq("id", id);
+      .order("first_name", { ascending: true });
 
     if (error) {
-      console.error(error);
-      alert("Failed to update status");
+      console.error("Error loading coaches:", error);
+      setCoaches([]);
+      setLoading(false);
       return;
     }
 
+    setCoaches(data || []);
+    setLoading(false);
+  };
+
+  /* 🔥 MATCH REF STRUCTURE */
+
+  const getName = (c) =>
+    `${c.first_name || ""} ${c.last_name || ""}`.trim();
+
+  const getStatus = (c) => c.status || "pending";
+
+  const getRole = (c) => {
+    if (!c.role) return "assistant";
+    return c.role.toLowerCase().includes("head") ? "head" : "assistant";
+  };
+
+  const displayRole = (c) => {
+    if (!c.role) return "Assistant Coach";
+    return c.role.toLowerCase().includes("head")
+      ? "Head Coach"
+      : "Assistant Coach";
+  };
+
+  const updateStatus = async (id, status) => {
+    await supabase.from("coaches").update({ status }).eq("id", id);
     loadCoaches();
   };
 
   const updateRole = async (coach, newRole) => {
-    const { error } = await supabase
+    await supabase
       .from("coaches")
       .update({
-        role: newRole === "coach" ? "Head Coach" : "Assistant",
-        assistant_coach: newRole === "assistant"
+        role: newRole === "head" ? "Head Coach" : "Assistant Coach",
       })
       .eq("id", coach.id);
-
-    if (error) {
-      console.error(error);
-      alert("Failed to update role");
-      return;
-    }
 
     loadCoaches();
   };
 
-  /* ================= UI ================= */
-
-  return (
-    <div>
-
-      <h1>Coach Manager</h1>
-
-      <div style={table}>
-
-        {/* HEADER */}
-        <div style={rowHeader}>
-          <div>Name</div>
-          <div>Email</div>
-          <div>Phone</div>
-          <div>Division Pref</div>
-          <div>Status</div>
-          <div>Role</div>
-          <div>Actions</div>
-        </div>
-
-        {/* ROWS */}
-        {coaches.map(coach => {
-          const role = getRole(coach);
-
+  const renderSelectedPage = () => {
+    try {
+      switch (view) {
+        case "staff":
           return (
-            <div key={coach.id} style={row}>
+            <CoachStaffPage
+              coaches={coaches}
+              loading={loading}
+              getName={getName}
+              getStatus={getStatus}
+              getRole={getRole}
+              displayRole={displayRole}
+              updateStatus={updateStatus}
+              updateRole={updateRole}
+            />
+          );
 
-              {/* NAME */}
-              <div>{getName(coach)}</div>
-
-              {/* EMAIL */}
-              <div>{coach.email || "-"}</div>
-
-              {/* PHONE */}
-              <div>{coach.phone || "-"}</div>
-
-              {/* DIVISION */}
-              <div>{coach.division_preference || "-"}</div>
-
-              {/* STATUS */}
-              <div style={statusStyle(getStatus(coach))}>
-                {getStatus(coach)}
-              </div>
-
-              {/* ROLE */}
-              <div>
-                <select
-                  value={role}
-                  onChange={(e) =>
-                    updateRole(coach, e.target.value)
-                  }
-                >
-                  <option value="assistant">Assistant</option>
-                  <option value="coach">Head Coach</option>
-                </select>
-
-                <div style={roleText}>
-                  {displayRole(coach)}
+        default:
+          return (
+            <div style={contentWrap}>
+              <div style={emptyStateCard}>
+                <div style={emptyTitle}>Coach Manager</div>
+                <div style={emptyText}>
+                  Pick a tile above to manage coach staff.
                 </div>
               </div>
-
-              {/* ACTIONS */}
-              <div style={actions}>
-                <button
-                  style={approveBtn}
-                  onClick={() => updateStatus(coach.id, "approved")}
-                >
-                  Approve
-                </button>
-
-                <button
-                  style={denyBtn}
-                  onClick={() => updateStatus(coach.id, "denied")}
-                >
-                  Deny
-                </button>
-              </div>
-
             </div>
           );
-        })}
+      }
+    } catch (err) {
+      console.error("Coach Manager crash:", err);
+      return (
+        <div style={{ padding: 20, color: "red" }}>
+          ⚠️ Page crashed — check console
+        </div>
+      );
+    }
+  };
 
+  return (
+    <div style={pageWrap}>
+      <div style={topSection}>
+        <div style={titleRow}>
+          <div>
+            <h1 style={title}>Coach Manager</h1>
+            <div style={subtitle}>
+              Manage coach staff, approvals, and roles.
+            </div>
+          </div>
+        </div>
+
+        <div style={tileGrid}>
+          <ManagerTile
+            title="Coach Staff"
+            desc="View, approve, and assign roles"
+            active={view === "staff"}
+            onClick={() => setView("staff")}
+          />
+        </div>
       </div>
 
+      {renderSelectedPage()}
     </div>
   );
 }
 
-/* ================= STYLES ================= */
+/* 🔥 SAME UI AS REF */
 
-const table = {
-  marginTop: 20,
-  background: "#fff",
-  borderRadius: 12,
-  overflow: "hidden"
-};
+function ManagerTile({ title, desc, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...tile,
+        ...(active ? activeTile : {}),
+      }}
+    >
+      <div style={tileTitle}>{title}</div>
+      <div style={tileDesc}>{desc}</div>
+    </button>
+  );
+}
 
-const rowHeader = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr 140px 120px 150px 200px",
-  padding: 12,
-  fontWeight: "600",
-  background: "#f1f5f9"
-};
-
-const row = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr 140px 120px 150px 200px",
-  padding: 12,
-  borderTop: "1px solid #e5e7eb",
-  alignItems: "center"
-};
-
-const actions = {
+const pageWrap = {
   display: "flex",
-  gap: 10
+  flexDirection: "column",
+  gap: 20,
 };
 
-const approveBtn = {
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer"
+const topSection = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
 };
 
-const denyBtn = {
-  background: "#dc2626",
-  color: "#fff",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer"
+const titleRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
 };
 
-const statusStyle = (s) => ({
-  color:
-    s === "approved"
-      ? "#16a34a"
-      : s === "denied"
-      ? "#dc2626"
-      : "#f59e0b",
-  fontWeight: "600"
-});
+const title = {
+  margin: 0,
+  fontSize: "28px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
 
-const roleText = {
-  fontSize: 11,
+const subtitle = {
+  marginTop: 6,
   color: "#64748b",
-  marginTop: 4
+  fontSize: "14px",
+};
+
+const tileGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 16,
+};
+
+const tile = {
+  textAlign: "left",
+  border: "none",
+  borderRadius: 18,
+  background: "#ffffff",
+  padding: 18,
+  cursor: "pointer",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  minHeight: 100,
+};
+
+const activeTile = {
+  outline: "2px solid #16a34a",
+  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.16)",
+};
+
+const tileTitle = {
+  fontSize: "16px",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const tileDesc = {
+  marginTop: 8,
+  fontSize: "13px",
+  color: "#64748b",
+};
+
+const contentWrap = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const emptyStateCard = {
+  background: "#ffffff",
+  borderRadius: 18,
+  padding: 24,
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+};
+
+const emptyTitle = {
+  fontSize: "20px",
+  fontWeight: 700,
+};
+
+const emptyText = {
+  marginTop: 8,
+  color: "#64748b",
 };
