@@ -97,6 +97,34 @@ export default function RefAvailabilityPage() {
     );
   };
 
+  /* ---------------- BULK ACTIONS ---------------- */
+
+  const setAll = async (value) => {
+    const updates = {};
+
+    TIMES.forEach((t) => {
+      updates[t] = value;
+    });
+
+    setAvailability(updates);
+
+    for (let t of TIMES) {
+      await supabase.from("ref_availability").upsert(
+        [
+          {
+            referee_id: refId,
+            week: selectedWeek,
+            time_block: t,
+            available: value,
+          },
+        ],
+        {
+          onConflict: ["referee_id", "week", "time_block"],
+        }
+      );
+    }
+  };
+
   /* ---------------- NAVIGATION ---------------- */
 
   const currentIndex = weeks.indexOf(selectedWeek);
@@ -134,18 +162,18 @@ export default function RefAvailabilityPage() {
       {/* WEEK NAV */}
       <div style={weekNav}>
         <button onClick={prevWeek} style={navBtn}>←</button>
-
-        <div style={weekDisplay}>
-          Week {selectedWeek}
-        </div>
-
+        <div style={weekDisplay}>Week {selectedWeek}</div>
         <button onClick={nextWeek} style={navBtn}>→</button>
       </div>
 
-      {/* QUICK ACTIONS */}
+      {/* ACTIONS */}
       <div style={actionRow}>
-        <button style={greenBtn} onClick={() => setAll(true)}>All Available</button>
-        <button style={redBtn} onClick={() => setAll(false)}>Clear All</button>
+        <button style={greenBtn} onClick={() => setAll(true)}>
+          All Available
+        </button>
+        <button style={redBtn} onClick={() => setAll(false)}>
+          All Unavailable
+        </button>
       </div>
 
       {/* TIME TILES */}
@@ -169,12 +197,6 @@ export default function RefAvailabilityPage() {
     </div>
   );
 }
-
-/* ---------------- HELPERS ---------------- */
-
-const setAll = async (value) => {
-  // handled inline (keeping simple)
-};
 
 /* ---------------- COMPONENTS ---------------- */
 
@@ -221,7 +243,7 @@ const statCard = {
 const statValue = {
   fontSize: 22,
   fontWeight: 800,
-  color: "#16a34a"
+  color: "#22c55e"
 };
 
 const statLabel = {
@@ -257,7 +279,7 @@ const greenBtn = {
   flex: 1,
   padding: 10,
   borderRadius: 10,
-  background: "#16a34a",
+  background: "#22c55e",
   color: "#fff",
   border: "none"
 };
@@ -266,7 +288,7 @@ const redBtn = {
   flex: 1,
   padding: 10,
   borderRadius: 10,
-  background: "#dc2626",
+  background: "#f87171",
   color: "#fff",
   border: "none"
 };
@@ -282,18 +304,19 @@ const timeTile = {
   borderRadius: 18,
   textAlign: "center",
   fontWeight: 800,
-  background: "#f1f5f9",
-  cursor: "pointer"
+  background: "#f8fafc",
+  cursor: "pointer",
+  transition: "all 0.15s ease"
 };
 
 const greenTile = {
-  background: "#16a34a",
-  color: "#fff",
-  boxShadow: "0 0 12px rgba(22,163,74,0.4)"
+  background: "#bbf7d0",
+  color: "#166534",
+  boxShadow: "0 4px 12px rgba(34,197,94,0.25)"
 };
 
 const redTile = {
-  background: "#dc2626",
-  color: "#fff",
-  boxShadow: "0 0 12px rgba(220,38,38,0.4)"
+  background: "#fecaca",
+  color: "#7f1d1d",
+  boxShadow: "0 4px 12px rgba(248,113,113,0.25)"
 };
