@@ -25,7 +25,7 @@ import RefDashboard from "./pages/Ref/RefDashboard";
 import RefSchedule from "./pages/Ref/RefSchedule";
 import RefTime from "./pages/Ref/RefTime";
 import RefProfile from "./pages/Ref/RefProfile";
-import RefAvailabilityPage from "./pages/Ref/RefAvailabilityPage"; // ✅ ADDED
+import RefAvailabilityPage from "./pages/Ref/RefAvailabilityPage";
 
 import Dashboard from "./pages/Admin/Dashboard";
 import LoginModal from "./components/LoginModal";
@@ -55,6 +55,9 @@ export default function App() {
       else if (path === "/coach-signup") setPage("coachSignup");
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/login") setPage("loginSelect");
+
+      // 🔥 ✅ THIS IS THE ONLY ADDITION
+      else if (path === "/ref-login") setPage("refLogin");
 
       else if (path.startsWith("/admin")) {
         await checkAdmin();
@@ -140,7 +143,7 @@ export default function App() {
     if (page === "refDashboard") window.history.pushState({}, "", "/ref");
     if (page === "refSchedule") window.history.pushState({}, "", "/ref/schedule");
     if (page === "refTime") window.history.pushState({}, "", "/ref/time");
-    if (page === "refAvailability") window.history.pushState({}, "", "/ref/availability"); // ✅ ADDED
+    if (page === "refAvailability") window.history.pushState({}, "", "/ref/availability");
     if (page === "refProfile") window.history.pushState({}, "", "/ref/profile");
 
     if (page === "dashboard") window.history.pushState({}, "", "/admin");
@@ -171,7 +174,7 @@ export default function App() {
             {page === "refDashboard" && <RefDashboard />}
             {page === "refSchedule" && <RefSchedule />}
             {page === "refTime" && <RefTime />}
-            {page === "refAvailability" && <RefAvailabilityPage />} {/* ✅ ADDED */}
+            {page === "refAvailability" && <RefAvailabilityPage />}
             {page === "refProfile" && <RefProfile />}
           </RefLayout>
         )}
