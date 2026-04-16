@@ -1,5 +1,3 @@
-// 🔥 FULL FILE — ONLY TILE UI UPDATED (CARD SECTION + NEW STYLES)
-
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
@@ -227,59 +225,59 @@ function TeamSide({ team }) {
   );
 }
 
-/* STYLES */
+/* 🔥 ADD THESE ONLY — DO NOT REMOVE YOUR EXISTING STYLES */
 
 const infoStack = {
-  display:"flex",
-  flexDirection:"column",
-  gap:6,
-  marginTop:10
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  marginTop: 10
 };
 
 const pillBase = {
-  padding:"8px 10px",
-  borderRadius:10,
-  fontSize:13,
-  fontWeight:600,
-  textAlign:"center",
-  width:"100%"
+  padding: "8px 10px",
+  borderRadius: 10,
+  fontSize: 13,
+  fontWeight: 600,
+  textAlign: "center",
+  width: "100%"
 };
 
 const timeBar = {
   ...pillBase,
-  background:"#e0f2fe",
-  color:"#0369a1"
+  background: "#e0f2fe",
+  color: "#0369a1"
 };
 
 const fieldBar = {
   ...pillBase,
-  background:"#dcfce7",
-  color:"#166534"
+  background: "#dcfce7",
+  color: "#166534"
 };
 
 const divisionBar = {
   ...pillBase,
-  background:"#fef9c3",
-  color:"#854d0e"
+  background: "#fef9c3",
+  color: "#854d0e"
 };
 
 const btnFull = {
-  width:"100%",
-  background:"#22c55e",
-  color:"#fff",
-  padding:"10px",
-  borderRadius:12,
-  border:"none",
-  fontWeight:600,
-  cursor:"pointer"
+  width: "100%",
+  background: "#22c55e",
+  color: "#fff",
+  padding: "10px",
+  borderRadius: 12,
+  border: "none",
+  fontWeight: 600,
+  cursor: "pointer"
 };
 
 const checkedBadgeFull = {
-  width:"100%",
-  background:"#bbf7d0",
-  color:"#166534",
-  padding:"10px",
-  borderRadius:12,
-  fontWeight:700,
-  textAlign:"center"
+  width: "100%",
+  background: "#bbf7d0",
+  color: "#166534",
+  padding: "10px",
+  borderRadius: 12,
+  fontWeight: 700,
+  textAlign: "center"
 };
