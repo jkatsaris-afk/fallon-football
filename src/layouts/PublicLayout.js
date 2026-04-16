@@ -1,7 +1,20 @@
 import logo from "../resources/logo.png";
 import { Home, Calendar, Trophy, UserPlus, LogIn } from "lucide-react";
+import { useState } from "react";
 
 export default function PublicLayout({ children, page, setPage }) {
+  const [animating, setAnimating] = useState(false);
+
+  const handleNav = (target) => {
+    if (target === page) return;
+
+    setAnimating(true);
+    setTimeout(() => {
+      setPage(target);
+      setAnimating(false);
+    }, 120);
+  };
+
   return (
     <div className="app-container">
 
@@ -11,39 +24,39 @@ export default function PublicLayout({ children, page, setPage }) {
       </div>
 
       {/* CONTENT */}
-      <div className="content">
+      <div className={`content ${animating ? "page-anim" : ""}`}>
         {children}
       </div>
 
-      {/* NAV */}
-      <div className="nav">
+      {/* 🔥 NEW NAV */}
+      <div className="nav-wrap">
 
         <NavItem
           icon={<Home size={22} />}
           label="Home"
           active={page === "home"}
-          onClick={() => setPage("home")}
+          onClick={() => handleNav("home")}
         />
 
         <NavItem
           icon={<Calendar size={22} />}
           label="Schedule"
           active={page === "schedule"}
-          onClick={() => setPage("schedule")}
+          onClick={() => handleNav("schedule")}
         />
 
         <NavItem
           icon={<Trophy size={22} />}
           label="Scores"
           active={page === "scoreboard"}
-          onClick={() => setPage("scoreboard")}
+          onClick={() => handleNav("scoreboard")}
         />
 
         <NavItem
           icon={<UserPlus size={22} />}
           label="Sign Up"
           active={page === "signupSelect"}
-          onClick={() => setPage("signupSelect")}
+          onClick={() => handleNav("signupSelect")}
         />
 
         <NavItem
@@ -55,7 +68,7 @@ export default function PublicLayout({ children, page, setPage }) {
             page === "refLogin" ||
             page === "parentLogin"
           }
-          onClick={() => setPage("loginSelect")}
+          onClick={() => handleNav("loginSelect")}
         />
 
       </div>
@@ -66,7 +79,7 @@ export default function PublicLayout({ children, page, setPage }) {
 function NavItem({ icon, label, active, onClick }) {
   return (
     <div
-      className={`nav-item ${active ? "active" : ""}`}
+      className={`nav-item2 ${active ? "active" : ""}`}
       onClick={onClick}
     >
       {icon}
