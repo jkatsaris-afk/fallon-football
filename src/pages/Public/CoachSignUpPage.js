@@ -4,12 +4,15 @@ import { supabase } from "../../supabase";
 export default function CoachSignUpPage() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState(null);
 
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
     phone: "",
     email: "",
+    password: "",
+    age: "",
     division: "",
     assistant: false,
     coachedBefore: false,
@@ -31,71 +34,129 @@ export default function CoachSignUpPage() {
     setSettings(data);
   };
 
+  /* ================= SUBMIT ================= */
+
   const handleSubmit = async () => {
+    if (!file) {
+      alert("Profile picture is required");
+      return;
+    }
+
     setLoading(true);
 
-    await supabase.from("coaches").insert([
-      {
-        first_name: form.firstName,
-        last_name: form.lastName,
-        phone: form.phone,
+    try {
+      /* 🔥 SIGN UP */
+      const { error: authError } = await supabase.auth.signUp({
         email: form.email,
-        division_preference: form.division,
-        assistant_coach: form.assistant,
-        has_coached_before: form.coachedBefore,
-        experience_details: form.experience,
-        notes: form.notes,
-        season_id: settings.current_season
-      }
-    ]);
+        password: form.password
+      });
 
-    alert("✅ Coach Registered!");
+      if (authError) throw authError;
+
+      /* 🔥 LOGIN */
+      const { data: loginData, error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password
+        });
+
+      if (loginError) throw loginError;
+
+      const user = loginData?.user;
+      if (!user) throw new Error("Auth failed");
+
+      /* 🔥 UPLOAD IMAGE */
+      const fileName = `${user.id}-${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      /* 🔥 INSERT COACH */
+      const { error: insertError } = await supabase
+        .from("coaches")
+        .insert([
+          {
+            auth_id: user.id,
+            first_name: form.firstName,
+            last_name: form.lastName,
+            phone: form.phone,
+            email: form.email,
+            age: Number(form.age || 0),
+            experience: form.experience,
+            notes: form.notes,
+            profile_image: fileName,
+            division_preference: form.division,
+            assistant_coach: form.assistant,
+            has_coached_before: form.coachedBefore,
+            status: "pending"
+          }
+        ]);
+
+      if (insertError) throw insertError;
+
+      alert("Coach Registered!");
+
+      setForm({
+        firstName: "",
+        lastName: "",
+        phone: "",
+        email: "",
+        password: "",
+        age: "",
+        division: "",
+        assistant: false,
+        coachedBefore: false,
+        experience: "",
+        notes: ""
+      });
+
+      setFile(null);
+
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+
     setLoading(false);
   };
 
   if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
 
   return (
-    <div style={{ padding: 20, maxWidth: 500, margin: "auto" }}>
+    <div style={container}>
 
       {!settings.coach_signups_open && (
         <Card center>
-          <h2>🚫 Coach Registration Closed</h2>
-          <p>Coach signups are currently closed.</p>
+          <h3>Registration Closed</h3>
         </Card>
       )}
 
       {settings.coach_signups_open && (
         <>
-          <h2>🏈 Coach Registration</h2>
+          <h2>Coach Registration</h2>
 
           <Card>
             <Section title="Basic Info">
-              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
-              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
-              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
-              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+              <Input placeholder="First Name" value={form.firstName} onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" value={form.lastName} onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" value={form.phone} onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" value={form.email} onChange={(v)=>setForm({...form, email:v})}/>
+              <Input placeholder="Password" type="password" value={form.password} onChange={(v)=>setForm({...form, password:v})}/>
+              <Input placeholder="Age" type="number" value={form.age} onChange={(v)=>setForm({...form, age:v})}/>
+
+              <input type="file" onChange={(e)=>setFile(e.target.files[0])}/>
             </Section>
           </Card>
 
           <Card>
             <Section title="Preferences">
-              <Select
-                value={form.division}
-                onChange={(v)=>setForm({...form, division:v})}
-                options={[
-                  ["K-1","K-1"],
-                  ["2nd-3rd","2nd-3rd"],
-                  ["4th-5th","4th-5th"],
-                  ["6th+","6th+"]
-                ]}
-              />
+              <Input placeholder="Division Preference" value={form.division} onChange={(v)=>setForm({...form, division:v})}/>
 
               <label>
-                <input
-                  type="checkbox"
-                  onChange={(e)=>setForm({...form, assistant:e.target.checked})}
-                />
+                <input type="checkbox" checked={form.assistant} onChange={(e)=>setForm({...form, assistant:e.target.checked})}/>
                 Assistant Coach
               </label>
             </Section>
@@ -104,26 +165,24 @@ export default function CoachSignUpPage() {
           <Card>
             <Section title="Experience">
               <label>
-                <input
-                  type="checkbox"
-                  onChange={(e)=>setForm({...form, coachedBefore:e.target.checked})}
-                />
-                Have coached before
+                <input type="checkbox" checked={form.coachedBefore} onChange={(e)=>setForm({...form, coachedBefore:e.target.checked})}/>
+                Coached Before
               </label>
 
               <textarea
-                placeholder="Describe experience"
+                value={form.experience}
                 onChange={(e)=>setForm({...form, experience:e.target.value})}
-                style={textareaStyle}
+                style={textarea}
               />
             </Section>
           </Card>
 
           <Card>
             <textarea
-              placeholder="Additional notes"
+              placeholder="Notes"
+              value={form.notes}
               onChange={(e)=>setForm({...form, notes:e.target.value})}
-              style={textareaStyle}
+              style={textarea}
             />
           </Card>
 
@@ -136,20 +195,11 @@ export default function CoachSignUpPage() {
   );
 }
 
-/* ================= UI ================= */
+/* UI COMPONENTS */
 
-function Card({ children, center }) {
+function Card({ children }) {
   return (
-    <div
-      style={{
-        background: "#fff",
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 15,
-        boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-        textAlign: center ? "center" : "left"
-      }}
-    >
+    <div style={card}>
       {children}
     </div>
   );
@@ -158,56 +208,59 @@ function Card({ children, center }) {
 function Section({ title, children }) {
   return (
     <div>
-      <div style={{ fontWeight: 600, marginBottom: 10 }}>{title}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {children}
-      </div>
+      <div style={sectionTitle}>{title}</div>
+      {children}
     </div>
   );
 }
 
-function Input({ placeholder, onChange }) {
+function Input({ placeholder, onChange, type="text", value }) {
   return (
     <input
+      type={type}
       placeholder={placeholder}
+      value={value}
       onChange={(e)=>onChange(e.target.value)}
-      style={inputStyle}
+      style={input}
     />
   );
 }
 
-function Select({ value, onChange, options }) {
-  return (
-    <select
-      value={value}
-      onChange={(e)=>onChange(e.target.value)}
-      style={inputStyle}
-    >
-      <option value="">Select Division</option>
-      {options.map(([v,l])=>(
-        <option key={v} value={v}>{l}</option>
-      ))}
-    </select>
-  );
-}
+/* STYLES */
 
-const inputStyle = {
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #e2e8f0"
+const container = {
+  padding: 20,
+  maxWidth: 500,
+  margin: "auto"
 };
 
-/* ✅ FIXED TEXTAREA */
-const textareaStyle = {
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 20,
+  marginBottom: 15
+};
+
+const sectionTitle = {
+  fontWeight: 600,
+  marginBottom: 10
+};
+
+const input = {
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #e2e8f0",
+  width: "100%",
+  marginBottom: 10
+};
+
+const textarea = {
   width: "100%",
   minHeight: 80,
   padding: 12,
   borderRadius: 10,
   border: "1px solid #e2e8f0",
-  boxSizing: "border-box",   // ✅ prevents overflow
-  resize: "vertical",        // ✅ prevents sideways stretch
-  fontFamily: "inherit",
-  fontSize: 14
+  marginTop: 10
 };
 
 const submitBtn = {
@@ -217,6 +270,5 @@ const submitBtn = {
   border: "none",
   background: "#2f6ea6",
   color: "#fff",
-  fontWeight: 600,
-  marginTop: 10
+  fontWeight: 600
 };
