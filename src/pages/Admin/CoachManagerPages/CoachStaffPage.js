@@ -75,8 +75,6 @@ export default function CoachStaffPage() {
     setLoadingState(false);
   };
 
-  /* ---------------- HELPERS ---------------- */
-
   const getName = (c) =>
     `${c.first_name || ""} ${c.last_name || ""}`.trim();
 
@@ -253,14 +251,30 @@ export default function CoachStaffPage() {
   );
 }
 
-/* ---- styles unchanged ---- */
+/* 🔥 FIXED MISSING COMPONENT */
+function StatTile({ label, value, active, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: "#fff",
+        borderRadius: 18,
+        padding: 18,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+        cursor: "pointer",
+        outline: active ? "2px solid #16a34a" : "none"
+      }}
+    >
+      <div style={{ fontSize: 26, fontWeight: 800 }}>{value}</div>
+      <div style={{ fontSize: 12, color: "#64748b" }}>{label}</div>
+    </div>
+  );
+}
+
+/* ---------------- STYLES ---------------- */
 
 const wrap = { display:"flex", flexDirection:"column", gap:20 };
 const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))", gap:14 };
-const stat = { background:"#fff", borderRadius:18, padding:18, boxShadow:"0 8px 24px rgba(0,0,0,0.08)", cursor:"pointer" };
-const statActive = { outline:"2px solid #16a34a" };
-const statValue = { fontSize:26, fontWeight:800 };
-const statLabel = { fontSize:12, color:"#64748b" };
 const section = { background:"#fff", borderRadius:18, padding:20, boxShadow:"0 8px 24px rgba(0,0,0,0.08)" };
 const title = { fontSize:24, fontWeight:700 };
 const list = { display:"flex", flexDirection:"column", gap:16 };
