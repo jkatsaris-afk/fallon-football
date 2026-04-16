@@ -34,7 +34,7 @@ export default function AutoAssignPage() {
 
   /* ---------------- LOAD ---------------- */
 
-  // 🔥 FIXED WEEKS (FORCED FULL SEASON)
+  // 🔥 FIXED WEEKS (NOW INCLUDES WEEK 8)
   const loadWeeks = async () => {
     const { data } = await supabase
       .from("schedule_master_auto")
@@ -42,7 +42,7 @@ export default function AutoAssignPage() {
 
     const dbWeeks = [...new Set((data || []).map((g) => g.week))];
 
-    const fullWeeks = [1, 2, 3, 4, 5, 6, 7, "Championship"];
+    const fullWeeks = [1, 2, 3, 4, 5, 6, 7, 8, "Championship"];
 
     setWeeks(fullWeeks);
   };
@@ -56,7 +56,6 @@ export default function AutoAssignPage() {
     setRefs(data || []);
   };
 
-  // 🔥 UPDATED FOR CHAMPIONSHIP
   const loadGames = async () => {
     let query = supabase
       .from("schedule_master_auto")
@@ -74,14 +73,13 @@ export default function AutoAssignPage() {
     setGames(data || []);
   };
 
-  // 🔥 UPDATED FOR CHAMPIONSHIP
   const loadAvailability = async () => {
     let query = supabase
       .from("ref_availability")
       .select("*");
 
     if (selectedWeek === "Championship") {
-      query = query.eq("week", 8); // 👈 use 8 for championship
+      query = query.eq("week", 9); // 👈 Championship now moved to week 9
     } else {
       query = query.eq("week", selectedWeek);
     }
@@ -97,8 +95,6 @@ export default function AutoAssignPage() {
 
     setAvailability(map);
   };
-
-  /* ---------------- AVAILABILITY ---------------- */
 
   const toggleAvailability = (refId, time) => {
     setAvailability((prev) => ({
@@ -116,7 +112,7 @@ export default function AutoAssignPage() {
         await supabase.from("ref_availability").upsert(
           {
             referee_id: refId,
-            week: selectedWeek === "Championship" ? 8 : selectedWeek,
+            week: selectedWeek === "Championship" ? 9 : selectedWeek,
             time_block: time,
             available: availability[refId]?.[time] || false,
           },
@@ -130,8 +126,6 @@ export default function AutoAssignPage() {
     alert("Availability Saved");
     setStep(3);
   };
-
-  /* ---------------- AUTO ASSIGN ---------------- */
 
   const autoAssign = () => {
     let usage = {};
@@ -167,8 +161,6 @@ export default function AutoAssignPage() {
     setStep(4);
   };
 
-  /* ---------------- SAVE ASSIGNMENTS ---------------- */
-
   const saveAssignments = async () => {
     for (let a of assignments) {
       for (let i = 0; i < a.refs.length; i++) {
@@ -196,11 +188,8 @@ export default function AutoAssignPage() {
     alert("Assignments Saved!");
   };
 
-  /* ---------------- UI ---------------- */
-
   return (
     <div style={wrap}>
-
       <div style={stepGrid}>
         <StepTile label="Week" active={step === 1} onClick={() => setStep(1)} />
         <StepTile label="Availability" active={step === 2} onClick={() => setStep(2)} />
@@ -306,7 +295,7 @@ export default function AutoAssignPage() {
   );
 }
 
-/* ---------------- STYLES (UNCHANGED) ---------------- */
+/* STYLES (UNCHANGED) */
 
 const wrap = { padding: 20 };
 const stepGrid = { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 };
