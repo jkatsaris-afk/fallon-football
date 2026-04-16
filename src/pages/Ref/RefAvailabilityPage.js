@@ -97,15 +97,11 @@ export default function RefAvailabilityPage() {
     );
   };
 
-  /* ---------------- BULK ACTIONS ---------------- */
+  /* ---------------- BULK ---------------- */
 
   const setAll = async (value) => {
     const updates = {};
-
-    TIMES.forEach((t) => {
-      updates[t] = value;
-    });
-
+    TIMES.forEach((t) => (updates[t] = value));
     setAvailability(updates);
 
     for (let t of TIMES) {
@@ -125,26 +121,17 @@ export default function RefAvailabilityPage() {
     }
   };
 
-  /* ---------------- NAVIGATION ---------------- */
+  /* ---------------- NAV ---------------- */
 
   const currentIndex = weeks.indexOf(selectedWeek);
 
   const prevWeek = () => {
-    if (currentIndex > 0) {
-      setSelectedWeek(weeks[currentIndex - 1]);
-    }
+    if (currentIndex > 0) setSelectedWeek(weeks[currentIndex - 1]);
   };
 
   const nextWeek = () => {
-    if (currentIndex < weeks.length - 1) {
-      setSelectedWeek(weeks[currentIndex + 1]);
-    }
+    if (currentIndex < weeks.length - 1) setSelectedWeek(weeks[currentIndex + 1]);
   };
-
-  /* ---------------- STATS ---------------- */
-
-  const totalSet = Object.keys(availability).length;
-  const totalAvailable = Object.values(availability).filter(v => v === true).length;
 
   /* ---------------- UI ---------------- */
 
@@ -153,17 +140,18 @@ export default function RefAvailabilityPage() {
 
       <div style={header}>My Availability</div>
 
-      {/* STATS */}
-      <div style={statsGrid}>
-        <StatTile label="Set" value={totalSet} />
-        <StatTile label="Available" value={totalAvailable} />
-      </div>
+      {/* WEEK TILE NAV */}
+      <div style={weekTileWrap}>
 
-      {/* WEEK NAV */}
-      <div style={weekNav}>
-        <button onClick={prevWeek} style={navBtn}>←</button>
-        <div style={weekDisplay}>Week {selectedWeek}</div>
-        <button onClick={nextWeek} style={navBtn}>→</button>
+        <div style={arrowBtn} onClick={prevWeek}>‹</div>
+
+        <div style={weekTile}>
+          <div style={weekLabel}>Week</div>
+          <div style={weekNumber}>{selectedWeek}</div>
+        </div>
+
+        <div style={arrowBtn} onClick={nextWeek}>›</div>
+
       </div>
 
       {/* ACTIONS */}
@@ -198,17 +186,6 @@ export default function RefAvailabilityPage() {
   );
 }
 
-/* ---------------- COMPONENTS ---------------- */
-
-function StatTile({ label, value }) {
-  return (
-    <div style={statCard}>
-      <div style={statValue}>{value}</div>
-      <div style={statLabel}>{label}</div>
-    </div>
-  );
-}
-
 /* ---------------- STYLES ---------------- */
 
 const wrap = {
@@ -226,50 +203,47 @@ const header = {
   textAlign: "center"
 };
 
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2,1fr)",
+/* WEEK TILE NAV */
+const weekTileWrap = {
+  display: "flex",
+  alignItems: "center",
   gap: 10
 };
 
-const statCard = {
+const arrowBtn = {
+  width: 50,
+  height: 50,
+  borderRadius: 14,
   background: "#fff",
-  padding: 16,
-  borderRadius: 16,
-  textAlign: "center",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.08)"
-};
-
-const statValue = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   fontSize: 22,
   fontWeight: 800,
-  color: "#22c55e"
+  cursor: "pointer",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
 };
 
-const statLabel = {
+const weekTile = {
+  flex: 1,
+  background: "#fff",
+  borderRadius: 18,
+  padding: 16,
+  textAlign: "center",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const weekLabel = {
   fontSize: 12,
   color: "#64748b"
 };
 
-const weekNav = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
-};
-
-const weekDisplay = {
-  fontSize: 18,
+const weekNumber = {
+  fontSize: 22,
   fontWeight: 800
 };
 
-const navBtn = {
-  padding: 10,
-  borderRadius: 10,
-  border: "none",
-  background: "#e5e7eb",
-  cursor: "pointer"
-};
-
+/* ACTIONS */
 const actionRow = {
   display: "flex",
   gap: 10
@@ -293,18 +267,22 @@ const redBtn = {
   border: "none"
 };
 
+/* TIME GRID */
 const timeGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2,1fr)",
   gap: 12
 };
 
+/* 🔥 KEY FIX HERE */
 const timeTile = {
   padding: 26,
   borderRadius: 18,
   textAlign: "center",
   fontWeight: 800,
-  background: "#f8fafc",
+  background: "#ffffff",
+  border: "2px solid #e2e8f0", // 👈 OUTLINE FIX
+  boxShadow: "0 4px 10px rgba(0,0,0,0.04)", // 👈 subtle depth
   cursor: "pointer",
   transition: "all 0.15s ease"
 };
@@ -312,11 +290,13 @@ const timeTile = {
 const greenTile = {
   background: "#bbf7d0",
   color: "#166534",
-  boxShadow: "0 4px 12px rgba(34,197,94,0.25)"
+  border: "2px solid #86efac",
+  boxShadow: "0 6px 16px rgba(34,197,94,0.2)"
 };
 
 const redTile = {
   background: "#fecaca",
   color: "#7f1d1d",
-  boxShadow: "0 4px 12px rgba(248,113,113,0.25)"
+  border: "2px solid #fca5a5",
+  boxShadow: "0 6px 16px rgba(248,113,113,0.2)"
 };
