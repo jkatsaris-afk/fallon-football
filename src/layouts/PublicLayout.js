@@ -1,12 +1,22 @@
 import logo from "../resources/logo.png";
-import { Home, Calendar, Trophy, UserPlus, LogIn, Users, Shield, Flag } from "lucide-react";
+import {
+  Home,
+  Calendar,
+  Trophy,
+  UserPlus,
+  LogIn,
+  Users,
+  Shield,
+  Flag
+} from "lucide-react";
 import { useState } from "react";
 
 export default function PublicLayout({ children, page, setPage }) {
   const [showSignupMenu, setShowSignupMenu] = useState(false);
 
+  // 🔥 FIX: close popup on any nav change
   const handleNav = (target) => {
-    setShowSignupMenu(false); // 🔥 CLOSE MENU ON NAV
+    setShowSignupMenu(false);
     setPage(target);
   };
 
@@ -28,7 +38,7 @@ export default function PublicLayout({ children, page, setPage }) {
         {children}
       </div>
 
-      {/* 🔥 BACKDROP (CLICK TO CLOSE) */}
+      {/* 🔥 BACKDROP */}
       {showSignupMenu && (
         <div
           className="popup-backdrop"
@@ -87,14 +97,20 @@ export default function PublicLayout({ children, page, setPage }) {
           onClick={() => handleNav("scoreboard")}
         />
 
-        {/* 🔥 SIGN UP POPUP TOGGLE */}
+        {/* 🔥 FIXED SIGN UP ACTIVE LOGIC */}
         <NavItem
           icon={<UserPlus size={22} />}
           label="Sign Up"
-          active={showSignupMenu}
+          active={
+            showSignupMenu ||
+            page === "playerSignup" ||
+            page === "coachSignup" ||
+            page === "refSignup"
+          }
           onClick={() => setShowSignupMenu(prev => !prev)}
         />
 
+        {/* 🔥 FIXED LOGIN ACTIVE LOGIC */}
         <NavItem
           icon={<LogIn size={22} />}
           label="Login"
