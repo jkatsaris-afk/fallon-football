@@ -8,7 +8,7 @@ const normalizeTime = (t) => {
   return t.toString().replace(" AM", "").replace(" PM", "").trim();
 };
 
-export default function RefAvailabilityPage({ user }) {
+export default function RefAvailabilityPage() {
   const [weeks, setWeeks] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState(null);
 
@@ -18,13 +18,11 @@ export default function RefAvailabilityPage({ user }) {
   /* ---------------- INIT ---------------- */
 
   useEffect(() => {
-    console.log("USER:", user);
     loadWeeks();
     getRefId();
   }, []);
 
   useEffect(() => {
-    console.log("refId:", refId, "week:", selectedWeek);
     if (refId && selectedWeek) {
       loadAvailability();
     }
@@ -38,19 +36,22 @@ export default function RefAvailabilityPage({ user }) {
       .select("week");
 
     if (error) {
-      console.error("Weeks error:", error);
+      console.error("Weeks load error:", error);
       return;
     }
 
     const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
-    console.log("WEEKS:", unique);
-
     setWeeks(unique);
   };
 
   const getRefId = async () => {
-    if (!user?.id) {
-      console.warn("NO USER ID");
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+
+    console.log("AUTH USER:", user);
+
+    if (!user) {
+      console.warn("NO AUTH USER");
       return;
     }
 
@@ -58,7 +59,7 @@ export default function RefAvailabilityPage({ user }) {
       .from("referees")
       .select("*")
       .eq("auth_id", user.id)
-      .maybeSingle(); // 🔥 safer
+      .maybeSingle();
 
     console.log("REF LOOKUP:", data);
 
@@ -76,18 +77,14 @@ export default function RefAvailabilityPage({ user }) {
   };
 
   const loadAvailability = async () => {
-    console.log("LOADING AVAILABILITY FOR:", refId, selectedWeek);
-
     const { data, error } = await supabase
       .from("ref_availability")
       .select("*")
       .eq("referee_id", refId)
       .eq("week", selectedWeek);
 
-    console.log("AVAIL DATA:", data);
-
     if (error) {
-      console.error("Availability error:", error);
+      console.error("Availability load error:", error);
       return;
     }
 
@@ -98,27 +95,26 @@ export default function RefAvailabilityPage({ user }) {
       map[time] = a.available;
     });
 
+    console.log("LOADED AVAIL:", map);
+
     setAvailability(map);
   };
 
   /* ---------------- TOGGLE ---------------- */
 
   const toggle = async (time) => {
-    console.log("CLICK:", time);
-
     if (!refId || !selectedWeek) {
-      console.warn("BLOCKED CLICK - missing refId or week");
+      console.warn("Missing refId or week");
       return;
     }
 
     const current = availability?.[time];
 
     let newValue;
-    if (current === undefined) newValue = true;
-    else newValue = !current;
+    if (current === undefined) newValue = true; // gray → green
+    else newValue = !current; // toggle
 
-    console.log("NEW VALUE:", newValue);
-
+    // update UI instantly
     setAvailability((prev) => ({
       ...prev,
       [time]: newValue,
@@ -152,8 +148,10 @@ export default function RefAvailabilityPage({ user }) {
 
   return (
     <div style={wrap}>
+
       <div style={title}>My Availability</div>
 
+      {/* WEEK SELECT */}
       <div style={weekRow}>
         {weeks.map((w) => (
           <div
@@ -163,68 +161,109 @@ export default function RefAvailabilityPage({ user }) {
               background: selectedWeek === w ? "#16a34a" : "#fff",
               color: selectedWeek === w ? "#fff" : "#111",
             }}
-            onClick={() => {
-              console.log("SELECT WEEK:", w);
-              setSelectedWeek(w);
-            }}
+            onClick={() => setSelectedWeek(w)}
           >
             W{w}
           </div>
         ))}
       </div>
 
+      {/* TIME BLOCKS */}
       {selectedWeek && (
-        <div style={timeGrid}>
-          {TIMES.map((t) => {
-            const value = availability?.[t];
+        <>
+          <div style={subTitle}>Week {selectedWeek}</div>
 
-            let bg = "#e5e7eb";
-            let color = "#111";
+          <div style={timeGrid}>
+            {TIMES.map((t) => {
+              const value = availability?.[t];
 
-            if (value === true) {
-              bg = "#16a34a";
-              color = "#fff";
-            } else if (value === false) {
-              bg = "#dc2626";
-              color = "#fff";
-            }
+              let bg = "#e5e7eb"; // gray
+              let color = "#111";
 
-            return (
-              <button
-                key={t}
-                style={{ ...timeBtn, background: bg, color }}
-                onClick={() => toggle(t)}
-              >
-                {t}
-              </button>
-            );
-          })}
-        </div>
+              if (value === true) {
+                bg = "#16a34a"; // green
+                color = "#fff";
+              } else if (value === false) {
+                bg = "#dc2626"; // red
+                color = "#fff";
+              }
+
+              return (
+                <button
+                  key={t}
+                  style={{
+                    ...timeBtn,
+                    background: bg,
+                    color: color,
+                  }}
+                  onClick={() => toggle(t)}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={hint}>
+            Gray = not set • Green = available • Red = unavailable
+          </div>
+        </>
       )}
+
     </div>
   );
 }
 
 /* ---------------- STYLES ---------------- */
 
-const wrap = { padding: 20 };
-const title = { fontSize: 22, fontWeight: 800 };
-const weekRow = { display: "flex", gap: 8 };
+const wrap = {
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 16
+};
+
+const title = {
+  fontSize: 22,
+  fontWeight: 800
+};
+
+const subTitle = {
+  fontSize: 16,
+  fontWeight: 600
+};
+
+const weekRow = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto"
+};
+
 const weekTile = {
+  minWidth: 60,
   padding: 10,
   borderRadius: 12,
-  cursor: "pointer",
+  textAlign: "center",
   fontWeight: 700,
+  cursor: "pointer",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
 };
+
 const timeGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(4,1fr)",
-  gap: 10,
-  marginTop: 20,
+  gap: 10
 };
+
 const timeBtn = {
   padding: 14,
   borderRadius: 12,
   border: "none",
   cursor: "pointer",
+  fontWeight: 700
+};
+
+const hint = {
+  fontSize: 12,
+  color: "#64748b"
 };
