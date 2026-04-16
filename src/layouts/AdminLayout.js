@@ -42,11 +42,11 @@ export default function AdminLayout({
           <NavBtn label="Matchups" active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} />
           <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
           <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
-          <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
 
-          {/* 🔥 ONLY CHANGE HERE */}
+          {/* ✅ ONLY CHANGE HERE */}
+          <NavBtn label="Field Manager" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
+
           <NavBtn label="Coach Manager" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
-
           <NavBtn label="Referee Manager" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
           <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
           <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
