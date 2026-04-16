@@ -6,7 +6,7 @@ export default function RefDashboard() {
   const [ref, setRef] = useState(null);
   const [games, setGames] = useState([]);
   const [headRef, setHeadRef] = useState(null);
-  const [earnings, setEarnings] = useState(0); // 🔥 NEW
+  const [earnings, setEarnings] = useState(0);
 
   useEffect(() => {
     load();
@@ -15,7 +15,6 @@ export default function RefDashboard() {
   const load = async () => {
     const { data: userData } = await supabase.auth.getUser();
     const currentUser = userData?.user;
-
     if (!currentUser) return;
 
     setUser(currentUser);
@@ -28,7 +27,6 @@ export default function RefDashboard() {
       .maybeSingle();
 
     setRef(refData);
-
     if (!refData) return;
 
     // 🔥 LOAD EARNINGS
@@ -62,23 +60,15 @@ export default function RefDashboard() {
 
     setGames(gamesData || []);
 
-    // 🔥 LOAD HEAD REF
-    const { data: headData } = await supabase
-      .from("ref_head_assignment")
-      .select(`
-        *,
-        referees (
-          first_name,
-          last_name,
-          phone,
-          email
-        )
-      `)
-      .eq("season_id", refData.season_id)
+    // 🔥 LOAD HEAD REF FROM referees TABLE
+    const { data: headRefData } = await supabase
+      .from("referees")
+      .select("first_name, last_name, phone, profile_image")
+      .eq("role", "Head Ref")
       .maybeSingle();
 
-    if (headData?.referees) {
-      setHeadRef(headData.referees);
+    if (headRefData) {
+      setHeadRef(headRefData);
     }
   };
 
@@ -90,7 +80,7 @@ export default function RefDashboard() {
 
       <div style={grid}>
 
-        {/* 🔥 TOTAL EARNINGS TILE */}
+        {/* EARNINGS */}
         <Tile>
           <div style={tileTitle}>Total Earnings</div>
 
@@ -103,7 +93,7 @@ export default function RefDashboard() {
           </div>
         </Tile>
 
-        {/* 🔥 STATUS TILE */}
+        {/* STATUS */}
         <Tile>
           <div style={tileTitle}>Approval Status</div>
 
@@ -118,7 +108,7 @@ export default function RefDashboard() {
           )}
         </Tile>
 
-        {/* 🔥 HEAD REF TILE */}
+        {/* 🔥 HEAD REF TILE (UPDATED) */}
         <Tile>
           <div style={tileTitle}>Head Ref</div>
 
@@ -127,18 +117,24 @@ export default function RefDashboard() {
           )}
 
           {headRef && (
-            <>
-              <div style={{ fontWeight: 600 }}>
+            <div style={headRefWrap}>
+              {headRef.profile_image && (
+                <img
+                  src={headRef.profile_image}
+                  style={headRefImg}
+                />
+              )}
+
+              <div style={headRefName}>
                 {headRef.first_name} {headRef.last_name}
               </div>
 
               <div style={subText}>{headRef.phone}</div>
-              <div style={subText}>{headRef.email}</div>
-            </>
+            </div>
           )}
         </Tile>
 
-        {/* 🔥 MY GAMES TILE */}
+        {/* MY GAMES */}
         <Tile>
           <div style={tileTitle}>My Games</div>
 
@@ -170,17 +166,14 @@ export default function RefDashboard() {
   );
 }
 
-/* 🔥 TILE COMPONENT */
-
+/* TILE */
 function Tile({ children }) {
   return <div style={tile}>{children}</div>;
 }
 
-/* 🔥 STYLES */
+/* STYLES */
 
-const container = {
-  padding: 20
-};
+const container = { padding: 20 };
 
 const grid = {
   display: "grid",
@@ -221,6 +214,26 @@ const statusStyle = (status) => ({
       ? "#dc2626"
       : "#f59e0b"
 });
+
+/* 🔥 HEAD REF UI */
+const headRefWrap = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 8
+};
+
+const headRefImg = {
+  width: 70,
+  height: 70,
+  borderRadius: "50%",
+  objectFit: "cover"
+};
+
+const headRefName = {
+  fontWeight: 700,
+  fontSize: 16
+};
 
 const gameRow = {
   marginTop: 10,
