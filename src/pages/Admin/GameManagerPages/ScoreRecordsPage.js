@@ -34,6 +34,7 @@ const TEAM_LOGOS = {
 
 export default function TeamStatsPage() {
   const [games, setGames] = useState([]);
+  const [scheduleMap, setScheduleMap] = useState({});
   const [selectedDivision, setSelectedDivision] = useState("all");
 
   useEffect(() => {
@@ -41,44 +42,54 @@ export default function TeamStatsPage() {
   }, []);
 
   const load = async () => {
-    const { data, error } = await supabase
+    // 🔥 LOAD SCORES
+    const { data: scores, error: scoreErr } = await supabase
       .from("game_scores")
-      .select(`
-        *,
-        schedule_master_auto: schedule_id (
-          division
-        )
-      `);
+      .select("*");
 
-    if (error) {
-      console.error("LOAD ERROR:", error);
+    if (scoreErr) {
+      console.error("SCORE LOAD ERROR:", scoreErr);
       return;
     }
 
-    setGames(data || []);
+    // 🔥 LOAD SCHEDULE (division source of truth)
+    const { data: schedule, error: schedErr } = await supabase
+      .from("schedule_master_auto")
+      .select("id, division");
+
+    if (schedErr) {
+      console.error("SCHEDULE LOAD ERROR:", schedErr);
+      return;
+    }
+
+    // 🔥 BUILD LOOKUP MAP (schedule_id → division)
+    const map = {};
+    (schedule || []).forEach(s => {
+      map[s.id] = s.division;
+    });
+
+    setScheduleMap(map);
+    setGames(scores || []);
   };
 
-  /* 🔥 GET DIVISIONS */
+  /* 🔥 DIVISION FILTER LIST */
   const divisions = useMemo(() => {
     const unique = [
       ...new Set(
         games
-          .map(g => g.schedule_master_auto?.division)
+          .map(g => scheduleMap[g.schedule_id])
           .filter(d => d && d !== "Unknown")
       )
     ];
     return ["all", ...unique];
-  }, [games]);
+  }, [games, scheduleMap]);
 
-  /* 🔥 TEAM STATS (TEAM + DIVISION) */
+  /* 🔥 TEAM STATS (TEAM + DIVISION, CORRECT W/L LOGIC) */
   const teamStats = useMemo(() => {
     const map = {};
 
     games.forEach(g => {
-      const division =
-        g.schedule_master_auto?.division ||
-        g.division ||
-        "Unknown";
+      const division = scheduleMap[g.schedule_id] || "Unknown";
 
       const teams = [
         {
@@ -110,19 +121,20 @@ export default function TeamStatsPage() {
         map[key].pf += t.scored;
         map[key].pa += t.allowed;
 
-        // ✅ CORRECT WIN/LOSS LOGIC
+        // ✅ FINAL CORRECT WIN/LOSS LOGIC
         if (t.scored > t.allowed) {
           map[key].wins += 1;
         } else if (t.scored < t.allowed) {
           map[key].losses += 1;
         }
+        // ties ignored
       });
     });
 
     return Object.values(map);
-  }, [games]);
+  }, [games, scheduleMap]);
 
-  /* 🔥 FILTER */
+  /* 🔥 FILTER BY DIVISION */
   const filteredTeams = useMemo(() => {
     if (selectedDivision === "all") return teamStats;
     return teamStats.filter(t => t.division === selectedDivision);
@@ -133,7 +145,7 @@ export default function TeamStatsPage() {
 
       <h2 style={title}>Team Stats</h2>
 
-      {/* DIVISION FILTER */}
+      {/* 🔥 DIVISION FILTER */}
       <div style={filterGrid}>
         {divisions.map(d => (
           <div
@@ -149,7 +161,7 @@ export default function TeamStatsPage() {
         ))}
       </div>
 
-      {/* TEAM GRID */}
+      {/* 🔥 TEAM GRID */}
       <div style={grid}>
         {filteredTeams.map(team => {
           const logo = TEAM_LOGOS[team.team];
@@ -188,9 +200,16 @@ export default function TeamStatsPage() {
 
 /* STYLES */
 
-const wrap = { display: "flex", flexDirection: "column", gap: 20 };
+const wrap = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 20
+};
 
-const title = { fontSize: 24, fontWeight: 700 };
+const title = {
+  fontSize: 24,
+  fontWeight: 700
+};
 
 const filterGrid = {
   display: "grid",
