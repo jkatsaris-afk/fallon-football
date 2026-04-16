@@ -230,7 +230,7 @@ body {
 }
 
 /* ========================= */
-/* 🔥 FINAL POLISHED NAV */
+/* 🔥 FINAL NAV SYSTEM */
 /* ========================= */
 .nav-wrap {
   position: fixed;
@@ -241,7 +241,6 @@ body {
   height: 72px;
   padding: 6px;
 
-  /* 🔥 LIGHT GLASS */
   background: rgba(255,255,255,0.65);
   backdrop-filter: blur(10px);
 
@@ -280,7 +279,7 @@ body {
   margin-bottom: 4px;
 }
 
-/* 🔥 ACTIVE TILE */
+/* ACTIVE TILE */
 .nav-item2.active {
   background: #ffffff;
   color: #0f7a3b;
@@ -296,23 +295,22 @@ body {
     0 4px 10px rgba(0,0,0,0.06);
 }
 
-/* 🔥 CLEAN INDICATOR */
+/* 🔥 CLEAN SPLIT BOTTOM BAR (FIXED) */
 .nav-item2.active::after {
   content: "";
   position: absolute;
-  bottom: 8px;
 
-  width: 28px;
-  height: 4px;
+  left: 50%;
+  transform: translateX(-50%);
 
-  background: linear-gradient(
-    to right,
-    rgba(15,122,59,0),
-    #0f7a3b,
-    rgba(15,122,59,0)
-  );
+  bottom: 0;
 
-  border-radius: 999px;
+  width: 70%;
+  height: 6px;
+
+  background: #0f7a3b;
+
+  border-radius: 0 0 16px 16px;
 }
 
 /* ACTIVE TEXT */
