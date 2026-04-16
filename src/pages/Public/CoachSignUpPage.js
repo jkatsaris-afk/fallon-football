@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 export default function CoachSignUpPage() {
@@ -25,20 +25,26 @@ export default function CoachSignUpPage() {
   }, []);
 
   const loadSettings = async () => {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("*")
-      .eq("id", 1)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("id", 1)
+        .single();
 
-    setSettings(data);
+      if (error) throw error;
+      setSettings(data);
+    } catch (err) {
+      console.error(err);
+      setSettings({ coach_signups_open: true });
+    }
   };
 
   /* ================= SUBMIT ================= */
 
   const handleSubmit = async () => {
     if (!file) {
-      alert("Profile picture required");
+      alert("Profile picture is required");
       return;
     }
 
@@ -52,37 +58,46 @@ export default function CoachSignUpPage() {
 
       if (authError) throw authError;
 
-      const { data: loginData } =
+      const { data: loginData, error: loginError } =
         await supabase.auth.signInWithPassword({
           email: form.email,
           password: form.password
         });
 
+      if (loginError) throw loginError;
+
       const user = loginData?.user;
+      if (!user) throw new Error("Auth failed");
 
       const fileName = `${user.id}-${Date.now()}-${file.name}`;
 
-      await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("profile-images")
         .upload(fileName, file);
 
-      await supabase.from("coaches").insert([
-        {
-          auth_id: user.id,
-          first_name: form.firstName,
-          last_name: form.lastName,
-          phone: form.phone,
-          email: form.email,
-          age: Number(form.age || 0),
-          experience: form.experience,
-          notes: form.notes,
-          profile_image: fileName,
-          division_preference: form.division,
-          assistant_coach: form.assistant,
-          has_coached_before: form.coachedBefore,
-          status: "pending"
-        }
-      ]);
+      if (uploadError) throw uploadError;
+
+      const { error: insertError } = await supabase
+        .from("coaches")
+        .insert([
+          {
+            auth_id: user.id,
+            first_name: form.firstName,
+            last_name: form.lastName,
+            phone: form.phone,
+            email: form.email,
+            age: Number(form.age || 0),
+            experience: form.experience,
+            notes: form.notes,
+            profile_image: fileName,
+            division_preference: form.division,
+            assistant_coach: form.assistant,
+            has_coached_before: form.coachedBefore,
+            status: "pending"
+          }
+        ]);
+
+      if (insertError) throw insertError;
 
       alert("Coach Registered!");
 
@@ -94,178 +109,210 @@ export default function CoachSignUpPage() {
     setLoading(false);
   };
 
-  /* ================= CLOSED SCREEN ================= */
-
   if (!settings) return <div style={{ padding: 20 }}>Loading...</div>;
 
-  if (!settings.coach_signups_open) {
-    return (
-      <div style={centerWrap}>
-        <div style={centerCard}>
-          <h2>Registration Closed</h2>
-          <p style={subText}>
-            Coach registration is currently closed.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  /* ================= FORM ================= */
-
   return (
-    <div style={wrap}>
+    <div style={container}>
+      <h2 style={{ marginBottom: 20 }}>Coach Registration</h2>
 
-      <h2 style={title}>Coach Registration</h2>
-
-      {/* BASIC INFO */}
-      <div style={card}>
-        <div style={sectionTitle}>Basic Info</div>
-
-        <div style={grid}>
-          <input style={input} placeholder="First Name" onChange={(e)=>setForm({...form, firstName:e.target.value})}/>
-          <input style={input} placeholder="Last Name" onChange={(e)=>setForm({...form, lastName:e.target.value})}/>
-          <input style={input} placeholder="Phone" onChange={(e)=>setForm({...form, phone:e.target.value})}/>
-          <input style={input} placeholder="Email" onChange={(e)=>setForm({...form, email:e.target.value})}/>
-          <input style={input} placeholder="Password" type="password" onChange={(e)=>setForm({...form, password:e.target.value})}/>
-          <input style={input} placeholder="Age" type="number" onChange={(e)=>setForm({...form, age:e.target.value})}/>
+      {/* 🔥 MATCH REF STYLE BOX */}
+      <Card>
+        <div style={payBox}>
+          Coaches help lead teams and support player development.
         </div>
+      </Card>
 
-        <input type="file" onChange={(e)=>setFile(e.target.files[0])}/>
-      </div>
+      {!settings.coach_signups_open && (
+        <Card center>
+          <h3>Registration Closed</h3>
+        </Card>
+      )}
 
-      {/* PREFERENCES */}
-      <div style={card}>
-        <div style={sectionTitle}>Preferences</div>
+      {settings.coach_signups_open && (
+        <>
+          {/* BASIC INFO */}
+          <Card>
+            <Section title="Basic Info">
+              <Input placeholder="First Name" onChange={(v)=>setForm({...form, firstName:v})}/>
+              <Input placeholder="Last Name" onChange={(v)=>setForm({...form, lastName:v})}/>
+              <Input placeholder="Phone" onChange={(v)=>setForm({...form, phone:v})}/>
+              <Input placeholder="Email" onChange={(v)=>setForm({...form, email:v})}/>
+              <Input placeholder="Password" type="password" onChange={(v)=>setForm({...form, password:v})}/>
+              <Input placeholder="Age" type="number" onChange={(v)=>setForm({...form, age:v})}/>
 
-        <input style={input} placeholder="Division Preference" onChange={(e)=>setForm({...form, division:e.target.value})}/>
+              <div style={uploadWrap}>
+                <label style={uploadBtn}>
+                  Upload Profile Picture (Required)
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e)=>setFile(e.target.files[0])}
+                    hidden
+                  />
+                </label>
 
-        <label style={checkbox}>
-          <input type="checkbox" onChange={(e)=>setForm({...form, assistant:e.target.checked})}/>
-          Assistant Coach
-        </label>
-      </div>
+                {file && <div style={fileName}>{file.name}</div>}
+              </div>
+            </Section>
+          </Card>
 
-      {/* EXPERIENCE */}
-      <div style={card}>
-        <div style={sectionTitle}>Experience</div>
+          {/* COACH SETTINGS */}
+          <Card>
+            <Section title="Coaching Info">
+              <Input
+                placeholder="Division Preference"
+                onChange={(v)=>setForm({...form, division:v})}
+              />
 
-        <label style={checkbox}>
-          <input type="checkbox" onChange={(e)=>setForm({...form, coachedBefore:e.target.checked})}/>
-          Coached Before
-        </label>
+              <label>
+                <input
+                  type="checkbox"
+                  onChange={(e)=>setForm({...form, assistant:e.target.checked})}
+                />
+                Assistant Coach
+              </label>
 
-        <textarea
-          style={textarea}
-          placeholder="Describe your experience..."
-          onChange={(e)=>setForm({...form, experience:e.target.value})}
-        />
-      </div>
+              <label>
+                <input
+                  type="checkbox"
+                  onChange={(e)=>setForm({...form, coachedBefore:e.target.checked})}
+                />
+                Coached Before
+              </label>
+            </Section>
+          </Card>
 
-      {/* NOTES */}
-      <div style={card}>
-        <textarea
-          style={textarea}
-          placeholder="Additional notes"
-          onChange={(e)=>setForm({...form, notes:e.target.value})}
-        />
-      </div>
+          {/* EXPERIENCE */}
+          <Card>
+            <Section title="Experience">
+              <textarea
+                placeholder="Describe experience"
+                onChange={(e)=>setForm({...form, experience:e.target.value})}
+                style={textarea}
+              />
+            </Section>
+          </Card>
 
-      <button style={submitBtn} onClick={handleSubmit}>
-        {loading ? "Submitting..." : "Register Coach"}
-      </button>
+          {/* NOTES */}
+          <Card>
+            <textarea
+              placeholder="Additional notes"
+              onChange={(e)=>setForm({...form, notes:e.target.value})}
+              style={textarea}
+            />
+          </Card>
 
+          <button onClick={handleSubmit} style={submitBtn}>
+            {loading ? "Submitting..." : "Register Coach"}
+          </button>
+        </>
+      )}
     </div>
+  );
+}
+
+/* ================= SAME UI AS REF ================= */
+
+function Card({ children, center }) {
+  return (
+    <div style={{
+      background: "#fff",
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 15,
+      textAlign: center ? "center" : "left",
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div>
+      <div style={{ fontWeight: 600, marginBottom: 10 }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Input({ placeholder, onChange, type="text" }) {
+  return (
+    <input
+      type={type}
+      placeholder={placeholder}
+      onChange={(e)=>onChange(e.target.value)}
+      style={input}
+    />
   );
 }
 
 /* ================= STYLES ================= */
 
-const wrap = {
-  maxWidth: 500,
-  margin: "auto",
+const container = {
   padding: 20,
-  display: "flex",
-  flexDirection: "column",
-  gap: 16
-};
-
-const title = {
-  fontSize: 24,
-  fontWeight: 700
-};
-
-const card = {
-  background: "#fff",
-  borderRadius: 18,
-  padding: 18,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const sectionTitle = {
-  fontWeight: 700,
-  marginBottom: 10
-};
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 10,
-  marginBottom: 10
+  maxWidth: 500,
+  margin: "auto"
 };
 
 const input = {
   padding: 12,
   borderRadius: 10,
   border: "1px solid #e2e8f0",
-  width: "100%"
+  fontSize: 16,
+  width: "100%",
+  boxSizing: "border-box"
 };
 
 const textarea = {
   width: "100%",
-  minHeight: 90,
+  minHeight: 80,
   padding: 12,
   borderRadius: 10,
   border: "1px solid #e2e8f0",
+  boxSizing: "border-box",
+  resize: "vertical",
+  fontSize: 16
+};
+
+const uploadWrap = {
   marginTop: 10
 };
 
-const checkbox = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  marginTop: 10
+const uploadBtn = {
+  display: "inline-block",
+  padding: "10px 14px",
+  borderRadius: 10,
+  background: "#16a34a",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 14
+};
+
+const fileName = {
+  marginTop: 6,
+  fontSize: 12,
+  color: "#64748b"
 };
 
 const submitBtn = {
+  width: "100%",
   padding: 16,
   borderRadius: 14,
   border: "none",
-  background: "#16a34a",
+  background: "#2f6ea6",
   color: "#fff",
   fontWeight: 600
 };
 
-/* CLOSED SCREEN */
-
-const centerWrap = {
-  height: "100vh",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#f8fafc"
-};
-
-const centerCard = {
-  width: 340,
-  background: "#fff",
-  padding: 30,
-  borderRadius: 16,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+const payBox = {
+  background: "#f0fdf4",
+  border: "1px solid #bbf7d0",
+  padding: 12,
+  borderRadius: 10,
+  color: "#166534",
   textAlign: "center"
-};
-
-const subText = {
-  fontSize: 13,
-  color: "#64748b"
 };
