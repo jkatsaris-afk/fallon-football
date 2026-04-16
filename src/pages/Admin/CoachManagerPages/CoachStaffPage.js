@@ -17,6 +17,7 @@ import LogoRams from "../../../resources/Los Angeles Rams.png";
 import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
 import LogoRavens from "../../../resources/Baltimore Ravens.png";
 
+/* 🔥 LOGO MAP */
 const TEAM_LOGOS = {
   "49ers": Logo49ers,
   Bengals: LogoBengals,
@@ -31,6 +32,23 @@ const TEAM_LOGOS = {
   Rams: LogoRams,
   Steelers: LogoSteelers,
   Ravens: LogoRavens,
+};
+
+/* 🔥 DB → DISPLAY MAP */
+const TEAM_NAME_MAP = {
+  SF: "49ers",
+  CIN: "Bengals",
+  BUF: "Bills",
+  DEN: "Broncos",
+  KC: "Chiefs",
+  IND: "Colts",
+  PHI: "Eagles",
+  NYJ: "Jets",
+  DET: "Lions",
+  LV: "Raiders",
+  LAR: "Rams",
+  PIT: "Steelers",
+  BAL: "Ravens",
 };
 
 export default function CoachStaffPage() {
@@ -125,7 +143,6 @@ export default function CoachStaffPage() {
 
   const getProfileImage = (c) => {
     const raw = c?.profile_image || "";
-
     if (!raw) return DefaultProfile;
     if (raw.startsWith("http")) return raw;
 
@@ -158,7 +175,9 @@ export default function CoachStaffPage() {
           {filteredCoaches.map((coach) => {
             const role = getRole(coach);
             const team = getCoachTeam(coach);
-            const teamName = team?.nfl_team?.short_name;
+
+            const rawName = team?.nfl_team?.short_name;
+            const teamName = TEAM_NAME_MAP[rawName] || rawName;
             const logo = TEAM_LOGOS[teamName];
 
             return (
@@ -251,7 +270,7 @@ export default function CoachStaffPage() {
   );
 }
 
-/* 🔥 FIXED MISSING COMPONENT */
+/* STAT TILE */
 function StatTile({ label, value, active, onClick }) {
   return (
     <div
@@ -271,8 +290,7 @@ function StatTile({ label, value, active, onClick }) {
   );
 }
 
-/* ---------------- STYLES ---------------- */
-
+/* STYLES */
 const wrap = { display:"flex", flexDirection:"column", gap:20 };
 const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))", gap:14 };
 const section = { background:"#fff", borderRadius:18, padding:20, boxShadow:"0 8px 24px rgba(0,0,0,0.08)" };
