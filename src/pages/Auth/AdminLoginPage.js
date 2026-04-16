@@ -1,26 +1,45 @@
-import { useNavigate } from "react-router-dom";
-
-export default function AdminLoginPage() {
-  const navigate = useNavigate();
-
+export default function LoginPage({ setRole, setShowLogin }) {
   return (
-    <div style={wrap}>
+    <div style={{ padding: 20 }}>
 
-      <div style={card}>
-        <h2 style={title}>Login</h2>
+      <h2>Login</h2>
 
-        <div className="title">League Admin Access</div>
+      <div className="card">
+        <div className="title">Choose Account Type</div>
 
         <button
           className="button"
-          onClick={() => navigate("/admin")}
+          onClick={() => {
+            setRole("admin");
+            setShowLogin(false);
+          }}
         >
-          Login as Admin
+          Admin
+        </button>
+
+        <button
+          className="button"
+          onClick={() => {
+            setRole("coach");
+            setShowLogin(false);
+          }}
+        >
+          Coach
+        </button>
+
+        <button
+          className="button"
+          onClick={() => {
+            setRole("parent");
+            setShowLogin(false);
+          }}
+        >
+          Parent
         </button>
 
         <button
           style={{ marginTop: 10 }}
-          onClick={() => navigate("/")}
+          onClick={() => setShowLogin(false)}
         >
           Cancel
         </button>
@@ -29,26 +48,3 @@ export default function AdminLoginPage() {
     </div>
   );
 }
-
-/* SAME STYLES */
-const wrap = {
-  minHeight: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  padding: 20
-};
-
-const card = {
-  background: "#fff",
-  borderRadius: 16,
-  padding: 24,
-  width: "100%",
-  maxWidth: 400,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-  textAlign: "center"
-};
-
-const title = {
-  marginBottom: 12
-};
