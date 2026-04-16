@@ -1,54 +1,25 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-const TIMES = ["9:30", "10:30", "11:30", "12:30"];
-
-const normalizeTime = (t) => {
-  if (!t) return null;
-  return t.toString().replace(" AM", "").replace(" PM", "").trim();
-};
-
-export default function RefAvailabilityPage() {
-  const [weeks, setWeeks] = useState([]);
-  const [selectedWeek, setSelectedWeek] = useState(null);
-
+export default function RefSchedulePage() {
   const [refId, setRefId] = useState(null);
-  const [availability, setAvailability] = useState({});
-
-  /* ---------------- INIT ---------------- */
+  const [games, setGames] = useState([]);
 
   useEffect(() => {
-    loadWeeks();
     getRefId();
   }, []);
 
   useEffect(() => {
-    if (refId && selectedWeek) {
-      loadAvailability();
+    if (refId) {
+      loadGames();
     }
-  }, [refId, selectedWeek]);
+  }, [refId]);
 
-  /* ---------------- LOAD ---------------- */
-
-  const loadWeeks = async () => {
-    const { data, error } = await supabase
-      .from("schedule_master_auto")
-      .select("week");
-
-    if (error) {
-      console.error("Weeks load error:", error);
-      return;
-    }
-
-    const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
-    setWeeks(unique);
-  };
+  /* ---------------- GET REF ---------------- */
 
   const getRefId = async () => {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
-
-    console.log("AUTH USER:", user);
 
     if (!user) {
       console.warn("NO AUTH USER");
@@ -61,87 +32,47 @@ export default function RefAvailabilityPage() {
       .eq("auth_id", user.id)
       .maybeSingle();
 
-    console.log("REF LOOKUP:", data);
-
     if (error) {
       console.error("Ref lookup error:", error);
       return;
     }
 
     if (!data) {
-      console.warn("NO REF FOUND FOR USER");
+      console.warn("NO REF FOUND");
       return;
     }
 
     setRefId(data.id);
   };
 
-  const loadAvailability = async () => {
+  /* ---------------- LOAD GAMES ---------------- */
+
+  const loadGames = async () => {
     const { data, error } = await supabase
-      .from("ref_availability")
-      .select("*")
-      .eq("referee_id", refId)
-      .eq("week", selectedWeek);
+      .from("ref_assignments")
+      .select(`
+        id,
+        role,
+        schedule_master (
+          id,
+          event_date,
+          event_time,
+          field,
+          team,
+          opponent,
+          division
+        )
+      `)
+      .eq("referee_id", refId);
 
     if (error) {
-      console.error("Availability load error:", error);
+      console.error("LOAD GAMES ERROR:", error);
       return;
     }
 
-    const map = {};
+    console.log("GAMES:", data);
 
-    data?.forEach((a) => {
-      const time = normalizeTime(a.time_block);
-      map[time] = a.available;
-    });
-
-    console.log("LOADED AVAIL:", map);
-
-    setAvailability(map);
-  };
-
-  /* ---------------- TOGGLE ---------------- */
-
-  const toggle = async (time) => {
-    if (!refId || !selectedWeek) {
-      console.warn("Missing refId or week");
-      return;
-    }
-
-    const current = availability?.[time];
-
-    let newValue;
-    if (current === undefined) newValue = true; // gray → green
-    else newValue = !current; // toggle
-
-    // update UI instantly
-    setAvailability((prev) => ({
-      ...prev,
-      [time]: newValue,
-    }));
-
-    const { error } = await supabase
-      .from("ref_availability")
-      .upsert(
-        [
-          {
-            referee_id: refId,
-            week: selectedWeek,
-            time_block: normalizeTime(time),
-            available: newValue,
-          },
-        ],
-        {
-          onConflict: ["referee_id", "week", "time_block"],
-        }
-      )
-      .select();
-
-    if (error) {
-      console.error("SAVE ERROR:", error);
-    } else {
-      console.log("SAVE SUCCESS");
-    }
+    setGames(data || []);
   };
 
   /* ---------------- UI ---------------- */
@@ -149,66 +80,45 @@ export default function RefAvailabilityPage() {
   return (
     <div style={wrap}>
 
-      <div style={title}>My Availability</div>
+      <div style={title}>My Schedule</div>
 
-      {/* WEEK SELECT */}
-      <div style={weekRow}>
-        {weeks.map((w) => (
-          <div
-            key={w}
-            style={{
-              ...weekTile,
-              background: selectedWeek === w ? "#16a34a" : "#fff",
-              color: selectedWeek === w ? "#fff" : "#111",
-            }}
-            onClick={() => setSelectedWeek(w)}
-          >
-            W{w}
-          </div>
-        ))}
-      </div>
-
-      {/* TIME BLOCKS */}
-      {selectedWeek && (
-        <>
-          <div style={subTitle}>Week {selectedWeek}</div>
-
-          <div style={timeGrid}>
-            {TIMES.map((t) => {
-              const value = availability?.[t];
-
-              let bg = "#e5e7eb"; // gray
-              let color = "#111";
-
-              if (value === true) {
-                bg = "#16a34a"; // green
-                color = "#fff";
-              } else if (value === false) {
-                bg = "#dc2626"; // red
-                color = "#fff";
-              }
-
-              return (
-                <button
-                  key={t}
-                  style={{
-                    ...timeBtn,
-                    background: bg,
-                    color: color,
-                  }}
-                  onClick={() => toggle(t)}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={hint}>
-            Gray = not set • Green = available • Red = unavailable
-          </div>
-        </>
+      {games.length === 0 && (
+        <div style={empty}>No assigned games yet</div>
       )}
+
+      <div style={grid}>
+        {games.map((g) => {
+          const game = g.schedule_master;
+
+          if (!game) return null;
+
+          return (
+            <div key={g.id} style={card}>
+              
+              <div style={match}>
+                {game.team} vs {game.opponent}
+              </div>
+
+              <div style={meta}>
+                {game.division}
+              </div>
+
+              <div style={meta}>
+                {game.event_date}
+              </div>
+
+              <div style={meta}>
+                {game.event_time} • Field {game.field}
+              </div>
+
+              <div style={role}>
+                {g.role}
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
 
     </div>
   );
@@ -228,42 +138,35 @@ const title = {
   fontWeight: 800
 };
 
-const subTitle = {
-  fontSize: 16,
-  fontWeight: 600
-};
-
-const weekRow = {
-  display: "flex",
-  gap: 8,
-  overflowX: "auto"
-};
-
-const weekTile = {
-  minWidth: 60,
-  padding: 10,
-  borderRadius: 12,
-  textAlign: "center",
-  fontWeight: 700,
-  cursor: "pointer",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
-};
-
-const timeGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4,1fr)",
-  gap: 10
-};
-
-const timeBtn = {
-  padding: 14,
-  borderRadius: 12,
-  border: "none",
-  cursor: "pointer",
-  fontWeight: 700
-};
-
-const hint = {
-  fontSize: 12,
+const empty = {
   color: "#64748b"
+};
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+  gap: 12
+};
+
+const card = {
+  padding: 16,
+  borderRadius: 16,
+  background: "#fff",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
+};
+
+const match = {
+  fontWeight: 700,
+  marginBottom: 6
+};
+
+const meta = {
+  fontSize: 13,
+  color: "#64748b"
+};
+
+const role = {
+  marginTop: 10,
+  fontWeight: 700,
+  color: "#16a34a"
 };
