@@ -1,49 +1,61 @@
 import { Home, Calendar, Clock, User } from "lucide-react";
+import { useState } from "react";
 
 export default function RefLayout({ page, setPage, children }) {
+  const [animating, setAnimating] = useState(false);
+
+  const handleNav = (target) => {
+    if (target === page) return;
+
+    setAnimating(true);
+    setTimeout(() => {
+      setPage(target);
+      setAnimating(false);
+    }, 120);
+  };
+
   return (
     <div className="app-container">
 
-      <div className="content">
+      <div className={`content ${animating ? "page-anim" : ""}`}>
         {children}
       </div>
 
-      {/* NAV */}
       <div className="nav-wrap">
 
         <NavItem
           icon={<Home size={22} />}
           label="Home"
           active={page === "refDashboard"}
-          onClick={() => setPage("refDashboard")}
+          onClick={() => handleNav("refDashboard")}
         />
 
         <NavItem
           icon={<Calendar size={22} />}
           label="Schedule"
           active={page === "refSchedule"}
-          onClick={() => setPage("refSchedule")}
+          onClick={() => handleNav("refSchedule")}
         />
 
         <NavItem
           icon={<Clock size={22} />}
           label="Time"
           active={page === "refTime"}
-          onClick={() => setPage("refTime")}
+          onClick={() => handleNav("refTime")}
         />
 
         <NavItem
           icon={<Calendar size={22} />}
           label="Availability"
           active={page === "refAvailability"}
-          onClick={() => setPage("refAvailability")}
+          onClick={() => handleNav("refAvailability")}
         />
 
         <NavItem
           icon={<User size={22} />}
           label="Profile"
           active={page === "refProfile"}
-          onClick={() => setPage("refProfile")}
+          onClick={() => handleNav("refProfile")}
         />
 
       </div>
