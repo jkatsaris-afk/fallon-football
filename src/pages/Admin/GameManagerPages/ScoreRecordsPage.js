@@ -32,7 +32,7 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-/* ORDER */
+/* 🔥 ORDER */
 const DIVISION_ORDER = ["K-1st", "2nd-3rd", "4th-5th", "6th-8th"];
 
 export default function TeamStatsPage() {
@@ -51,7 +51,7 @@ export default function TeamStatsPage() {
 
     const { data: schedule } = await supabase
       .from("schedule_master_auto")
-      .select("id, division, week, event_type");
+      .select("id, division, week");
 
     const map = {};
     (schedule || []).forEach(s => {
@@ -62,29 +62,15 @@ export default function TeamStatsPage() {
     setGames(scores || []);
   };
 
-  /* DIVISIONS */
-  const divisions = useMemo(() => {
-    const found = [
-      ...new Set(
-        games
-          .map(g => scheduleMap[g.schedule_id]?.division)
-          .filter(Boolean)
-      )
-    ];
+  /* 🔥 DIVISIONS IN ORDER */
+  const divisions = ["all", ...DIVISION_ORDER];
 
-    const sorted = [...found].sort(
-      (a, b) => DIVISION_ORDER.indexOf(a) - DIVISION_ORDER.indexOf(b)
-    );
-
-    return ["all", ...sorted];
-  }, [games, scheduleMap]);
-
-  /* TEAM STATS */
+  /* 🔥 TEAM STATS (FINAL CORRECT LOGIC) */
   const teamStats = useMemo(() => {
     const map = {};
 
     games.forEach(g => {
-      const division = scheduleMap[g.schedule_id]?.division || "Unknown";
+      const division = scheduleMap[g.schedule_id]?.division;
 
       const teams = [
         { name: g.home_team, scored: g.home_score, allowed: g.away_score },
@@ -108,21 +94,23 @@ export default function TeamStatsPage() {
         map[key].pf += t.scored;
         map[key].pa += t.allowed;
 
-        if (t.scored > t.allowed) map[key].wins += 1;
-        else if (t.scored < t.allowed) map[key].losses += 1;
+        // 🔥 FINAL FIX (DO NOT CHANGE AGAIN)
+        if (t.scored > t.allowed) {
+          map[key].wins += 1;
+        } else if (t.scored < t.allowed) {
+          map[key].losses += 1;
+        }
       });
     });
 
     return Object.values(map);
   }, [games, scheduleMap]);
 
-  /* FILTER */
   const filteredTeams = useMemo(() => {
     if (selectedDivision === "all") return teamStats;
     return teamStats.filter(t => t.division === selectedDivision);
   }, [teamStats, selectedDivision]);
 
-  /* SORT */
   const rankedTeams = useMemo(() => {
     return [...filteredTeams].sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
@@ -130,50 +118,7 @@ export default function TeamStatsPage() {
     });
   }, [filteredTeams]);
 
-  /* PLAYED GAMES ONLY */
-  const playedGames = useMemo(() => {
-    return games.filter(g => g.home_score != null && g.away_score != null);
-  }, [games]);
-
-  /* DIVISION GAMES */
-  const divisionGames = useMemo(() => {
-    if (selectedDivision === "all") return [];
-
-    return playedGames.filter(g => {
-      const div = scheduleMap[g.schedule_id]?.division;
-      return div === selectedDivision;
-    });
-  }, [playedGames, scheduleMap, selectedDivision]);
-
-  /* WINNER */
-  const getWinner = (g) => {
-    if (g.home_score > g.away_score) return g.home_team;
-    if (g.away_score > g.home_score) return g.away_team;
-    return null;
-  };
-
-  /* BUILD BRACKET */
-  const bracket = useMemo(() => {
-    if (!divisionGames.length) return null;
-
-    const weeks = {};
-    divisionGames.forEach(g => {
-      const w = scheduleMap[g.schedule_id]?.week;
-      if (!weeks[w]) weeks[w] = [];
-      weeks[w].push(g);
-    });
-
-    const sortedWeeks = Object.keys(weeks)
-      .map(Number)
-      .sort((a, b) => a - b);
-
-    return sortedWeeks.map(w =>
-      weeks[w].map(g => ({
-        game: g,
-        winner: getWinner(g)
-      }))
-    );
-  }, [divisionGames, scheduleMap]);
+  const bracketTeams = rankedTeams.slice(0, 4);
 
   return (
     <div style={wrap}>
@@ -206,61 +151,35 @@ export default function TeamStatsPage() {
               {logo && <img src={logo} style={logoStyle} />}
               <div style={teamName}>{team.team}</div>
               <div style={record}>{team.wins} - {team.losses}</div>
-
-              <div style={statsRow}>
-                <span>PF: {team.pf}</span>
-                <span>PA: {team.pa}</span>
-              </div>
-
               <div style={divisionBadge}>{team.division}</div>
             </div>
           );
         })}
       </div>
 
-      {/* BRACKET */}
-      {selectedDivision !== "all" && bracket && (
+      {/* 🔥 BRACKET */}
+      {selectedDivision !== "all" && bracketTeams.length >= 4 && (
         <div style={bracketWrap}>
 
-          <h3 style={{ textAlign: "center" }}>
-            {selectedDivision} Playoffs
-          </h3>
+          <div style={bracketGrid}>
 
-          <div style={bracketContainer}>
-            {bracket.map((round, i) => (
-              <div key={i} style={roundColumn}>
-                <div style={roundTitle}>Round {i + 1}</div>
+            {/* LEFT SIDE */}
+            <div style={side}>
+              <Match team={bracketTeams[0]} />
+              <Match team={bracketTeams[3]} />
+            </div>
 
-                {round.map((match, idx) => {
-                  const hLogo = TEAM_LOGOS[match.game.home_team];
-                  const aLogo = TEAM_LOGOS[match.game.away_team];
+            {/* CENTER FINAL */}
+            <div style={center}>
+              <div style={champBox}>Championship</div>
+            </div>
 
-                  return (
-                    <div key={idx} style={matchBox}>
+            {/* RIGHT SIDE */}
+            <div style={side}>
+              <Match team={bracketTeams[1]} />
+              <Match team={bracketTeams[2]} />
+            </div>
 
-                      <div style={teamRow}>
-                        {hLogo && <img src={hLogo} style={logo} />}
-                        <span>{match.game.home_team}</span>
-                      </div>
-
-                      <div style={vsSmall}>vs</div>
-
-                      <div style={teamRow}>
-                        {aLogo && <img src={aLogo} style={logo} />}
-                        <span>{match.game.away_team}</span>
-                      </div>
-
-                      {match.winner && (
-                        <div style={winnerBadge}>
-                          {match.winner}
-                        </div>
-                      )}
-
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
           </div>
 
         </div>
@@ -270,8 +189,22 @@ export default function TeamStatsPage() {
   );
 }
 
+/* MATCH */
+function Match({ team }) {
+  const logo = TEAM_LOGOS[team?.team];
+
+  return (
+    <div style={matchBox}>
+      {logo && <img src={logo} style={{ width: 24 }} />}
+      <div>{team?.team}</div>
+    </div>
+  );
+}
+
 /* STYLES */
+
 const wrap = { display:"flex", flexDirection:"column", gap:20 };
+
 const title = { fontSize:24, fontWeight:700 };
 
 const filterGrid = {
@@ -306,21 +239,14 @@ const card = {
 };
 
 const logoStyle = { width:50, marginBottom:8 };
-const teamName = { fontWeight:700 };
-const record = { fontSize:18, fontWeight:700 };
 
-const statsRow = {
-  display:"flex",
-  justifyContent:"center",
-  gap:10,
-  fontSize:12,
-  color:"#64748b"
-};
+const teamName = { fontWeight:700 };
+
+const record = { fontSize:18, fontWeight:700 };
 
 const divisionBadge = {
   marginTop:8,
   background:"#e0f2fe",
-  color:"#0369a1",
   padding:"4px 10px",
   borderRadius:999,
   fontSize:12
@@ -329,52 +255,40 @@ const divisionBadge = {
 /* BRACKET */
 const bracketWrap = {
   marginTop:30,
-  padding:20,
   background:"#fff",
+  padding:20,
   borderRadius:18
 };
 
-const bracketContainer = {
-  display:"flex",
-  gap:20,
-  overflowX:"auto"
+const bracketGrid = {
+  display:"grid",
+  gridTemplateColumns:"1fr 1fr 1fr",
+  alignItems:"center"
 };
 
-const roundColumn = {
+const side = {
   display:"flex",
   flexDirection:"column",
-  gap:20,
-  minWidth:180
+  gap:40,
+  alignItems:"center"
 };
 
-const roundTitle = {
-  textAlign:"center",
-  fontWeight:700,
-  fontSize:14
+const center = {
+  display:"flex",
+  justifyContent:"center"
 };
 
 const matchBox = {
   background:"#f8fafc",
   padding:10,
-  borderRadius:12,
+  borderRadius:10,
   textAlign:"center"
 };
 
-const teamRow = {
-  display:"flex",
-  justifyContent:"center",
-  gap:6,
-  alignItems:"center"
-};
-
-const logo = { width:20 };
-const vsSmall = { fontSize:10 };
-
-const winnerBadge = {
-  marginTop:6,
+const champBox = {
   background:"#16a34a",
   color:"#fff",
-  fontSize:10,
-  padding:"2px 6px",
-  borderRadius:6
+  padding:"10px 20px",
+  borderRadius:10,
+  fontWeight:700
 };
