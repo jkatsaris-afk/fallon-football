@@ -3,22 +3,19 @@ import { useNavigate } from "react-router-dom";
 export default function RefLoginPage() {
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    // 🔥 replace later with real auth
-    localStorage.setItem("ref_logged_in", "true");
-    navigate("/ref");
-  };
-
   return (
-    <div style={{ padding: 20 }}>
+    <div style={wrap}>
 
-      <h2>Referee Login</h2>
+      <div style={card}>
+        <h2 style={title}>Login</h2>
 
-      <div className="card">
         <div className="title">Referee Access</div>
 
-        <button className="button" onClick={handleLogin}>
-          Login
+        <button
+          className="button"
+          onClick={() => navigate("/ref")}
+        >
+          Login as Referee
         </button>
 
         <button
@@ -32,3 +29,26 @@ export default function RefLoginPage() {
     </div>
   );
 }
+
+/* STYLES */
+const wrap = {
+  minHeight: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 20
+};
+
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 24,
+  width: "100%",
+  maxWidth: 400,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  textAlign: "center"
+};
+
+const title = {
+  marginBottom: 12
+};
