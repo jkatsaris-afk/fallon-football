@@ -14,7 +14,6 @@ import { useState } from "react";
 export default function PublicLayout({ children, page, setPage }) {
   const [showSignupMenu, setShowSignupMenu] = useState(false);
 
-  // 🔥 FIX: close popup on any nav change
   const handleNav = (target) => {
     setShowSignupMenu(false);
     setPage(target);
@@ -38,7 +37,7 @@ export default function PublicLayout({ children, page, setPage }) {
         {children}
       </div>
 
-      {/* 🔥 BACKDROP */}
+      {/* BACKDROP */}
       {showSignupMenu && (
         <div
           className="popup-backdrop"
@@ -46,7 +45,7 @@ export default function PublicLayout({ children, page, setPage }) {
         />
       )}
 
-      {/* 🔥 SIGNUP POPUP */}
+      {/* 🔥 UPDATED POPUP */}
       {showSignupMenu && (
         <div className="popup-wrap">
           <div className="popup-card" onClick={(e) => e.stopPropagation()}>
@@ -54,7 +53,7 @@ export default function PublicLayout({ children, page, setPage }) {
             <PopupItem
               icon={<Users size={20} />}
               label="Player"
-              onClick={() => handleSignupSelect("playerSignup")}
+              onClick={() => handleSignupSelect("signUp")} {/* 🔥 FIXED */}
             />
 
             <PopupItem
@@ -97,20 +96,19 @@ export default function PublicLayout({ children, page, setPage }) {
           onClick={() => handleNav("scoreboard")}
         />
 
-        {/* 🔥 FIXED SIGN UP ACTIVE LOGIC */}
+        {/* 🔥 UPDATED ACTIVE LOGIC */}
         <NavItem
           icon={<UserPlus size={22} />}
           label="Sign Up"
           active={
             showSignupMenu ||
-            page === "playerSignup" ||
+            page === "signUp" ||     // 🔥 FIXED
             page === "coachSignup" ||
             page === "refSignup"
           }
           onClick={() => setShowSignupMenu(prev => !prev)}
         />
 
-        {/* 🔥 FIXED LOGIN ACTIVE LOGIC */}
         <NavItem
           icon={<LogIn size={22} />}
           label="Login"
