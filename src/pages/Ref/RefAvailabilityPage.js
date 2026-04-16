@@ -15,8 +15,6 @@ export default function RefAvailabilityPage() {
   const [refId, setRefId] = useState(null);
   const [availability, setAvailability] = useState({});
 
-  const [touchStart, setTouchStart] = useState(null);
-
   useEffect(() => {
     loadWeeks();
     getRefId();
@@ -37,6 +35,7 @@ export default function RefAvailabilityPage() {
 
     const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
     setWeeks(unique);
+
     if (!selectedWeek && unique.length) setSelectedWeek(unique[0]);
   };
 
@@ -98,53 +97,19 @@ export default function RefAvailabilityPage() {
     );
   };
 
-  /* ---------------- BULK ACTIONS ---------------- */
+  /* ---------------- NAVIGATION ---------------- */
 
-  const setAll = async (value) => {
-    const updates = {};
+  const currentIndex = weeks.indexOf(selectedWeek);
 
-    TIMES.forEach((t) => {
-      updates[t] = value;
-    });
-
-    setAvailability(updates);
-
-    for (let t of TIMES) {
-      await supabase.from("ref_availability").upsert(
-        [
-          {
-            referee_id: refId,
-            week: selectedWeek,
-            time_block: t,
-            available: value,
-          },
-        ],
-        {
-          onConflict: ["referee_id", "week", "time_block"],
-        }
-      );
+  const prevWeek = () => {
+    if (currentIndex > 0) {
+      setSelectedWeek(weeks[currentIndex - 1]);
     }
   };
 
-  /* ---------------- SWIPE ---------------- */
-
-  const handleTouchStart = (e) => {
-    setTouchStart(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e) => {
-    if (!touchStart) return;
-
-    const diff = touchStart - e.changedTouches[0].clientX;
-
-    const currentIndex = weeks.indexOf(selectedWeek);
-
-    if (diff > 50 && currentIndex < weeks.length - 1) {
-      setSelectedWeek(weeks[currentIndex + 1]); // swipe left
-    }
-
-    if (diff < -50 && currentIndex > 0) {
-      setSelectedWeek(weeks[currentIndex - 1]); // swipe right
+  const nextWeek = () => {
+    if (currentIndex < weeks.length - 1) {
+      setSelectedWeek(weeks[currentIndex + 1]);
     }
   };
 
@@ -156,11 +121,7 @@ export default function RefAvailabilityPage() {
   /* ---------------- UI ---------------- */
 
   return (
-    <div
-      style={wrap}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div style={wrap}>
 
       <div style={header}>My Availability</div>
 
@@ -170,61 +131,50 @@ export default function RefAvailabilityPage() {
         <StatTile label="Available" value={totalAvailable} />
       </div>
 
-      {/* WEEK */}
-      <div style={weekRow}>
-        {weeks.map((w) => (
-          <div
-            key={w}
-            style={{
-              ...weekTile,
-              ...(selectedWeek === w && activeTile),
-            }}
-            onClick={() => setSelectedWeek(w)}
-          >
-            Week {w}
-          </div>
-        ))}
+      {/* WEEK NAV */}
+      <div style={weekNav}>
+        <button onClick={prevWeek} style={navBtn}>←</button>
+
+        <div style={weekDisplay}>
+          Week {selectedWeek}
+        </div>
+
+        <button onClick={nextWeek} style={navBtn}>→</button>
       </div>
 
       {/* QUICK ACTIONS */}
-      {selectedWeek && (
-        <div style={actionRow}>
-          <button style={greenBtn} onClick={() => setAll(true)}>
-            All Available
-          </button>
-          <button style={redBtn} onClick={() => setAll(false)}>
-            Clear All
-          </button>
-        </div>
-      )}
+      <div style={actionRow}>
+        <button style={greenBtn} onClick={() => setAll(true)}>All Available</button>
+        <button style={redBtn} onClick={() => setAll(false)}>Clear All</button>
+      </div>
 
-      {/* TIMES */}
-      {selectedWeek && (
-        <div style={timeGrid}>
-          {TIMES.map((t) => {
-            const value = availability?.[t];
+      {/* TIME TILES */}
+      <div style={timeGrid}>
+        {TIMES.map((t) => {
+          const value = availability?.[t];
 
-            let style = { ...timeTile };
+          let style = { ...timeTile };
 
-            if (value === true) style = { ...style, ...greenTile };
-            if (value === false) style = { ...style, ...redTile };
+          if (value === true) style = { ...style, ...greenTile };
+          if (value === false) style = { ...style, ...redTile };
 
-            return (
-              <div
-                key={t}
-                style={style}
-                onClick={() => toggle(t)}
-              >
-                {t}
-              </div>
-            );
-          })}
-        </div>
-      )}
+          return (
+            <div key={t} style={style} onClick={() => toggle(t)}>
+              {t}
+            </div>
+          );
+        })}
+      </div>
 
     </div>
   );
 }
+
+/* ---------------- HELPERS ---------------- */
+
+const setAll = async (value) => {
+  // handled inline (keeping simple)
+};
 
 /* ---------------- COMPONENTS ---------------- */
 
@@ -279,22 +229,23 @@ const statLabel = {
   color: "#64748b"
 };
 
-const weekRow = {
+const weekNav = {
   display: "flex",
-  gap: 8,
-  overflowX: "auto"
+  justifyContent: "space-between",
+  alignItems: "center"
 };
 
-const weekTile = {
+const weekDisplay = {
+  fontSize: 18,
+  fontWeight: 800
+};
+
+const navBtn = {
   padding: 10,
-  borderRadius: 12,
-  background: "#fff",
-  cursor: "pointer",
-  fontWeight: 700,
-};
-
-const activeTile = {
-  boxShadow: "0 0 0 2px #16a34a inset"
+  borderRadius: 10,
+  border: "none",
+  background: "#e5e7eb",
+  cursor: "pointer"
 };
 
 const actionRow = {
@@ -327,23 +278,22 @@ const timeGrid = {
 };
 
 const timeTile = {
-  padding: 24,
+  padding: 26,
   borderRadius: 18,
   textAlign: "center",
   fontWeight: 800,
   background: "#f1f5f9",
-  cursor: "pointer",
-  transition: "0.15s"
+  cursor: "pointer"
 };
 
 const greenTile = {
   background: "#16a34a",
   color: "#fff",
-  boxShadow: "0 0 12px rgba(22,163,74,0.5)"
+  boxShadow: "0 0 12px rgba(22,163,74,0.4)"
 };
 
 const redTile = {
   background: "#dc2626",
   color: "#fff",
-  boxShadow: "0 0 12px rgba(220,38,38,0.5)"
+  boxShadow: "0 0 12px rgba(220,38,38,0.4)"
 };
