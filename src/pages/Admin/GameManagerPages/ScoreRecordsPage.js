@@ -32,7 +32,7 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-/* 🔥 ORDER */
+/* KEEP YOUR ORDER BUT DON'T FORCE FILTER BREAK */
 const DIVISION_ORDER = ["K-1st", "2nd-3rd", "4th-5th", "6th-8th"];
 
 export default function TeamStatsPage() {
@@ -51,26 +51,40 @@ export default function TeamStatsPage() {
 
     const { data: schedule } = await supabase
       .from("schedule_master_auto")
-      .select("id, division, week");
+      .select("id, division");
 
     const map = {};
     (schedule || []).forEach(s => {
-      map[s.id] = s;
+      map[s.id] = s.division;
     });
 
     setScheduleMap(map);
     setGames(scores || []);
   };
 
-  /* 🔥 DIVISIONS IN ORDER */
-  const divisions = ["all", ...DIVISION_ORDER];
+  /* 🔥 REAL DIVISIONS (SAFE SORT) */
+  const divisions = useMemo(() => {
+    const found = [
+      ...new Set(
+        games.map(g => scheduleMap[g.schedule_id]).filter(Boolean)
+      )
+    ];
 
-  /* 🔥 TEAM STATS (FINAL CORRECT LOGIC) */
+    return [
+      "all",
+      ...found.sort(
+        (a, b) =>
+          DIVISION_ORDER.indexOf(a) - DIVISION_ORDER.indexOf(b)
+      )
+    ];
+  }, [games, scheduleMap]);
+
+  /* 🔥 KEEP YOUR WORKING TEAM LOGIC */
   const teamStats = useMemo(() => {
     const map = {};
 
     games.forEach(g => {
-      const division = scheduleMap[g.schedule_id]?.division;
+      const division = scheduleMap[g.schedule_id] || "Unknown";
 
       const teams = [
         { name: g.home_team, scored: g.home_score, allowed: g.away_score },
@@ -94,12 +108,8 @@ export default function TeamStatsPage() {
         map[key].pf += t.scored;
         map[key].pa += t.allowed;
 
-        // 🔥 FINAL FIX (DO NOT CHANGE AGAIN)
-        if (t.scored > t.allowed) {
-          map[key].wins += 1;
-        } else if (t.scored < t.allowed) {
-          map[key].losses += 1;
-        }
+        if (t.scored > t.allowed) map[key].wins += 1;
+        else if (t.scored < t.allowed) map[key].losses += 1;
       });
     });
 
@@ -118,6 +128,7 @@ export default function TeamStatsPage() {
     });
   }, [filteredTeams]);
 
+  /* 🔥 SIMPLE BRACKET (SAFE ADDITION) */
   const bracketTeams = rankedTeams.slice(0, 4);
 
   return (
@@ -141,7 +152,7 @@ export default function TeamStatsPage() {
         ))}
       </div>
 
-      {/* TEAM TILES */}
+      {/* ✅ TEAM TILES (UNCHANGED) */}
       <div style={grid}>
         {rankedTeams.map(team => {
           const logo = TEAM_LOGOS[team.team];
@@ -151,30 +162,33 @@ export default function TeamStatsPage() {
               {logo && <img src={logo} style={logoStyle} />}
               <div style={teamName}>{team.team}</div>
               <div style={record}>{team.wins} - {team.losses}</div>
+
+              <div style={statsRow}>
+                <span>PF: {team.pf}</span>
+                <span>PA: {team.pa}</span>
+              </div>
+
               <div style={divisionBadge}>{team.division}</div>
             </div>
           );
         })}
       </div>
 
-      {/* 🔥 BRACKET */}
+      {/* 🔥 BRACKET (ADDED SAFELY BELOW) */}
       {selectedDivision !== "all" && bracketTeams.length >= 4 && (
         <div style={bracketWrap}>
 
           <div style={bracketGrid}>
 
-            {/* LEFT SIDE */}
             <div style={side}>
               <Match team={bracketTeams[0]} />
               <Match team={bracketTeams[3]} />
             </div>
 
-            {/* CENTER FINAL */}
             <div style={center}>
               <div style={champBox}>Championship</div>
             </div>
 
-            {/* RIGHT SIDE */}
             <div style={side}>
               <Match team={bracketTeams[1]} />
               <Match team={bracketTeams[2]} />
@@ -189,7 +203,6 @@ export default function TeamStatsPage() {
   );
 }
 
-/* MATCH */
 function Match({ team }) {
   const logo = TEAM_LOGOS[team?.team];
 
@@ -202,9 +215,7 @@ function Match({ team }) {
 }
 
 /* STYLES */
-
 const wrap = { display:"flex", flexDirection:"column", gap:20 };
-
 const title = { fontSize:24, fontWeight:700 };
 
 const filterGrid = {
@@ -243,6 +254,14 @@ const logoStyle = { width:50, marginBottom:8 };
 const teamName = { fontWeight:700 };
 
 const record = { fontSize:18, fontWeight:700 };
+
+const statsRow = {
+  display:"flex",
+  justifyContent:"center",
+  gap:10,
+  fontSize:12,
+  color:"#64748b"
+};
 
 const divisionBadge = {
   marginTop:8,
