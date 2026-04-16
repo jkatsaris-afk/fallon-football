@@ -1,18 +1,13 @@
 import logo from "../resources/logo.png";
-import { Home, Calendar, Trophy, UserPlus, LogIn } from "lucide-react";
+import { Home, Calendar, Trophy, UserPlus, LogIn, Users, Shield, Flag } from "lucide-react";
 import { useState } from "react";
 
 export default function PublicLayout({ children, page, setPage }) {
-  const [animating, setAnimating] = useState(false);
+  const [showSignupMenu, setShowSignupMenu] = useState(false);
 
-  const handleNav = (target) => {
-    if (target === page) return;
-
-    setAnimating(true);
-    setTimeout(() => {
-      setPage(target);
-      setAnimating(false);
-    }, 120);
+  const handleSignupSelect = (target) => {
+    setShowSignupMenu(false);
+    setPage(target);
   };
 
   return (
@@ -24,39 +19,67 @@ export default function PublicLayout({ children, page, setPage }) {
       </div>
 
       {/* CONTENT */}
-      <div className={`content ${animating ? "page-anim" : ""}`}>
+      <div className="content">
         {children}
       </div>
 
-      {/* 🔥 NEW NAV */}
+      {/* 🔥 SIGNUP POPUP */}
+      {showSignupMenu && (
+        <div className="popup-wrap">
+          <div className="popup-card">
+
+            <PopupItem
+              icon={<Users size={20} />}
+              label="Player"
+              onClick={() => handleSignupSelect("playerSignup")}
+            />
+
+            <PopupItem
+              icon={<Shield size={20} />}
+              label="Coach"
+              onClick={() => handleSignupSelect("coachSignup")}
+            />
+
+            <PopupItem
+              icon={<Flag size={20} />}
+              label="Referee"
+              onClick={() => handleSignupSelect("refSignup")}
+            />
+
+          </div>
+        </div>
+      )}
+
+      {/* NAV */}
       <div className="nav-wrap">
 
         <NavItem
           icon={<Home size={22} />}
           label="Home"
           active={page === "home"}
-          onClick={() => handleNav("home")}
+          onClick={() => setPage("home")}
         />
 
         <NavItem
           icon={<Calendar size={22} />}
           label="Schedule"
           active={page === "schedule"}
-          onClick={() => handleNav("schedule")}
+          onClick={() => setPage("schedule")}
         />
 
         <NavItem
           icon={<Trophy size={22} />}
           label="Scores"
           active={page === "scoreboard"}
-          onClick={() => handleNav("scoreboard")}
+          onClick={() => setPage("scoreboard")}
         />
 
+        {/* 🔥 SIGN UP (NOW POPUP) */}
         <NavItem
           icon={<UserPlus size={22} />}
           label="Sign Up"
-          active={page === "signupSelect"}
-          onClick={() => handleNav("signupSelect")}
+          active={showSignupMenu}
+          onClick={() => setShowSignupMenu(prev => !prev)}
         />
 
         <NavItem
@@ -68,7 +91,7 @@ export default function PublicLayout({ children, page, setPage }) {
             page === "refLogin" ||
             page === "parentLogin"
           }
-          onClick={() => handleNav("loginSelect")}
+          onClick={() => setPage("loginSelect")}
         />
 
       </div>
@@ -76,12 +99,23 @@ export default function PublicLayout({ children, page, setPage }) {
   );
 }
 
+/* NAV ITEM */
 function NavItem({ icon, label, active, onClick }) {
   return (
     <div
       className={`nav-item2 ${active ? "active" : ""}`}
       onClick={onClick}
     >
+      {icon}
+      <span>{label}</span>
+    </div>
+  );
+}
+
+/* POPUP ITEM */
+function PopupItem({ icon, label, onClick }) {
+  return (
+    <div className="popup-item" onClick={onClick}>
       {icon}
       <span>{label}</span>
     </div>
