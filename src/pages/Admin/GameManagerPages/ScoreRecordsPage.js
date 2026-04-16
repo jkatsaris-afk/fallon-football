@@ -32,7 +32,7 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-/* KEEP YOUR ORDER BUT DON'T FORCE FILTER BREAK */
+/* 🔥 YOUR ORDER */
 const DIVISION_ORDER = ["K-1st", "2nd-3rd", "4th-5th", "6th-8th"];
 
 export default function TeamStatsPage() {
@@ -62,24 +62,25 @@ export default function TeamStatsPage() {
     setGames(scores || []);
   };
 
-  /* 🔥 REAL DIVISIONS (SAFE SORT) */
+  /* 🔥 GET REAL DIVISIONS */
   const divisions = useMemo(() => {
     const found = [
       ...new Set(
-        games.map(g => scheduleMap[g.schedule_id]).filter(Boolean)
+        games
+          .map(g => scheduleMap[g.schedule_id])
+          .filter(Boolean)
       )
     ];
 
-    return [
-      "all",
-      ...found.sort(
-        (a, b) =>
-          DIVISION_ORDER.indexOf(a) - DIVISION_ORDER.indexOf(b)
-      )
-    ];
+    // 🔥 SORT USING YOUR ORDER
+    const sorted = [...found].sort(
+      (a, b) => DIVISION_ORDER.indexOf(a) - DIVISION_ORDER.indexOf(b)
+    );
+
+    return ["all", ...sorted];
   }, [games, scheduleMap]);
 
-  /* 🔥 KEEP YOUR WORKING TEAM LOGIC */
+  /* 🔥 TEAM STATS */
   const teamStats = useMemo(() => {
     const map = {};
 
@@ -116,11 +117,13 @@ export default function TeamStatsPage() {
     return Object.values(map);
   }, [games, scheduleMap]);
 
+  /* 🔥 FILTER */
   const filteredTeams = useMemo(() => {
     if (selectedDivision === "all") return teamStats;
     return teamStats.filter(t => t.division === selectedDivision);
   }, [teamStats, selectedDivision]);
 
+  /* 🔥 SORT STANDINGS */
   const rankedTeams = useMemo(() => {
     return [...filteredTeams].sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
@@ -128,7 +131,7 @@ export default function TeamStatsPage() {
     });
   }, [filteredTeams]);
 
-  /* 🔥 SIMPLE BRACKET (SAFE ADDITION) */
+  /* 🔥 TOP 4 FOR BRACKET */
   const bracketTeams = rankedTeams.slice(0, 4);
 
   return (
@@ -152,7 +155,7 @@ export default function TeamStatsPage() {
         ))}
       </div>
 
-      {/* ✅ TEAM TILES (UNCHANGED) */}
+      {/* TEAM TILES (ALWAYS SHOW) */}
       <div style={grid}>
         {rankedTeams.map(team => {
           const logo = TEAM_LOGOS[team.team];
@@ -174,27 +177,20 @@ export default function TeamStatsPage() {
         })}
       </div>
 
-      {/* 🔥 BRACKET (ADDED SAFELY BELOW) */}
+      {/* 🔥 BRACKET (BELOW, NOT REPLACING) */}
       {selectedDivision !== "all" && bracketTeams.length >= 4 && (
         <div style={bracketWrap}>
 
+          <h3 style={{ textAlign: "center" }}>
+            {selectedDivision} Playoffs
+          </h3>
+
           <div style={bracketGrid}>
-
-            <div style={side}>
-              <Match team={bracketTeams[0]} />
-              <Match team={bracketTeams[3]} />
-            </div>
-
-            <div style={center}>
-              <div style={champBox}>Championship</div>
-            </div>
-
-            <div style={side}>
-              <Match team={bracketTeams[1]} />
-              <Match team={bracketTeams[2]} />
-            </div>
-
+            <Match t1={bracketTeams[0]} t2={bracketTeams[3]} />
+            <Match t1={bracketTeams[1]} t2={bracketTeams[2]} />
           </div>
+
+          <div style={finalBox}>Championship Game</div>
 
         </div>
       )}
@@ -203,13 +199,13 @@ export default function TeamStatsPage() {
   );
 }
 
-function Match({ team }) {
-  const logo = TEAM_LOGOS[team?.team];
-
+/* MATCH */
+function Match({ t1, t2 }) {
   return (
-    <div style={matchBox}>
-      {logo && <img src={logo} style={{ width: 24 }} />}
-      <div>{team?.team}</div>
+    <div style={matchCard}>
+      <div>{t1?.team}</div>
+      <div style={{ fontSize: 12 }}>vs</div>
+      <div>{t2?.team}</div>
     </div>
   );
 }
@@ -250,9 +246,7 @@ const card = {
 };
 
 const logoStyle = { width:50, marginBottom:8 };
-
 const teamName = { fontWeight:700 };
-
 const record = { fontSize:18, fontWeight:700 };
 
 const statsRow = {
@@ -266,48 +260,34 @@ const statsRow = {
 const divisionBadge = {
   marginTop:8,
   background:"#e0f2fe",
+  color:"#0369a1",
   padding:"4px 10px",
   borderRadius:999,
   fontSize:12
 };
 
-/* BRACKET */
 const bracketWrap = {
   marginTop:30,
-  background:"#fff",
   padding:20,
+  background:"#fff",
   borderRadius:18
 };
 
 const bracketGrid = {
   display:"grid",
-  gridTemplateColumns:"1fr 1fr 1fr",
-  alignItems:"center"
+  gridTemplateColumns:"1fr 1fr",
+  gap:20
 };
 
-const side = {
-  display:"flex",
-  flexDirection:"column",
-  gap:40,
-  alignItems:"center"
-};
-
-const center = {
-  display:"flex",
-  justifyContent:"center"
-};
-
-const matchBox = {
+const matchCard = {
+  padding:12,
   background:"#f8fafc",
-  padding:10,
-  borderRadius:10,
+  borderRadius:12,
   textAlign:"center"
 };
 
-const champBox = {
-  background:"#16a34a",
-  color:"#fff",
-  padding:"10px 20px",
-  borderRadius:10,
+const finalBox = {
+  marginTop:20,
+  textAlign:"center",
   fontWeight:700
 };
