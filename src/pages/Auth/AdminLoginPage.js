@@ -15,7 +15,7 @@ export default function AdminLoginPage({ setPage }) {
 
     setLoading(true);
 
-    // 🔥 SIGN IN
+    // 🔥 LOGIN
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -27,12 +27,16 @@ export default function AdminLoginPage({ setPage }) {
       return;
     }
 
-    // 🔥 CHECK ADMIN ACCESS
+    console.log("LOGIN SUCCESS:", data.user.id);
+
+    // 🔥 VERIFY ADMIN
     const { data: userData, error: roleError } = await supabase
       .from("users")
       .select("is_admin")
       .eq("auth_id", data.user.id)
       .maybeSingle();
+
+    console.log("ADMIN CHECK:", userData);
 
     if (roleError) {
       alert("Error checking admin access");
@@ -40,21 +44,18 @@ export default function AdminLoginPage({ setPage }) {
       return;
     }
 
-    if (!userData?.is_admin) {
+    if (!userData || !userData.is_admin) {
       alert("You do not have admin access");
       setLoading(false);
       return;
     }
 
-    // 🔥 SUCCESS
-    setPage("dashboard");
-    setLoading(false);
+    // 🔥 CRITICAL FIX: HARD REDIRECT
+    window.location.href = "/admin";
   };
 
   return (
     <div style={container}>
-
-      {/* FORM */}
       <form
         style={card}
         onSubmit={(e) => {
@@ -62,19 +63,14 @@ export default function AdminLoginPage({ setPage }) {
           login();
         }}
       >
-
-        {/* LOGO */}
         <img src={logo} alt="logo" style={logoStyle} />
 
-        {/* TITLE */}
         <h2 style={{ marginBottom: 10 }}>Admin Login</h2>
 
-        {/* SUBTEXT */}
         <p style={subText}>
           Fallon Football Admin Access
         </p>
 
-        {/* EMAIL */}
         <input
           type="email"
           placeholder="Email"
@@ -83,7 +79,6 @@ export default function AdminLoginPage({ setPage }) {
           style={input}
         />
 
-        {/* PASSWORD */}
         <input
           type="password"
           placeholder="Password"
@@ -92,26 +87,23 @@ export default function AdminLoginPage({ setPage }) {
           style={input}
         />
 
-        {/* BUTTON */}
         <button type="submit" style={btn}>
           {loading ? "Signing In..." : "Login"}
         </button>
 
-        {/* CANCEL */}
         <button
           type="button"
           style={cancelBtn}
-          onClick={() => setPage("home")}
+          onClick={() => window.location.href = "/"}
         >
           Cancel
         </button>
-
       </form>
     </div>
   );
 }
 
-/* 🔥 STYLES */
+/* STYLES */
 
 const container = {
   height: "100vh",
