@@ -3,6 +3,12 @@ import { supabase } from "../../supabase";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 
+/* 🔥 MATCH ADMIN LOGIC */
+const normalizeTime = (t) => {
+  if (!t) return null;
+  return t.toString().replace(" AM", "").replace(" PM", "").trim();
+};
+
 export default function RefAvailabilityPage({ user }) {
   const [weeks, setWeeks] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -67,9 +73,13 @@ export default function RefAvailabilityPage({ user }) {
     }
 
     const map = {};
+
     data?.forEach((a) => {
-      map[a.time_block] = a.available;
+      const time = normalizeTime(a.time_block); // 🔥 FIX
+      map[time] = a.available;
     });
+
+    console.log("Loaded availability:", map);
 
     setAvailability(map);
   };
@@ -87,7 +97,7 @@ export default function RefAvailabilityPage({ user }) {
     // default TRUE if not set
     const newValue = current === undefined ? false : !current;
 
-    // update UI immediately
+    // update UI instantly
     setAvailability((prev) => ({
       ...prev,
       [time]: newValue,
@@ -107,7 +117,7 @@ export default function RefAvailabilityPage({ user }) {
           {
             referee_id: refId,
             week: selectedWeek,
-            time_block: time,
+            time_block: normalizeTime(time), // 🔥 FIX
             available: newValue,
           },
         ],
@@ -148,7 +158,7 @@ export default function RefAvailabilityPage({ user }) {
         ))}
       </div>
 
-      {/* TIMES */}
+      {/* TIME BLOCKS */}
       {selectedWeek && (
         <>
           <div style={subTitle}>Week {selectedWeek}</div>
