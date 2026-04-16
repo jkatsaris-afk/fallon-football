@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
 export default function RefDashboard() {
-  const [user, setUser] = useState(null);
   const [ref, setRef] = useState(null);
-  const [games, setGames] = useState([]);
+  const [allGames, setAllGames] = useState([]); // 🔥 ALL games
+  const [nextGame, setNextGame] = useState(null); // 🔥 NEXT game
   const [headRef, setHeadRef] = useState(null);
   const [earnings, setEarnings] = useState(0);
 
@@ -12,22 +12,63 @@ export default function RefDashboard() {
     load();
   }, []);
 
+  useEffect(() => {
+    // 🔥 live update next game every minute
+    const interval = setInterval(() => {
+      calculateNextGame();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [allGames]);
+
+  const parseGameDate = (dateStr, timeStr) => {
+    if (!dateStr) return null;
+
+    const [y, m, d] = dateStr.split("-");
+    let hour = 0;
+    let minute = 0;
+
+    if (timeStr) {
+      const parts = timeStr.split(":");
+      hour = parseInt(parts[0]) || 0;
+      minute = parseInt(parts[1]) || 0;
+    }
+
+    return new Date(y, m - 1, d, hour, minute);
+  };
+
+  const calculateNextGame = () => {
+    const now = new Date();
+
+    const upcoming = allGames
+      .map((g) => {
+        const game = g.schedule_master;
+        return {
+          ...g,
+          gameDate: parseGameDate(game?.event_date, game?.event_time)
+        };
+      })
+      .filter(g => g.gameDate && g.gameDate >= now)
+      .sort((a, b) => a.gameDate - b.gameDate);
+
+    setNextGame(upcoming[0] || null);
+  };
+
   const load = async () => {
     const { data: userData } = await supabase.auth.getUser();
-    const currentUser = userData?.user;
-    if (!currentUser) return;
-
-    setUser(currentUser);
+    const user = userData?.user;
+    if (!user) return;
 
     const { data: refData } = await supabase
       .from("referees")
       .select("*")
-      .eq("auth_id", currentUser.id)
+      .eq("auth_id", user.id)
       .maybeSingle();
 
     setRef(refData);
     if (!refData) return;
 
+    // 🔥 EARNINGS
     const { data: checkins } = await supabase
       .from("ref_checkins")
       .select("pay")
@@ -40,44 +81,53 @@ export default function RefDashboard() {
 
     setEarnings(total);
 
+    // 🔥 ALL GAMES (NOT FILTERED)
     const { data: gamesData } = await supabase
       .from("ref_assignments")
-      .select("*")
+      .select(`
+        *,
+        schedule_master (
+          id,
+          event_date,
+          event_time,
+          field,
+          home_team,
+          away_team
+        )
+      `)
       .eq("ref_id", refData.id);
 
-    setGames(gamesData || []);
+    setAllGames(gamesData || []);
 
+    // 🔥 calculate immediately
+    setTimeout(() => calculateNextGame(), 0);
+
+    // 🔥 HEAD REF
     const { data: headRefData } = await supabase
       .from("referees")
       .select("first_name, last_name, phone, profile_image")
       .eq("role", "Head Ref")
       .maybeSingle();
 
-    if (headRefData) {
-      setHeadRef(headRefData);
-    }
+    if (headRefData) setHeadRef(headRefData);
   };
 
   const getProfileImage = (file) => {
     if (!file) return null;
 
-    const SUPABASE_URL = "https://qfgxbzqhwpscjpflxqfs.supabase.co";
-    const BUCKET = "profile-images";
-
-    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${file}`;
+    return `https://qfgxbzqhwpscjpflxqfs.supabase.co/storage/v1/object/public/profile-images/${file}`;
   };
 
   const formatPhone = (phone) => {
     if (!phone) return "";
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length !== 10) return phone;
-    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+    const d = phone.replace(/\D/g, "");
+    if (d.length !== 10) return phone;
+    return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
   };
 
   const phoneLink = (phone) => {
     if (!phone) return "#";
-    const digits = phone.replace(/\D/g, "");
-    return `tel:${digits}`;
+    return `tel:${phone.replace(/\D/g, "")}`;
   };
 
   if (!ref) return <div style={{ padding: 20 }}>Loading...</div>;
@@ -92,64 +142,50 @@ export default function RefDashboard() {
         <Tile>
           <div style={tileTitle}>Total Earnings</div>
           <div style={earningsStyle}>${earnings}</div>
-          <div style={subText}>Based on completed check-ins</div>
         </Tile>
 
-        {/* STATUS */}
-        <Tile>
-          <div style={tileTitle}>Approval Status</div>
-          <div style={statusStyle(ref.status)}>
-            {ref.status || "pending"}
-          </div>
-
-          {ref.status !== "approved" && (
-            <div style={subText}>Awaiting league approval</div>
-          )}
-        </Tile>
-
-        {/* 🔥 GAMES COUNT TILE */}
+        {/* GAME COUNT (FIXED) */}
         <Tile>
           <div style={tileTitle}>Games Assigned</div>
+          <div style={gamesCount}>{allGames.length}</div>
+        </Tile>
 
-          <div style={gamesCount}>
-            {games.length}
-          </div>
+        {/* NEXT GAME */}
+        <Tile>
+          <div style={tileTitle}>Next Game</div>
 
-          <div style={subText}>
-            Total assigned this season
-          </div>
+          {!nextGame && <div style={subText}>No upcoming games</div>}
+
+          {nextGame && (
+            <>
+              <div style={{ fontWeight: 600 }}>
+                {nextGame.schedule_master.home_team} vs {nextGame.schedule_master.away_team}
+              </div>
+
+              <div style={subText}>
+                {nextGame.schedule_master.event_date} • {nextGame.schedule_master.event_time}
+              </div>
+
+              <div style={subText}>
+                Field {nextGame.schedule_master.field}
+              </div>
+            </>
+          )}
         </Tile>
 
         {/* HEAD REF */}
         <Tile>
           <div style={tileTitle}>Head Ref</div>
 
-          {!headRef && (
-            <div style={subText}>Not assigned yet</div>
-          )}
-
           {headRef && (
             <div style={headRefWrap}>
-
-              {getProfileImage(headRef.profile_image) ? (
-                <img
-                  src={getProfileImage(headRef.profile_image)}
-                  style={headRefImg}
-                />
-              ) : (
-                <div style={avatarFallback}>
-                  {headRef.first_name?.[0]}
-                </div>
-              )}
-
+              <img src={getProfileImage(headRef.profile_image)} style={headRefImg} />
               <div style={headRefName}>
                 {headRef.first_name} {headRef.last_name}
               </div>
-
               <a href={phoneLink(headRef.phone)} style={phoneStyle}>
                 {formatPhone(headRef.phone)}
               </a>
-
             </div>
           )}
         </Tile>
@@ -159,7 +195,6 @@ export default function RefDashboard() {
   );
 }
 
-/* TILE */
 function Tile({ children }) {
   return <div style={tile}>{children}</div>;
 }
@@ -181,15 +216,9 @@ const tile = {
   boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
 };
 
-const tileTitle = {
-  fontWeight: 600,
-  marginBottom: 10
-};
+const tileTitle = { fontWeight: 600, marginBottom: 10 };
 
-const subText = {
-  fontSize: 13,
-  color: "#64748b"
-};
+const subText = { fontSize: 13, color: "#64748b" };
 
 const earningsStyle = {
   fontSize: 28,
@@ -203,19 +232,6 @@ const gamesCount = {
   color: "#2563eb"
 };
 
-const statusStyle = (status) => ({
-  fontSize: 18,
-  fontWeight: 700,
-  color:
-    status === "approved"
-      ? "#16a34a"
-      : status === "denied"
-      ? "#dc2626"
-      : "#f59e0b"
-});
-
-/* HEAD REF */
-
 const headRefWrap = {
   display: "flex",
   flexDirection: "column",
@@ -226,31 +242,14 @@ const headRefWrap = {
 const headRefImg = {
   width: 70,
   height: 70,
-  borderRadius: "50%",
-  objectFit: "cover"
-};
-
-const avatarFallback = {
-  width: 70,
-  height: 70,
-  borderRadius: "50%",
-  background: "#e2e8f0",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 700,
-  fontSize: 22,
-  color: "#475569"
+  borderRadius: "50%"
 };
 
 const headRefName = {
-  fontWeight: 700,
-  fontSize: 16
+  fontWeight: 700
 };
 
 const phoneStyle = {
-  fontSize: 14,
-  fontWeight: 600,
   color: "#2563eb",
   textDecoration: "none"
 };
