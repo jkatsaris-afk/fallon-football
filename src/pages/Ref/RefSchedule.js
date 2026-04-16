@@ -23,7 +23,6 @@ const teamLogos = {
 };
 
 export default function RefSchedule() {
-  const [refId, setRefId] = useState(null);
   const [games, setGames] = useState([]);
 
   useEffect(() => {
@@ -33,7 +32,6 @@ export default function RefSchedule() {
   const load = async () => {
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user;
-
     if (!user) return;
 
     const { data: ref } = await supabase
@@ -43,8 +41,6 @@ export default function RefSchedule() {
       .single();
 
     if (!ref) return;
-
-    setRefId(ref.id);
 
     const { data: assignments } = await supabase
       .from("ref_assignments")
@@ -62,7 +58,29 @@ export default function RefSchedule() {
       `)
       .eq("referee_id", ref.id);
 
-    setGames(assignments || []);
+    // 🔥 FILTER UPCOMING ONLY
+    const now = new Date();
+
+    const upcoming = (assignments || []).filter((g) => {
+      const game = g.schedule_master_auto;
+      if (!game?.event_date || !game?.event_time) return false;
+
+      // Combine date + time
+      const gameDateTime = new Date(
+        `${game.event_date}T${game.event_time}`
+      );
+
+      return gameDateTime >= now;
+    });
+
+    // 🔥 SORT BY SOONEST
+    upcoming.sort((a, b) => {
+      const g1 = new Date(`${a.schedule_master_auto.event_date}T${a.schedule_master_auto.event_time}`);
+      const g2 = new Date(`${b.schedule_master_auto.event_date}T${b.schedule_master_auto.event_time}`);
+      return g1 - g2;
+    });
+
+    setGames(upcoming);
   };
 
   const getLogo = (team) => {
@@ -72,10 +90,10 @@ export default function RefSchedule() {
 
   return (
     <div style={wrap}>
-      <h2 style={title}>My Schedule</h2>
+      <h2 style={title}>Upcoming Games</h2>
 
       {games.length === 0 && (
-        <div style={empty}>No games assigned</div>
+        <div style={empty}>No upcoming games</div>
       )}
 
       <div style={grid}>
@@ -89,9 +107,7 @@ export default function RefSchedule() {
           return (
             <div key={g.id} style={card}>
 
-              {/* 🔥 TEAMS (FIXED) */}
               <div style={teamsRow}>
-
                 <div style={teamBlock}>
                   {teamLogo && <img src={teamLogo} style={logoStyle} />}
                   <div style={teamName}>{game.team}</div>
@@ -103,10 +119,8 @@ export default function RefSchedule() {
                   {oppLogo && <img src={oppLogo} style={logoStyle} />}
                   <div style={teamName}>{game.opponent}</div>
                 </div>
-
               </div>
 
-              {/* INFO */}
               <div style={infoStack}>
                 <div style={timeBar}>
                   {game.event_date} • {game.event_time}
@@ -119,7 +133,6 @@ export default function RefSchedule() {
                 </div>
               </div>
 
-              {/* ROLE */}
               <div style={roleTile}>
                 {g.role}
               </div>
@@ -160,7 +173,6 @@ const card = {
   gap: 10
 };
 
-/* 🔥 TEAM BLOCK FIX */
 const teamsRow = {
   display: "flex",
   justifyContent: "space-between",
@@ -190,7 +202,6 @@ const vsBig = {
   color: "#64748b"
 };
 
-/* INFO */
 const infoStack = {
   display: "flex",
   flexDirection: "column",
@@ -211,7 +222,6 @@ const timeBar = { ...pillBase, background: "#e0f2fe", color: "#0369a1" };
 const fieldBar = { ...pillBase, background: "#dcfce7", color: "#166534" };
 const divisionBar = { ...pillBase, background: "#fef9c3", color: "#854d0e" };
 
-/* ROLE */
 const roleTile = {
   marginTop: 8,
   background: "#f1f5f9",
