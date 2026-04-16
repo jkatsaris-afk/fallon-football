@@ -41,9 +41,19 @@ export default function TeamStatsPage() {
   }, []);
 
   const load = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("game_scores")
-      .select("*");
+      .select(`
+        *,
+        schedule_master_auto: schedule_id (
+          division
+        )
+      `);
+
+    if (error) {
+      console.error("LOAD ERROR:", error);
+      return;
+    }
 
     setGames(data || []);
   };
@@ -53,22 +63,21 @@ export default function TeamStatsPage() {
     const unique = [
       ...new Set(
         games
-          .map(g => g.division)
+          .map(g => g.schedule_master_auto?.division)
           .filter(d => d && d !== "Unknown")
       )
     ];
     return ["all", ...unique];
   }, [games]);
 
-  /* 🔥 FIXED TEAM STATS (SWAPPED WIN/LOSS LOGIC) */
+  /* 🔥 TEAM STATS (TEAM + DIVISION) */
   const teamStats = useMemo(() => {
     const map = {};
 
     games.forEach(g => {
       const division =
+        g.schedule_master_auto?.division ||
         g.division ||
-        g.divisions?.name ||
-        g.division_name ||
         "Unknown";
 
       const teams = [
@@ -101,13 +110,12 @@ export default function TeamStatsPage() {
         map[key].pf += t.scored;
         map[key].pa += t.allowed;
 
-        // 🔥 FIXED (SWAPPED)
-        if (t.scored < t.allowed) {
+        // ✅ CORRECT WIN/LOSS LOGIC
+        if (t.scored > t.allowed) {
           map[key].wins += 1;
-        } else if (t.scored > t.allowed) {
+        } else if (t.scored < t.allowed) {
           map[key].losses += 1;
         }
-        // ties ignored
       });
     });
 
