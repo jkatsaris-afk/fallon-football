@@ -133,6 +133,11 @@ export default function RefAvailabilityPage() {
     if (currentIndex < weeks.length - 1) setSelectedWeek(weeks[currentIndex + 1]);
   };
 
+  /* ---------------- STATS ---------------- */
+
+  const totalSet = Object.keys(availability).length;
+  const totalAvailable = Object.values(availability).filter(v => v === true).length;
+
   /* ---------------- UI ---------------- */
 
   return (
@@ -140,7 +145,13 @@ export default function RefAvailabilityPage() {
 
       <div style={header}>My Availability</div>
 
-      {/* WEEK TILE NAV */}
+      {/* ✅ STATS RESTORED */}
+      <div style={statsGrid}>
+        <StatTile label="Set" value={totalSet} />
+        <StatTile label="Available" value={totalAvailable} />
+      </div>
+
+      {/* WEEK NAV TILE */}
       <div style={weekTileWrap}>
 
         <div style={arrowBtn} onClick={prevWeek}>‹</div>
@@ -186,6 +197,17 @@ export default function RefAvailabilityPage() {
   );
 }
 
+/* ---------------- COMPONENTS ---------------- */
+
+function StatTile({ label, value }) {
+  return (
+    <div style={statCard}>
+      <div style={statValue}>{value}</div>
+      <div style={statLabel}>{label}</div>
+    </div>
+  );
+}
+
 /* ---------------- STYLES ---------------- */
 
 const wrap = {
@@ -203,32 +225,58 @@ const header = {
   textAlign: "center"
 };
 
-/* WEEK TILE NAV */
-const weekTileWrap = {
-  display: "flex",
-  alignItems: "center",
+/* STATS */
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2,1fr)",
   gap: 10
 };
 
+const statCard = {
+  background: "#fff",
+  padding: 16,
+  borderRadius: 16,
+  textAlign: "center",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.08)"
+};
+
+const statValue = {
+  fontSize: 22,
+  fontWeight: 800,
+  color: "#22c55e"
+};
+
+const statLabel = {
+  fontSize: 12,
+  color: "#64748b"
+};
+
+/* WEEK NAV */
+const weekTileWrap = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12
+};
+
 const arrowBtn = {
-  width: 50,
-  height: 50,
-  borderRadius: 14,
+  width: 70,           // 🔥 BIGGER
+  height: 70,
+  borderRadius: 18,
   background: "#fff",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: 22,
+  fontSize: 28,
   fontWeight: 800,
   cursor: "pointer",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
 };
 
 const weekTile = {
   flex: 1,
   background: "#fff",
   borderRadius: 18,
-  padding: 16,
+  padding: 18,
   textAlign: "center",
   boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
 };
@@ -239,7 +287,7 @@ const weekLabel = {
 };
 
 const weekNumber = {
-  fontSize: 22,
+  fontSize: 24,
   fontWeight: 800
 };
 
@@ -251,8 +299,8 @@ const actionRow = {
 
 const greenBtn = {
   flex: 1,
-  padding: 10,
-  borderRadius: 10,
+  padding: 12,
+  borderRadius: 12,
   background: "#22c55e",
   color: "#fff",
   border: "none"
@@ -260,8 +308,8 @@ const greenBtn = {
 
 const redBtn = {
   flex: 1,
-  padding: 10,
-  borderRadius: 10,
+  padding: 12,
+  borderRadius: 12,
   background: "#f87171",
   color: "#fff",
   border: "none"
@@ -271,32 +319,28 @@ const redBtn = {
 const timeGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2,1fr)",
-  gap: 12
+  gap: 14
 };
 
-/* 🔥 KEY FIX HERE */
 const timeTile = {
-  padding: 26,
+  padding: 28,
   borderRadius: 18,
   textAlign: "center",
   fontWeight: 800,
   background: "#ffffff",
-  border: "2px solid #e2e8f0", // 👈 OUTLINE FIX
-  boxShadow: "0 4px 10px rgba(0,0,0,0.04)", // 👈 subtle depth
-  cursor: "pointer",
-  transition: "all 0.15s ease"
+  border: "2px solid #e2e8f0",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
+  cursor: "pointer"
 };
 
 const greenTile = {
   background: "#bbf7d0",
   color: "#166534",
-  border: "2px solid #86efac",
-  boxShadow: "0 6px 16px rgba(34,197,94,0.2)"
+  border: "2px solid #86efac"
 };
 
 const redTile = {
   background: "#fecaca",
   color: "#7f1d1d",
-  border: "2px solid #fca5a5",
-  boxShadow: "0 6px 16px rgba(248,113,113,0.2)"
+  border: "2px solid #fca5a5"
 };
