@@ -70,15 +70,27 @@ export default function ScoreManagementPage() {
   };
 
   const saveScore = async () => {
-    if (!homeScore || !awayScore) return;
+    const home = parseInt(homeScore);
+    const away = parseInt(awayScore);
 
-    await supabase.from("game_scores").insert({
+    if (isNaN(home) || isNaN(away)) {
+      alert("Enter valid scores");
+      return;
+    }
+
+    const { error } = await supabase.from("game_scores").insert({
       schedule_id: modalGame.id,
       home_team: modalGame.team,
       away_team: modalGame.opponent,
-      home_score: parseInt(homeScore),
-      away_score: parseInt(awayScore)
+      home_score: home,
+      away_score: away
     });
+
+    if (error) {
+      console.error("SAVE ERROR:", error);
+      alert("Error saving score: " + error.message);
+      return;
+    }
 
     setModalGame(null);
     loadFinalGames();
@@ -151,7 +163,12 @@ export default function ScoreManagementPage() {
               </div>
 
               {!final && (
-                <button style={btn} onClick={() => openModal(g)}>
+                <button
+                  style={btn}
+                  onMouseEnter={(e)=>e.target.style.background="#15803d"}
+                  onMouseLeave={(e)=>e.target.style.background="#16a34a"}
+                  onClick={() => openModal(g)}
+                >
                   Enter Final
                 </button>
               )}
@@ -167,29 +184,23 @@ export default function ScoreManagementPage() {
         })}
       </div>
 
-      {/* 🔥 MODAL */}
+      {/* MODAL */}
       {modalGame && (
         <div style={overlay}>
           <div style={modal}>
 
-            <h2 style={{ textAlign: "center" }}>
-              {modalGame.team} vs {modalGame.opponent}
-            </h2>
+            <h2>{modalGame.team} vs {modalGame.opponent}</h2>
 
             <div style={scoreRow}>
               <input
                 type="number"
-                placeholder="Home"
                 value={homeScore}
                 onChange={(e)=>setHomeScore(e.target.value)}
                 style={scoreInput}
               />
-
-              <span style={{ fontWeight:700 }}>-</span>
-
+              <span>-</span>
               <input
                 type="number"
-                placeholder="Away"
                 value={awayScore}
                 onChange={(e)=>setAwayScore(e.target.value)}
                 style={scoreInput}
@@ -267,12 +278,17 @@ const gameTitle = { textAlign:"center", fontWeight:700 };
 const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
 
 const btn = {
-  marginTop:10,
-  padding:"8px 12px",
-  borderRadius:8,
+  marginTop:14,
+  padding:"10px 18px",
+  borderRadius:999,
   background:"#16a34a",
   color:"#fff",
-  border:"none"
+  border:"none",
+  cursor:"pointer",
+  fontWeight:600,
+  display:"block",
+  marginLeft:"auto",
+  marginRight:"auto"
 };
 
 const finalBadge = {
@@ -283,7 +299,6 @@ const finalBadge = {
   textAlign:"center"
 };
 
-/* MODAL */
 const overlay = {
   position:"fixed",
   top:0,
@@ -293,8 +308,7 @@ const overlay = {
   background:"rgba(0,0,0,0.5)",
   display:"flex",
   alignItems:"center",
-  justifyContent:"center",
-  zIndex:1000
+  justifyContent:"center"
 };
 
 const modal = {
@@ -305,39 +319,11 @@ const modal = {
   textAlign:"center"
 };
 
-const scoreRow = {
-  display:"flex",
-  justifyContent:"center",
-  alignItems:"center",
-  gap:10,
-  marginTop:20
-};
+const scoreRow = { display:"flex", justifyContent:"center", gap:10 };
 
-const scoreInput = {
-  width:70,
-  padding:10,
-  textAlign:"center",
-  fontSize:18
-};
+const scoreInput = { width:60, padding:10, textAlign:"center" };
 
-const modalBtns = {
-  marginTop:20,
-  display:"flex",
-  gap:10,
-  justifyContent:"center"
-};
+const modalBtns = { marginTop:20, display:"flex", gap:10, justifyContent:"center" };
 
-const saveBtn = {
-  background:"#16a34a",
-  color:"#fff",
-  padding:"8px 12px",
-  borderRadius:8,
-  border:"none"
-};
-
-const cancelBtn = {
-  background:"#e5e7eb",
-  padding:"8px 12px",
-  borderRadius:8,
-  border:"none"
-};
+const saveBtn = { background:"#16a34a", color:"#fff", padding:"8px 12px", borderRadius:8 };
+const cancelBtn = { background:"#e5e7eb", padding:"8px 12px", borderRadius:8 };
