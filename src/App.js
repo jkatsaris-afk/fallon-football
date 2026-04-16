@@ -13,12 +13,12 @@ import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 
-// LOGIN
+// LOGIN (🔥 FIXED PATHS)
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
-import CoachLoginPage from "./pages/Public/CoachLoginPage";
-import RefLoginPage from "./pages/Ref/RefLogin";
-import ParentLoginPage from "./pages/Public/ParentLoginPage";
-import AdminLoginPage from "./pages/Public/AdminLoginPage"; // 🔥 ADDED
+import CoachLoginPage from "./pages/Auth/CoachLoginPage";
+import RefLoginPage from "./pages/Auth/RefLoginPage";
+import ParentLoginPage from "./pages/Auth/ParentLoginPage";
+import AdminLoginPage from "./pages/Auth/AdminLoginPage";
 
 // REF APP
 import RefLayout from "./layouts/RefLayout";
@@ -29,7 +29,7 @@ import RefProfile from "./pages/Ref/RefProfile";
 import RefAvailabilityPage from "./pages/Ref/RefAvailabilityPage";
 
 import Dashboard from "./pages/Admin/Dashboard";
-// import LoginModal from "./components/LoginModal"; ❌ REMOVED
+// import LoginModal from "./components/LoginModal";
 
 import PublicLayout from "./layouts/PublicLayout";
 import AdminLayout from "./layouts/AdminLayout";
@@ -57,7 +57,7 @@ export default function App() {
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/login") setPage("loginSelect");
 
-      // 🔥 LOGIN ROUTES (ADDED)
+      // 🔥 LOGIN ROUTES
       else if (path === "/ref-login") setPage("refLogin");
       else if (path === "/coach-login") setPage("coachLogin");
       else if (path === "/parent-login") setPage("parentLogin");
@@ -144,7 +144,6 @@ export default function App() {
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
     if (page === "loginSelect") window.history.pushState({}, "", "/login");
 
-    // 🔥 LOGIN URL SYNC (ADDED)
     if (page === "refLogin") window.history.pushState({}, "", "/ref-login");
     if (page === "coachLogin") window.history.pushState({}, "", "/coach-login");
     if (page === "parentLogin") window.history.pushState({}, "", "/parent-login");
@@ -169,7 +168,6 @@ export default function App() {
           document.body
         )}
 
-      {/* 🔥 ADMIN LOGIN FIXED */}
       {page === "adminLogin" && <AdminLoginPage />}
 
       {page === "dashboard" && (
