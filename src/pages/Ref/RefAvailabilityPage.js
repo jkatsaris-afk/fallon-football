@@ -10,9 +10,7 @@ export default function RefSchedulePage() {
   }, []);
 
   useEffect(() => {
-    if (refId) {
-      loadGames();
-    }
+    if (refId) loadGames();
   }, [refId]);
 
   /* ---------------- GET REF ---------------- */
@@ -21,34 +19,21 @@ export default function RefSchedulePage() {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
 
-    if (!user) {
-      console.warn("NO AUTH USER");
-      return;
-    }
+    if (!user) return;
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("referees")
       .select("*")
       .eq("auth_id", user.id)
       .maybeSingle();
 
-    if (error) {
-      console.error("Ref lookup error:", error);
-      return;
-    }
-
-    if (!data) {
-      console.warn("NO REF FOUND");
-      return;
-    }
-
-    setRefId(data.id);
+    if (data) setRefId(data.id);
   };
 
   /* ---------------- LOAD GAMES ---------------- */
 
   const loadGames = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("ref_assignments")
       .select(`
         id,
@@ -65,54 +50,59 @@ export default function RefSchedulePage() {
       `)
       .eq("referee_id", refId);
 
-    if (error) {
-      console.error("LOAD GAMES ERROR:", error);
-      return;
-    }
-
-    console.log("GAMES:", data);
-
     setGames(data || []);
   };
+
+  /* ---------------- STATS ---------------- */
+
+  const totalGames = games.length;
 
   /* ---------------- UI ---------------- */
 
   return (
     <div style={wrap}>
 
-      <div style={title}>My Schedule</div>
+      {/* HEADER */}
+      <div style={header}>My Schedule</div>
 
-      {games.length === 0 && (
-        <div style={empty}>No assigned games yet</div>
-      )}
+      {/* STATS */}
+      <div style={statsGrid}>
+        <StatTile label="Games Assigned" value={totalGames} />
+        <StatTile label="Upcoming" value={totalGames} />
+      </div>
 
+      {/* GAMES */}
       <div style={grid}>
+        {games.length === 0 && (
+          <div style={empty}>No games assigned yet</div>
+        )}
+
         {games.map((g) => {
           const game = g.schedule_master;
-
           if (!game) return null;
 
           return (
             <div key={g.id} style={card}>
-              
+
+              {/* MATCH */}
               <div style={match}>
                 {game.team} vs {game.opponent}
               </div>
 
-              <div style={meta}>
-                {game.division}
+              {/* DETAILS */}
+              <div style={details}>
+                <div>{game.division}</div>
+                <div>{game.event_date}</div>
+                <div>{game.event_time} • Field {game.field}</div>
               </div>
 
-              <div style={meta}>
-                {game.event_date}
-              </div>
+              {/* FOOTER */}
+              <div style={footer}>
+                <div style={role}>{g.role}</div>
 
-              <div style={meta}>
-                {game.event_time} • Field {game.field}
-              </div>
-
-              <div style={role}>
-                {g.role}
+                <button style={checkBtn}>
+                  Check In
+                </button>
               </div>
 
             </div>
@@ -124,49 +114,111 @@ export default function RefSchedulePage() {
   );
 }
 
+/* ---------------- COMPONENTS ---------------- */
+
+function StatTile({ label, value }) {
+  return (
+    <div style={statCard}>
+      <div style={statValue}>{value}</div>
+      <div style={statLabel}>{label}</div>
+    </div>
+  );
+}
+
 /* ---------------- STYLES ---------------- */
 
 const wrap = {
-  padding: 20,
+  padding: 16,
   display: "flex",
   flexDirection: "column",
-  gap: 16
+  gap: 16,
+  maxWidth: 700,
+  margin: "0 auto"
 };
 
-const title = {
-  fontSize: 22,
-  fontWeight: 800
+const header = {
+  fontSize: 24,
+  fontWeight: 800,
+  textAlign: "center"
 };
 
-const empty = {
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2,1fr)",
+  gap: 12
+};
+
+const statCard = {
+  background: "#fff",
+  borderRadius: 18,
+  padding: 18,
+  textAlign: "center",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const statValue = {
+  fontSize: 26,
+  fontWeight: 800,
+  color: "#16a34a"
+};
+
+const statLabel = {
+  fontSize: 13,
   color: "#64748b"
 };
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
-  gap: 12
+  gridTemplateColumns: "1fr",
+  gap: 14
 };
 
 const card = {
-  padding: 16,
-  borderRadius: 16,
   background: "#fff",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
+  borderRadius: 20,
+  padding: 18,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 10
 };
 
 const match = {
-  fontWeight: 700,
-  marginBottom: 6
+  fontSize: 18,
+  fontWeight: 800
 };
 
-const meta = {
-  fontSize: 13,
-  color: "#64748b"
+const details = {
+  fontSize: 14,
+  color: "#64748b",
+  display: "flex",
+  flexDirection: "column",
+  gap: 4
+};
+
+const footer = {
+  marginTop: 10,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center"
 };
 
 const role = {
-  marginTop: 10,
   fontWeight: 700,
   color: "#16a34a"
+};
+
+const checkBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 10,
+  fontWeight: 600,
+  cursor: "pointer"
+};
+
+const empty = {
+  textAlign: "center",
+  color: "#64748b"
 };
