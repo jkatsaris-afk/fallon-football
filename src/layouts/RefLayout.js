@@ -8,38 +8,39 @@ export default function RefLayout({ page, setPage, children }) {
         {children}
       </div>
 
-      {/* 🔥 NAV */}
-      <div className="nav">
+      {/* NAV */}
+      <div className="nav-wrap">
 
         <NavItem
-          icon={<Calendar size={24} />}
+          icon={<Home size={22} />}
+          label="Home"
+          active={page === "refDashboard"}
+          onClick={() => setPage("refDashboard")}
+        />
+
+        <NavItem
+          icon={<Calendar size={22} />}
           label="Schedule"
           active={page === "refSchedule"}
           onClick={() => setPage("refSchedule")}
         />
 
         <NavItem
-          icon={<Clock size={24} />}
+          icon={<Clock size={22} />}
           label="Time"
           active={page === "refTime"}
           onClick={() => setPage("refTime")}
         />
 
-        {/* 🔥 CENTER HOME BUTTON */}
-        <HomeButton
-          active={page === "refDashboard"}
-          onClick={() => setPage("refDashboard")}
-        />
-
         <NavItem
-          icon={<Calendar size={24} />}
+          icon={<Calendar size={22} />}
           label="Availability"
           active={page === "refAvailability"}
           onClick={() => setPage("refAvailability")}
         />
 
         <NavItem
-          icon={<User size={24} />}
+          icon={<User size={22} />}
           label="Profile"
           active={page === "refProfile"}
           onClick={() => setPage("refProfile")}
@@ -50,27 +51,14 @@ export default function RefLayout({ page, setPage, children }) {
   );
 }
 
-/* 🔥 STANDARD NAV ITEM */
 function NavItem({ icon, label, active, onClick }) {
   return (
     <div
-      className={`nav-item ${active ? "active" : ""}`}
+      className={`nav-item2 ${active ? "active" : ""}`}
       onClick={onClick}
     >
       {icon}
       <span>{label}</span>
-    </div>
-  );
-}
-
-/* 🔥 CENTER HOME BUTTON */
-function HomeButton({ active, onClick }) {
-  return (
-    <div
-      className={`home-button ${active ? "active" : ""}`}
-      onClick={onClick}
-    >
-      <Home size={26} />
     </div>
   );
 }
