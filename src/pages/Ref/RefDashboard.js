@@ -42,17 +42,7 @@ export default function RefDashboard() {
 
     const { data: gamesData } = await supabase
       .from("ref_assignments")
-      .select(`
-        *,
-        schedule_master (
-          id,
-          event_date,
-          event_time,
-          field,
-          home_team,
-          away_team
-        )
-      `)
+      .select("*")
       .eq("ref_id", refData.id);
 
     setGames(gamesData || []);
@@ -68,7 +58,6 @@ export default function RefDashboard() {
     }
   };
 
-  /* 🔥 IMAGE BUILDER */
   const getProfileImage = (file) => {
     if (!file) return null;
 
@@ -78,18 +67,13 @@ export default function RefDashboard() {
     return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${file}`;
   };
 
-  /* 🔥 PHONE FORMATTER */
   const formatPhone = (phone) => {
     if (!phone) return "";
-
     const digits = phone.replace(/\D/g, "");
-
     if (digits.length !== 10) return phone;
-
     return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
   };
 
-  /* 🔥 TEL LINK BUILDER */
   const phoneLink = (phone) => {
     if (!phone) return "#";
     const digits = phone.replace(/\D/g, "");
@@ -104,33 +88,39 @@ export default function RefDashboard() {
 
       <div style={grid}>
 
+        {/* EARNINGS */}
         <Tile>
           <div style={tileTitle}>Total Earnings</div>
-
-          <div style={earningsStyle}>
-            ${earnings}
-          </div>
-
-          <div style={subText}>
-            Based on completed check-ins
-          </div>
+          <div style={earningsStyle}>${earnings}</div>
+          <div style={subText}>Based on completed check-ins</div>
         </Tile>
 
+        {/* STATUS */}
         <Tile>
           <div style={tileTitle}>Approval Status</div>
-
           <div style={statusStyle(ref.status)}>
             {ref.status || "pending"}
           </div>
 
           {ref.status !== "approved" && (
-            <div style={subText}>
-              Awaiting league approval
-            </div>
+            <div style={subText}>Awaiting league approval</div>
           )}
         </Tile>
 
-        {/* 🔥 HEAD REF TILE */}
+        {/* 🔥 GAMES COUNT TILE */}
+        <Tile>
+          <div style={tileTitle}>Games Assigned</div>
+
+          <div style={gamesCount}>
+            {games.length}
+          </div>
+
+          <div style={subText}>
+            Total assigned this season
+          </div>
+        </Tile>
+
+        {/* HEAD REF */}
         <Tile>
           <div style={tileTitle}>Head Ref</div>
 
@@ -156,42 +146,12 @@ export default function RefDashboard() {
                 {headRef.first_name} {headRef.last_name}
               </div>
 
-              {/* 🔥 CLICKABLE PHONE */}
-              <a
-                href={phoneLink(headRef.phone)}
-                style={phoneStyle}
-              >
+              <a href={phoneLink(headRef.phone)} style={phoneStyle}>
                 {formatPhone(headRef.phone)}
               </a>
 
             </div>
           )}
-        </Tile>
-
-        <Tile>
-          <div style={tileTitle}>My Games</div>
-
-          {games.length === 0 && (
-            <div style={subText}>No games assigned</div>
-          )}
-
-          {games.map((g) => {
-            const game = g.schedule_master;
-
-            return (
-              <div key={g.id} style={gameRow}>
-                <div>
-                  {game.home_team} vs {game.away_team}
-                </div>
-                <div style={gameMeta}>
-                  {game.event_date} • {game.event_time}
-                </div>
-                <div style={gameMeta}>
-                  Field {game.field}
-                </div>
-              </div>
-            );
-          })}
         </Tile>
 
       </div>
@@ -235,6 +195,12 @@ const earningsStyle = {
   fontSize: 28,
   fontWeight: 700,
   color: "#16a34a"
+};
+
+const gamesCount = {
+  fontSize: 28,
+  fontWeight: 700,
+  color: "#2563eb"
 };
 
 const statusStyle = (status) => ({
@@ -287,15 +253,4 @@ const phoneStyle = {
   fontWeight: 600,
   color: "#2563eb",
   textDecoration: "none"
-};
-
-const gameRow = {
-  marginTop: 10,
-  paddingTop: 10,
-  borderTop: "1px solid #e5e7eb"
-};
-
-const gameMeta = {
-  fontSize: 12,
-  color: "#64748b"
 };
