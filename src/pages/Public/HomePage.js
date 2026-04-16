@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-// ===== LOGOS =====
+/* LOGOS */
 import sf from "../../resources/San Francisco 49ers.png";
 import bengals from "../../resources/Cincinnati Bengals.png";
 import bills from "../../resources/Buffalo Bills.png";
@@ -15,7 +15,6 @@ import raiders from "../../resources/Las Vegas Raiders.png";
 import rams from "../../resources/Los Angeles Rams.png";
 import steelers from "../../resources/Pittsburgh Steelers.png";
 
-// ===== MAP =====
 const teamLogos = {
   "49ers": sf,
   "Bengals": bengals,
@@ -31,21 +30,28 @@ const teamLogos = {
   "Steelers": steelers,
 };
 
-// ===== HELPER =====
 function getLogo(name) {
   if (!name) return null;
   return teamLogos[name.trim()] || null;
 }
 
 export default function HomePage({ setPage }) {
+  const [allGames, setAllGames] = useState([]); // 🔥 NEW
   const [liveGames, setLiveGames] = useState([]);
   const [upcomingGames, setUpcomingGames] = useState([]);
 
   useEffect(() => {
     fetchGames();
-    const interval = setInterval(fetchGames, 60000);
-    return () => clearInterval(interval);
   }, []);
+
+  // 🔥 LIVE UPDATE EVERY MINUTE (NO DB CALL)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      processGames();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [allGames]);
 
   const fetchGames = async () => {
     const { data } = await supabase
@@ -54,9 +60,14 @@ export default function HomePage({ setPage }) {
 
     if (!data) return;
 
+    setAllGames(data);
+    processGames(data);
+  };
+
+  const processGames = (source = allGames) => {
     const now = new Date();
 
-    const processed = data
+    const processed = source
       .map(g => ({
         ...g,
         clean_date: normalizeDate(g.event_date),
@@ -71,11 +82,7 @@ export default function HomePage({ setPage }) {
         const start = new Date(y, m - 1, d, hour, minute);
         const end = new Date(start.getTime() + 15 * 60000);
 
-        return {
-          ...game,
-          start,
-          end
-        };
+        return { ...game, start, end };
       });
 
     const live = processed.filter(g => g.start <= now && g.end > now);
@@ -160,7 +167,6 @@ function GameRow({ game, index, live }) {
               <span>{game.opponent || "TBD"}</span>
             </div>
 
-            {/* ✅ THIS IS THE ONLY CHANGE */}
             <div className="field-badge">
               {game.division} • {game.field}
             </div>
