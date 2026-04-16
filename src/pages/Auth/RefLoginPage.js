@@ -1,54 +1,124 @@
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { supabase } from "../../supabase";
+import logo from "../../resources/logo.png";
 
-export default function RefLoginPage() {
-  const navigate = useNavigate();
+export default function RefLoginPage({ setPage }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const login = async () => {
+    if (!email || !password) {
+      alert("Enter email and password");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+      return;
+    }
+
+    setPage("refDashboard");
+    setLoading(false);
+  };
 
   return (
-    <div style={wrap}>
+    <div style={container}>
+      <form
+        style={card}
+        onSubmit={(e) => {
+          e.preventDefault();
+          login();
+        }}
+      >
 
-      <div style={card}>
-        <h2 style={title}>Login</h2>
+        <img src={logo} alt="logo" style={logoStyle} />
 
-        <div className="title">Referee Access</div>
+        <h2 style={{ marginBottom: 10 }}>Ref Login</h2>
 
-        <button
-          className="button"
-          onClick={() => navigate("/ref")}
-        >
-          Login as Referee
+        <p style={subText}>
+          Fallon Football Referee Access
+        </p>
+
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={input}
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={input}
+        />
+
+        <button type="submit" style={btn}>
+          {loading ? "Signing In..." : "Login"}
         </button>
 
-        <button
-          style={{ marginTop: 10 }}
-          onClick={() => navigate("/")}
-        >
-          Cancel
-        </button>
-      </div>
-
+      </form>
     </div>
   );
 }
 
-/* STYLES */
-const wrap = {
-  minHeight: "100vh",
+/* SAME STYLES */
+const container = {
+  height: "100vh",
   display: "flex",
-  justifyContent: "center",
   alignItems: "center",
-  padding: 20
+  justifyContent: "center",
+  background: "#f8fafc"
 };
 
 const card = {
+  width: 340,
   background: "#fff",
+  padding: 30,
   borderRadius: 16,
-  padding: 24,
-  width: "100%",
-  maxWidth: 400,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
   textAlign: "center"
 };
 
-const title = {
-  marginBottom: 12
+const logoStyle = {
+  width: 60,
+  marginBottom: 15
+};
+
+const subText = {
+  fontSize: 13,
+  color: "#64748b",
+  marginBottom: 20
+};
+
+const input = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #e2e8f0",
+  marginBottom: 12,
+  boxSizing: "border-box"
+};
+
+const btn = {
+  width: "100%",
+  padding: 14,
+  borderRadius: 12,
+  border: "none",
+  background: "#16a34a",
+  color: "#fff",
+  fontWeight: 600,
+  cursor: "pointer",
+  marginTop: 10
 };
