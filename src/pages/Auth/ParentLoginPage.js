@@ -30,6 +30,24 @@ export default function ParentLoginPage({ setPage }) {
     setLoading(false);
   };
 
+  // 🔥 PASSWORD RESET FUNCTION
+  const resetPassword = async () => {
+    if (!email) {
+      alert("Enter your email first");
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "https://www.fallonfootball.app/reset-password"
+    });
+
+    if (error) {
+      alert(error.message);
+    } else {
+      alert("Password reset email sent!");
+    }
+  };
+
   return (
     <div style={container}>
       <form style={card} onSubmit={(e) => { e.preventDefault(); login(); }}>
@@ -41,18 +59,39 @@ export default function ParentLoginPage({ setPage }) {
           Fallon Football Parent Access
         </p>
 
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={input} />
-        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={input}
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={input}
+        />
 
         <button type="submit" style={btn}>
           {loading ? "Signing In..." : "Login"}
         </button>
+
+        {/* 🔥 PASSWORD RESET LINK */}
+        <div style={resetWrap}>
+          <span style={resetLink} onClick={resetPassword}>
+            Forgot Password?
+          </span>
+        </div>
+
       </form>
     </div>
   );
 }
 
-/* SAME STYLES */
+/* STYLES */
 const container = {
   height: "100vh",
   display: "flex",
@@ -100,4 +139,15 @@ const btn = {
   fontWeight: 600,
   cursor: "pointer",
   marginTop: 10
+};
+
+const resetWrap = {
+  marginTop: 12
+};
+
+const resetLink = {
+  fontSize: 13,
+  color: "#16a34a",
+  cursor: "pointer",
+  textDecoration: "underline"
 };
