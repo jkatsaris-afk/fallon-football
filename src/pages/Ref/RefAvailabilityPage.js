@@ -1,126 +1,215 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
-export default function RefSchedulePage() {
+const TIMES = ["9:30", "10:30", "11:30", "12:30"];
+
+const normalizeTime = (t) => {
+  if (!t) return null;
+  return t.toString().replace(" AM", "").replace(" PM", "").trim();
+};
+
+export default function RefAvailabilityPage() {
+  const [weeks, setWeeks] = useState([]);
+  const [selectedWeek, setSelectedWeek] = useState(null);
+
   const [refId, setRefId] = useState(null);
-  const [games, setGames] = useState([]);
+  const [availability, setAvailability] = useState({});
+
+  /* ---------------- INIT ---------------- */
 
   useEffect(() => {
+    loadWeeks();
     getRefId();
   }, []);
 
   useEffect(() => {
-    if (refId) loadGames();
-  }, [refId]);
+    if (refId && selectedWeek) {
+      loadAvailability();
+    }
+  }, [refId, selectedWeek]);
 
-  /* ---------------- GET REF ---------------- */
+  /* ---------------- LOAD ---------------- */
+
+  const loadWeeks = async () => {
+    const { data, error } = await supabase
+      .from("schedule_master_auto")
+      .select("week");
+
+    if (error) {
+      console.error("Weeks load error:", error);
+      return;
+    }
+
+    const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
+    setWeeks(unique);
+  };
 
   const getRefId = async () => {
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
 
-    if (!user) return;
+    console.log("AUTH USER:", user);
 
-    const { data } = await supabase
+    if (!user) {
+      console.warn("NO AUTH USER");
+      return;
+    }
+
+    const { data, error } = await supabase
       .from("referees")
       .select("*")
       .eq("auth_id", user.id)
       .maybeSingle();
 
-    if (data) setRefId(data.id);
+    console.log("REF LOOKUP:", data);
+
+    if (error) {
+      console.error("Ref lookup error:", error);
+      return;
+    }
+
+    if (!data) {
+      console.warn("NO REF FOUND FOR USER");
+      return;
+    }
+
+    setRefId(data.id);
   };
 
-  /* ---------------- LOAD GAMES ---------------- */
+  const loadAvailability = async () => {
+    const { data, error } = await supabase
+      .from("ref_availability")
+      .select("*")
+      .eq("referee_id", refId)
+      .eq("week", selectedWeek);
 
-  const loadGames = async () => {
-    const { data } = await supabase
-      .from("ref_assignments")
-      .select(`
-        id,
-        role,
-        schedule_master (
-          id,
-          event_date,
-          event_time,
-          field,
-          team,
-          opponent,
-          division
-        )
-      `)
-      .eq("referee_id", refId);
+    if (error) {
+      console.error("Availability load error:", error);
+      return;
+    }
 
-    setGames(data || []);
+    const map = {};
+
+    data?.forEach((a) => {
+      const time = normalizeTime(a.time_block);
+      map[time] = a.available;
+    });
+
+    console.log("LOADED AVAIL:", map);
+
+    setAvailability(map);
   };
 
-  /* ---------------- STATS ---------------- */
+  /* ---------------- TOGGLE ---------------- */
 
-  const totalGames = games.length;
+  const toggle = async (time) => {
+    if (!refId || !selectedWeek) {
+      console.warn("Missing refId or week");
+      return;
+    }
+
+    const current = availability?.[time];
+
+    let newValue;
+    if (current === undefined) newValue = true; // gray → green
+    else newValue = !current; // toggle
+
+    // update UI instantly
+    setAvailability((prev) => ({
+      ...prev,
+      [time]: newValue,
+    }));
+
+    const { error } = await supabase
+      .from("ref_availability")
+      .upsert(
+        [
+          {
+            referee_id: refId,
+            week: selectedWeek,
+            time_block: normalizeTime(time),
+            available: newValue,
+          },
+        ],
+        {
+          onConflict: ["referee_id", "week", "time_block"],
+        }
+      )
+      .select();
+
+    if (error) {
+      console.error("SAVE ERROR:", error);
+    } else {
+      console.log("SAVE SUCCESS");
+    }
+  };
 
   /* ---------------- UI ---------------- */
 
   return (
     <div style={wrap}>
 
-      {/* HEADER */}
-      <div style={header}>My Schedule</div>
+      <div style={title}>My Availability</div>
 
-      {/* STATS */}
-      <div style={statsGrid}>
-        <StatTile label="Games Assigned" value={totalGames} />
-        <StatTile label="Upcoming" value={totalGames} />
+      {/* WEEK SELECT */}
+      <div style={weekRow}>
+        {weeks.map((w) => (
+          <div
+            key={w}
+            style={{
+              ...weekTile,
+              background: selectedWeek === w ? "#16a34a" : "#fff",
+              color: selectedWeek === w ? "#fff" : "#111",
+            }}
+            onClick={() => setSelectedWeek(w)}
+          >
+            W{w}
+          </div>
+        ))}
       </div>
 
-      {/* GAMES */}
-      <div style={grid}>
-        {games.length === 0 && (
-          <div style={empty}>No games assigned yet</div>
-        )}
+      {/* TIME BLOCKS */}
+      {selectedWeek && (
+        <>
+          <div style={subTitle}>Week {selectedWeek}</div>
 
-        {games.map((g) => {
-          const game = g.schedule_master;
-          if (!game) return null;
+          <div style={timeGrid}>
+            {TIMES.map((t) => {
+              const value = availability?.[t];
 
-          return (
-            <div key={g.id} style={card}>
+              let bg = "#e5e7eb"; // gray
+              let color = "#111";
 
-              {/* MATCH */}
-              <div style={match}>
-                {game.team} vs {game.opponent}
-              </div>
+              if (value === true) {
+                bg = "#16a34a"; // green
+                color = "#fff";
+              } else if (value === false) {
+                bg = "#dc2626"; // red
+                color = "#fff";
+              }
 
-              {/* DETAILS */}
-              <div style={details}>
-                <div>{game.division}</div>
-                <div>{game.event_date}</div>
-                <div>{game.event_time} • Field {game.field}</div>
-              </div>
-
-              {/* FOOTER */}
-              <div style={footer}>
-                <div style={role}>{g.role}</div>
-
-                <button style={checkBtn}>
-                  Check In
+              return (
+                <button
+                  key={t}
+                  style={{
+                    ...timeBtn,
+                    background: bg,
+                    color: color,
+                  }}
+                  onClick={() => toggle(t)}
+                >
+                  {t}
                 </button>
-              </div>
+              );
+            })}
+          </div>
 
-            </div>
-          );
-        })}
-      </div>
+          <div style={hint}>
+            Gray = not set • Green = available • Red = unavailable
+          </div>
+        </>
+      )}
 
-    </div>
-  );
-}
-
-/* ---------------- COMPONENTS ---------------- */
-
-function StatTile({ label, value }) {
-  return (
-    <div style={statCard}>
-      <div style={statValue}>{value}</div>
-      <div style={statLabel}>{label}</div>
     </div>
   );
 }
@@ -128,97 +217,53 @@ function StatTile({ label, value }) {
 /* ---------------- STYLES ---------------- */
 
 const wrap = {
-  padding: 16,
+  padding: 20,
   display: "flex",
   flexDirection: "column",
-  gap: 16,
-  maxWidth: 700,
-  margin: "0 auto"
+  gap: 16
 };
 
-const header = {
-  fontSize: 24,
-  fontWeight: 800,
-  textAlign: "center"
-};
-
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2,1fr)",
-  gap: 12
-};
-
-const statCard = {
-  background: "#fff",
-  borderRadius: 18,
-  padding: 18,
-  textAlign: "center",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const statValue = {
-  fontSize: 26,
-  fontWeight: 800,
-  color: "#16a34a"
-};
-
-const statLabel = {
-  fontSize: 13,
-  color: "#64748b"
-};
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: 14
-};
-
-const card = {
-  background: "#fff",
-  borderRadius: 20,
-  padding: 18,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-  display: "flex",
-  flexDirection: "column",
-  gap: 10
-};
-
-const match = {
-  fontSize: 18,
+const title = {
+  fontSize: 22,
   fontWeight: 800
 };
 
-const details = {
-  fontSize: 14,
-  color: "#64748b",
+const subTitle = {
+  fontSize: 16,
+  fontWeight: 600
+};
+
+const weekRow = {
   display: "flex",
-  flexDirection: "column",
-  gap: 4
+  gap: 8,
+  overflowX: "auto"
 };
 
-const footer = {
-  marginTop: 10,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
-};
-
-const role = {
-  fontWeight: 700,
-  color: "#16a34a"
-};
-
-const checkBtn = {
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  padding: "10px 14px",
-  borderRadius: 10,
-  fontWeight: 600,
-  cursor: "pointer"
-};
-
-const empty = {
+const weekTile = {
+  minWidth: 60,
+  padding: 10,
+  borderRadius: 12,
   textAlign: "center",
+  fontWeight: 700,
+  cursor: "pointer",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
+};
+
+const timeGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4,1fr)",
+  gap: 10
+};
+
+const timeBtn = {
+  padding: 14,
+  borderRadius: 12,
+  border: "none",
+  cursor: "pointer",
+  fontWeight: 700
+};
+
+const hint = {
+  fontSize: 12,
   color: "#64748b"
 };
