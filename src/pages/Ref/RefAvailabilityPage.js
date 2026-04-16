@@ -28,15 +28,28 @@ export default function RefAvailabilityPage() {
 
   /* ---------------- LOAD ---------------- */
 
+  // ✅ FIXED FUNCTION
   const loadWeeks = async () => {
     const { data } = await supabase
       .from("schedule_master_auto")
       .select("week");
 
-    const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
-    setWeeks(unique);
+    const dbWeeks = [...new Set((data || []).map((g) => g.week))];
 
-    if (!selectedWeek && unique.length) setSelectedWeek(unique[0]);
+    // Add missing weeks
+    const extraWeeks = [7, 8, "Championships"];
+
+    const combined = [...new Set([...dbWeeks, ...extraWeeks])];
+
+    const sorted = combined.sort((a, b) => {
+      if (a === "Championships") return 1;
+      if (b === "Championships") return -1;
+      return a - b;
+    });
+
+    setWeeks(sorted);
+
+    if (!selectedWeek && sorted.length) setSelectedWeek(sorted[0]);
   };
 
   const getRefId = async () => {
@@ -145,15 +158,12 @@ export default function RefAvailabilityPage() {
 
       <div style={header}>My Availability</div>
 
-      {/* ✅ STATS RESTORED */}
       <div style={statsGrid}>
         <StatTile label="Set" value={totalSet} />
         <StatTile label="Available" value={totalAvailable} />
       </div>
 
-      {/* WEEK NAV TILE */}
       <div style={weekTileWrap}>
-
         <div style={arrowBtn} onClick={prevWeek}>‹</div>
 
         <div style={weekTile}>
@@ -162,10 +172,8 @@ export default function RefAvailabilityPage() {
         </div>
 
         <div style={arrowBtn} onClick={nextWeek}>›</div>
-
       </div>
 
-      {/* ACTIONS */}
       <div style={actionRow}>
         <button style={greenBtn} onClick={() => setAll(true)}>
           All Available
@@ -175,13 +183,11 @@ export default function RefAvailabilityPage() {
         </button>
       </div>
 
-      {/* TIME TILES */}
       <div style={timeGrid}>
         {TIMES.map((t) => {
           const value = availability?.[t];
 
           let style = { ...timeTile };
-
           if (value === true) style = { ...style, ...greenTile };
           if (value === false) style = { ...style, ...redTile };
 
@@ -225,7 +231,6 @@ const header = {
   textAlign: "center"
 };
 
-/* STATS */
 const statsGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2,1fr)",
@@ -251,7 +256,6 @@ const statLabel = {
   color: "#64748b"
 };
 
-/* WEEK NAV */
 const weekTileWrap = {
   display: "flex",
   alignItems: "center",
@@ -259,7 +263,7 @@ const weekTileWrap = {
 };
 
 const arrowBtn = {
-  width: 70,           // 🔥 BIGGER
+  width: 70,
   height: 70,
   borderRadius: 18,
   background: "#fff",
@@ -291,7 +295,6 @@ const weekNumber = {
   fontWeight: 800
 };
 
-/* ACTIONS */
 const actionRow = {
   display: "flex",
   gap: 10
@@ -315,7 +318,6 @@ const redBtn = {
   border: "none"
 };
 
-/* TIME GRID */
 const timeGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2,1fr)",
