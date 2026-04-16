@@ -44,11 +44,7 @@ export default function RefTime() {
       .eq("auth_id", user.id)
       .maybeSingle();
 
-    if (!refData) {
-      console.error("No ref found");
-      setLoading(false);
-      return;
-    }
+    if (!refData) return;
 
     setRef(refData);
 
@@ -145,7 +141,6 @@ export default function RefTime() {
 
         return (
           <div key={date}>
-
             <div style={dateTile} onClick={() => toggleDate(date)}>
               <div style={dateLeft}>
                 <div style={dayText}>{day}</div>
@@ -163,21 +158,21 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
-                      {/* 🔥 TEAMS (TOP) */}
+                      {/* TEAMS */}
                       <div style={teamsRow}>
                         <TeamSide team={game.team} />
                         <div style={vs}>vs</div>
                         <TeamSide team={game.opponent} />
                       </div>
 
-                      {/* 🔥 STACKED INFO BARS */}
+                      {/* FIXED INFO STACK */}
                       <div style={infoStack}>
                         <div style={timeBar}>{game.event_time}</div>
                         <div style={fieldBar}>Field {game.field}</div>
                         <div style={divisionBar}>{game.division}</div>
                       </div>
 
-                      {/* 🔥 FULL WIDTH BUTTON */}
+                      {/* BUTTON */}
                       <div style={btnWrap}>
                         {checked ? (
                           <div style={checkedBadgeFull}>Checked In</div>
@@ -193,7 +188,6 @@ export default function RefTime() {
                 })}
               </div>
             )}
-
           </div>
         );
       })}
@@ -246,7 +240,6 @@ const statTile = {
 
 const statValue = { fontSize:26, fontWeight:800 };
 const greenText = { color:"#16a34a" };
-
 const statLabel = { fontSize:13, color:"#64748b" };
 
 const dateTile = {
@@ -260,12 +253,10 @@ const dateTile = {
   boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
 };
 
-const dateLeft = { display:"flex", flexDirection:"column", minWidth:0 };
-
+const dateLeft = { display:"flex", flexDirection:"column" };
 const dayText = { fontWeight:700 };
 const dateText = { fontSize:13, color:"#64748b" };
 const weekText = { fontSize:12, color:"#16a34a" };
-
 const arrow = { fontWeight:700 };
 
 const gameGrid = {
@@ -287,34 +278,41 @@ const teamsRow = {
   alignItems:"center"
 };
 
-const teamSide = { display:"flex", flexDirection:"column", alignItems:"center" };
+const teamSide = {
+  display:"flex",
+  flexDirection:"column",
+  alignItems:"center"
+};
 
-const logoStyle = { width:36 };
+const logoStyle = {
+  width:56   // 🔥 BIGGER LOGO
+};
 
 const vs = { fontWeight:700 };
 
-const btnWrap = { textAlign:"center", marginTop:10 };
-
-/* 🔥 NEW UI STYLES */
 const infoStack = {
   display:"flex",
   flexDirection:"column",
   gap:6,
-  marginTop:10
+  marginTop:10,
+  width:"100%" // 🔥 FIX WIDTH
 };
 
 const pillBase = {
-  padding:"8px 10px",
-  borderRadius:10,
+  width:"100%",
+  padding:"10px",
+  borderRadius:12,
   fontSize:13,
   fontWeight:600,
   textAlign:"center",
-  width:"100%"
+  boxSizing:"border-box" // 🔥 FIX OVERFLOW
 };
 
 const timeBar = { ...pillBase, background:"#e0f2fe", color:"#0369a1" };
 const fieldBar = { ...pillBase, background:"#dcfce7", color:"#166534" };
 const divisionBar = { ...pillBase, background:"#fef9c3", color:"#854d0e" };
+
+const btnWrap = { marginTop:10 };
 
 const btnFull = {
   width:"100%",
