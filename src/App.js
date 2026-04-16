@@ -31,6 +31,9 @@ import RefAvailabilityPage from "./pages/Ref/RefAvailabilityPage";
 
 import Dashboard from "./pages/Admin/Dashboard";
 
+/* 🔥 ADDED COACH MANAGER */
+import CoachManager from "./pages/Admin/CoachManager";
+
 import PublicLayout from "./layouts/PublicLayout";
 import AdminLayout from "./layouts/AdminLayout";
 
@@ -52,8 +55,8 @@ export default function App() {
       }
 
       if (path === "/") setPage("home");
-      else if (path === "/schedule") setPage("schedule"); // 🔥 FIX
-      else if (path === "/scoreboard") setPage("scoreboard"); // 🔥 FIX
+      else if (path === "/schedule") setPage("schedule");
+      else if (path === "/scoreboard") setPage("scoreboard");
       else if (path === "/signup") setPage("signup");
       else if (path === "/coach-signup") setPage("coachSignup");
       else if (path === "/ref-signup") setPage("refSignup");
@@ -64,6 +67,9 @@ export default function App() {
       else if (path === "/parent-login") setPage("parentLogin");
       else if (path === "/admin-login") setPage("adminLogin");
       else if (path === "/reset-password") setPage("resetPassword");
+
+      /* 🔥 ADDED COACH ROUTE */
+      else if (path === "/coach-manager") setPage("coachManager");
 
       else if (path.startsWith("/admin")) {
         await checkAdmin();
@@ -150,8 +156,8 @@ export default function App() {
 
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
-    if (page === "schedule") window.history.pushState({}, "", "/schedule"); // 🔥 FIX
-    if (page === "scoreboard") window.history.pushState({}, "", "/scoreboard"); // 🔥 FIX
+    if (page === "schedule") window.history.pushState({}, "", "/schedule");
+    if (page === "scoreboard") window.history.pushState({}, "", "/scoreboard");
     if (page === "signup") window.history.pushState({}, "", "/signup");
     if (page === "coachSignup") window.history.pushState({}, "", "/coach-signup");
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
@@ -163,6 +169,9 @@ export default function App() {
     if (page === "adminLogin") window.history.pushState({}, "", "/admin-login");
 
     if (page === "resetPassword") window.history.pushState({}, "", "/reset-password");
+
+    /* 🔥 ADDED URL SYNC */
+    if (page === "coachManager") window.history.pushState({}, "", "/coach-manager");
 
     if (page === "refDashboard") window.history.pushState({}, "", "/ref");
     if (page === "refSchedule") window.history.pushState({}, "", "/ref/schedule");
@@ -203,6 +212,13 @@ export default function App() {
         </AdminLayout>
       )}
 
+      {/* 🔥 ADDED COACH MANAGER */}
+      {page === "coachManager" && (
+        <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
+          <CoachManager />
+        </AdminLayout>
+      )}
+
       {page.startsWith("ref") &&
         page !== "refLogin" &&
         page !== "refSignup" && (
@@ -221,6 +237,7 @@ export default function App() {
         page !== "coachLogin" &&
         page !== "parentLogin" &&
         page !== "resetPassword" &&
+        page !== "coachManager" &&
         (!page.startsWith("ref") ||
           page === "refSignup") && (
           <PublicLayout page={page} setPage={setPage}>
