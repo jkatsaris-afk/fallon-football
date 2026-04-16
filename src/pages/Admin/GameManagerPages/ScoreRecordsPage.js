@@ -32,6 +32,14 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
+/* 🔥 FIXED DIVISION ORDER */
+const DIVISION_ORDER = [
+  "K-1st",
+  "2nd-3rd",
+  "4th-5th",
+  "6th-8th"
+];
+
 export default function TeamStatsPage() {
   const [games, setGames] = useState([]);
   const [scheduleMap, setScheduleMap] = useState({});
@@ -42,27 +50,14 @@ export default function TeamStatsPage() {
   }, []);
 
   const load = async () => {
-    // 🔥 LOAD SCORES
-    const { data: scores, error: scoreErr } = await supabase
+    const { data: scores } = await supabase
       .from("game_scores")
       .select("*");
 
-    if (scoreErr) {
-      console.error("SCORE LOAD ERROR:", scoreErr);
-      return;
-    }
-
-    // 🔥 LOAD SCHEDULE (division source of truth)
-    const { data: schedule, error: schedErr } = await supabase
+    const { data: schedule } = await supabase
       .from("schedule_master_auto")
       .select("id, division");
 
-    if (schedErr) {
-      console.error("SCHEDULE LOAD ERROR:", schedErr);
-      return;
-    }
-
-    // 🔥 BUILD LOOKUP MAP (schedule_id → division)
     const map = {};
     (schedule || []).forEach(s => {
       map[s.id] = s.division;
@@ -72,19 +67,12 @@ export default function TeamStatsPage() {
     setGames(scores || []);
   };
 
-  /* 🔥 DIVISION FILTER LIST */
+  /* 🔥 ORDERED DIVISIONS */
   const divisions = useMemo(() => {
-    const unique = [
-      ...new Set(
-        games
-          .map(g => scheduleMap[g.schedule_id])
-          .filter(d => d && d !== "Unknown")
-      )
-    ];
-    return ["all", ...unique];
-  }, [games, scheduleMap]);
+    return ["all", ...DIVISION_ORDER];
+  }, []);
 
-  /* 🔥 TEAM STATS (TEAM + DIVISION, CORRECT W/L LOGIC) */
+  /* 🔥 TEAM STATS */
   const teamStats = useMemo(() => {
     const map = {};
 
@@ -92,16 +80,8 @@ export default function TeamStatsPage() {
       const division = scheduleMap[g.schedule_id] || "Unknown";
 
       const teams = [
-        {
-          name: g.home_team,
-          scored: g.home_score,
-          allowed: g.away_score
-        },
-        {
-          name: g.away_team,
-          scored: g.away_score,
-          allowed: g.home_score
-        }
+        { name: g.home_team, scored: g.home_score, allowed: g.away_score },
+        { name: g.away_team, scored: g.away_score, allowed: g.home_score }
       ];
 
       teams.forEach(t => {
@@ -121,31 +101,37 @@ export default function TeamStatsPage() {
         map[key].pf += t.scored;
         map[key].pa += t.allowed;
 
-        // ✅ FINAL CORRECT WIN/LOSS LOGIC
-        if (t.scored > t.allowed) {
-          map[key].wins += 1;
-        } else if (t.scored < t.allowed) {
-          map[key].losses += 1;
-        }
-        // ties ignored
+        if (t.scored > t.allowed) map[key].wins += 1;
+        else if (t.scored < t.allowed) map[key].losses += 1;
       });
     });
 
     return Object.values(map);
   }, [games, scheduleMap]);
 
-  /* 🔥 FILTER BY DIVISION */
+  /* 🔥 FILTER */
   const filteredTeams = useMemo(() => {
     if (selectedDivision === "all") return teamStats;
     return teamStats.filter(t => t.division === selectedDivision);
   }, [teamStats, selectedDivision]);
+
+  /* 🔥 SORT FOR STANDINGS */
+  const rankedTeams = useMemo(() => {
+    return [...filteredTeams].sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return (b.pf - b.pa) - (a.pf - a.pa);
+    });
+  }, [filteredTeams]);
+
+  /* 🔥 TOP 4 FOR BRACKET */
+  const bracketTeams = rankedTeams.slice(0, 4);
 
   return (
     <div style={wrap}>
 
       <h2 style={title}>Team Stats</h2>
 
-      {/* 🔥 DIVISION FILTER */}
+      {/* DIVISION FILTER */}
       <div style={filterGrid}>
         {divisions.map(d => (
           <div
@@ -161,16 +147,13 @@ export default function TeamStatsPage() {
         ))}
       </div>
 
-      {/* 🔥 TEAM GRID */}
+      {/* TEAM GRID */}
       <div style={grid}>
-        {filteredTeams.map(team => {
+        {rankedTeams.map(team => {
           const logo = TEAM_LOGOS[team.team];
 
           return (
-            <div
-              key={`${team.team}_${team.division}`}
-              style={card}
-            >
+            <div key={`${team.team}_${team.division}`} style={card}>
 
               {logo && <img src={logo} style={logoStyle} />}
 
@@ -194,22 +177,51 @@ export default function TeamStatsPage() {
         })}
       </div>
 
+      {/* 🔥 BRACKET */}
+      {selectedDivision !== "all" && bracketTeams.length >= 4 && (
+        <div style={bracketWrap}>
+
+          <h3 style={{ textAlign: "center" }}>
+            {selectedDivision} Playoffs
+          </h3>
+
+          <div style={bracketGrid}>
+
+            {/* SEMI 1 */}
+            <Match t1={bracketTeams[0]} t2={bracketTeams[3]} />
+
+            {/* SEMI 2 */}
+            <Match t1={bracketTeams[1]} t2={bracketTeams[2]} />
+
+          </div>
+
+          <div style={finalBox}>
+            Championship Game
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+/* 🔥 MATCH COMPONENT */
+function Match({ t1, t2 }) {
+  return (
+    <div style={matchCard}>
+      <div>{t1?.team}</div>
+      <div style={{ fontSize: 12 }}>vs</div>
+      <div>{t2?.team}</div>
     </div>
   );
 }
 
 /* STYLES */
 
-const wrap = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 20
-};
+const wrap = { display: "flex", flexDirection: "column", gap: 20 };
 
-const title = {
-  fontSize: 24,
-  fontWeight: 700
-};
+const title = { fontSize: 24, fontWeight: 700 };
 
 const filterGrid = {
   display: "grid",
@@ -226,9 +238,7 @@ const filterTile = {
   fontWeight: 600
 };
 
-const activeTile = {
-  outline: "2px solid #2563eb"
-};
+const activeTile = { outline: "2px solid #2563eb" };
 
 const grid = {
   display: "grid",
@@ -244,27 +254,16 @@ const card = {
   textAlign: "center"
 };
 
-const logoStyle = {
-  width: 50,
-  marginBottom: 8
-};
+const logoStyle = { width: 50, marginBottom: 8 };
 
-const teamName = {
-  fontWeight: 700,
-  fontSize: 16
-};
+const teamName = { fontWeight: 700 };
 
-const record = {
-  fontSize: 18,
-  marginTop: 4,
-  fontWeight: 700
-};
+const record = { fontSize: 18, fontWeight: 700 };
 
 const statsRow = {
   display: "flex",
   justifyContent: "center",
   gap: 10,
-  marginTop: 6,
   fontSize: 12,
   color: "#64748b"
 };
@@ -276,4 +275,31 @@ const divisionBadge = {
   padding: "4px 10px",
   borderRadius: 999,
   fontSize: 12
+};
+
+/* 🔥 BRACKET */
+const bracketWrap = {
+  marginTop: 30,
+  padding: 20,
+  background: "#fff",
+  borderRadius: 18
+};
+
+const bracketGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 20
+};
+
+const matchCard = {
+  padding: 12,
+  background: "#f8fafc",
+  borderRadius: 12,
+  textAlign: "center"
+};
+
+const finalBox = {
+  marginTop: 20,
+  textAlign: "center",
+  fontWeight: 700
 };
