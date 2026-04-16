@@ -13,7 +13,7 @@ import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 
-// LOGIN (🔥 FIXED PATHS)
+// LOGIN
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
 import CoachLoginPage from "./pages/Auth/CoachLoginPage";
 import RefLoginPage from "./pages/Auth/RefLoginPage";
@@ -29,7 +29,6 @@ import RefProfile from "./pages/Ref/RefProfile";
 import RefAvailabilityPage from "./pages/Ref/RefAvailabilityPage";
 
 import Dashboard from "./pages/Admin/Dashboard";
-// import LoginModal from "./components/LoginModal";
 
 import PublicLayout from "./layouts/PublicLayout";
 import AdminLayout from "./layouts/AdminLayout";
@@ -57,7 +56,6 @@ export default function App() {
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/login") setPage("loginSelect");
 
-      // 🔥 LOGIN ROUTES
       else if (path === "/ref-login") setPage("refLogin");
       else if (path === "/coach-login") setPage("coachLogin");
       else if (path === "/parent-login") setPage("parentLogin");
@@ -83,26 +81,41 @@ export default function App() {
     init();
   }, []);
 
+  // 🔥 FIXED ADMIN CHECK
   const checkAdmin = async () => {
-    const { data } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error
+    } = await supabase.auth.getUser();
 
-    if (!data.user) {
+    console.log("CHECK ADMIN USER:", user);
+
+    if (!user) {
       setPage("adminLogin");
       return;
     }
 
-    const { data: userData } = await supabase
+    const { data: userData, error: roleError } = await supabase
       .from("users")
       .select("is_admin")
-      .eq("auth_id", data.user.id)
+      .eq("auth_id", user.id)
       .maybeSingle();
 
-    if (!userData?.is_admin) {
+    console.log("ADMIN ROLE DATA:", userData);
+
+    if (roleError) {
+      console.error("ROLE ERROR:", roleError);
+      setPage("adminLogin");
+      return;
+    }
+
+    if (!userData || !userData.is_admin) {
       setAccessDenied(true);
       setPage("home");
       return;
     }
 
+    setAccessDenied(false);
     setPage("dashboard");
   };
 
