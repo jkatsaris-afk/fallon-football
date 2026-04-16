@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { supabase } from "../../supabase";
-import logo from "../resources/logo.png";
+import logo from "../../resources/logo.png";
 
-export default function LoginModal({ setPage }) {
+export default function AdminLoginPage({ setPage }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,6 +15,7 @@ export default function LoginModal({ setPage }) {
 
     setLoading(true);
 
+    // 🔥 SIGN IN
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -27,11 +28,17 @@ export default function LoginModal({ setPage }) {
     }
 
     // 🔥 CHECK ADMIN ACCESS
-    const { data: userData } = await supabase
+    const { data: userData, error: roleError } = await supabase
       .from("users")
       .select("is_admin")
       .eq("auth_id", data.user.id)
       .maybeSingle();
+
+    if (roleError) {
+      alert("Error checking admin access");
+      setLoading(false);
+      return;
+    }
 
     if (!userData?.is_admin) {
       alert("You do not have admin access");
@@ -39,6 +46,7 @@ export default function LoginModal({ setPage }) {
       return;
     }
 
+    // 🔥 SUCCESS
     setPage("dashboard");
     setLoading(false);
   };
@@ -46,7 +54,7 @@ export default function LoginModal({ setPage }) {
   return (
     <div style={container}>
 
-      {/* 🔥 FORM WRAPPER (ENABLES ENTER KEY) */}
+      {/* FORM */}
       <form
         style={card}
         onSubmit={(e) => {
@@ -55,14 +63,18 @@ export default function LoginModal({ setPage }) {
         }}
       >
 
+        {/* LOGO */}
         <img src={logo} alt="logo" style={logoStyle} />
 
+        {/* TITLE */}
         <h2 style={{ marginBottom: 10 }}>Admin Login</h2>
 
+        {/* SUBTEXT */}
         <p style={subText}>
           Fallon Football Admin Access
         </p>
 
+        {/* EMAIL */}
         <input
           type="email"
           placeholder="Email"
@@ -71,6 +83,7 @@ export default function LoginModal({ setPage }) {
           style={input}
         />
 
+        {/* PASSWORD */}
         <input
           type="password"
           placeholder="Password"
@@ -79,13 +92,21 @@ export default function LoginModal({ setPage }) {
           style={input}
         />
 
-        {/* 🔥 SUBMIT BUTTON */}
+        {/* BUTTON */}
         <button type="submit" style={btn}>
           {loading ? "Signing In..." : "Login"}
         </button>
 
-      </form>
+        {/* CANCEL */}
+        <button
+          type="button"
+          style={cancelBtn}
+          onClick={() => setPage("home")}
+        >
+          Cancel
+        </button>
 
+      </form>
     </div>
   );
 }
@@ -139,4 +160,15 @@ const btn = {
   fontWeight: 600,
   cursor: "pointer",
   marginTop: 10
+};
+
+const cancelBtn = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 10,
+  border: "none",
+  background: "#e5e7eb",
+  color: "#111827",
+  marginTop: 10,
+  cursor: "pointer"
 };
