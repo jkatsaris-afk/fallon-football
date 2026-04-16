@@ -158,21 +158,18 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
-                      {/* TEAMS */}
                       <div style={teamsRow}>
                         <TeamSide team={game.team} />
                         <div style={vs}>vs</div>
                         <TeamSide team={game.opponent} />
                       </div>
 
-                      {/* FIXED INFO STACK */}
                       <div style={infoStack}>
                         <div style={timeBar}>{game.event_time}</div>
                         <div style={fieldBar}>Field {game.field}</div>
                         <div style={divisionBar}>{game.division}</div>
                       </div>
 
-                      {/* BUTTON */}
                       <div style={btnWrap}>
                         {checked ? (
                           <div style={checkedBadgeFull}>Checked In</div>
@@ -285,7 +282,7 @@ const teamSide = {
 };
 
 const logoStyle = {
-  width:56   // 🔥 BIGGER LOGO
+  width:56
 };
 
 const vs = { fontWeight:700 };
@@ -295,7 +292,7 @@ const infoStack = {
   flexDirection:"column",
   gap:6,
   marginTop:10,
-  width:"100%" // 🔥 FIX WIDTH
+  width:"100%"
 };
 
 const pillBase = {
@@ -305,31 +302,35 @@ const pillBase = {
   fontSize:13,
   fontWeight:600,
   textAlign:"center",
-  boxSizing:"border-box" // 🔥 FIX OVERFLOW
+  boxSizing:"border-box"
 };
 
 const timeBar = { ...pillBase, background:"#e0f2fe", color:"#0369a1" };
 const fieldBar = { ...pillBase, background:"#dcfce7", color:"#166534" };
 const divisionBar = { ...pillBase, background:"#fef9c3", color:"#854d0e" };
 
-const btnWrap = { marginTop:10 };
+const btnWrap = { marginTop:10, width:"100%" };
 
 const btnFull = {
   width:"100%",
-  background:"#22c55e",
+  background:"#16a34a",
   color:"#fff",
-  padding:"10px",
+  padding:"12px",
   borderRadius:12,
   border:"none",
-  cursor:"pointer"
+  cursor:"pointer",
+  fontWeight:700,
+  boxSizing:"border-box",
+  boxShadow:"0 4px 12px rgba(22,163,74,0.35)"
 };
 
 const checkedBadgeFull = {
   width:"100%",
-  background:"#bbf7d0",
+  background:"#dcfce7",
   color:"#166534",
-  padding:"10px",
+  padding:"12px",
   borderRadius:12,
   fontWeight:700,
-  textAlign:"center"
+  textAlign:"center",
+  boxSizing:"border-box"
 };
