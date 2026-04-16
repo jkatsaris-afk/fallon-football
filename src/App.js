@@ -19,6 +19,7 @@ import CoachLoginPage from "./pages/Auth/CoachLoginPage";
 import RefLoginPage from "./pages/Auth/RefLoginPage";
 import ParentLoginPage from "./pages/Auth/ParentLoginPage";
 import AdminLoginPage from "./pages/Auth/AdminLoginPage";
+import ResetPasswordPage from "./pages/Auth/ResetPasswordPage"; // 🔥 ADDED
 
 // REF APP
 import RefLayout from "./layouts/RefLayout";
@@ -60,6 +61,8 @@ export default function App() {
       else if (path === "/coach-login") setPage("coachLogin");
       else if (path === "/parent-login") setPage("parentLogin");
       else if (path === "/admin-login") setPage("adminLogin");
+
+      else if (path === "/reset-password") setPage("resetPassword"); // 🔥 ADDED
 
       else if (path.startsWith("/admin")) {
         await checkAdmin();
@@ -156,6 +159,8 @@ export default function App() {
     if (page === "parentLogin") window.history.pushState({}, "", "/parent-login");
     if (page === "adminLogin") window.history.pushState({}, "", "/admin-login");
 
+    if (page === "resetPassword") window.history.pushState({}, "", "/reset-password"); // 🔥 ADDED
+
     if (page === "refDashboard") window.history.pushState({}, "", "/ref");
     if (page === "refSchedule") window.history.pushState({}, "", "/ref/schedule");
     if (page === "refTime") window.history.pushState({}, "", "/ref/time");
@@ -175,16 +180,18 @@ export default function App() {
           document.body
         )}
 
-      {/* 🔥 ALL LOGIN PAGES FULL SCREEN */}
+      {/* 🔥 LOGIN + RESET FULL SCREEN */}
       {(page === "adminLogin" ||
         page === "refLogin" ||
         page === "coachLogin" ||
-        page === "parentLogin") && (
+        page === "parentLogin" ||
+        page === "resetPassword") && ( // 🔥 ADDED
         <>
           {page === "adminLogin" && <AdminLoginPage />}
           {page === "refLogin" && <RefLoginPage setPage={setPage} />}
           {page === "coachLogin" && <CoachLoginPage setPage={setPage} />}
           {page === "parentLogin" && <ParentLoginPage setPage={setPage} />}
+          {page === "resetPassword" && <ResetPasswordPage />} {/* 🔥 ADDED */}
         </>
       )}
 
@@ -211,6 +218,7 @@ export default function App() {
         page !== "refLogin" &&
         page !== "coachLogin" &&
         page !== "parentLogin" &&
+        page !== "resetPassword" && ( // 🔥 ADDED
         (!page.startsWith("ref") ||
           page === "refSignup") && (
           <PublicLayout page={page} setPage={setPage}>
@@ -226,7 +234,7 @@ export default function App() {
             {page === "coachSignup" && <CoachSignUpPage />}
             {page === "refSignup" && <RefSignUpPage />}
           </PublicLayout>
-        )}
+        ))}
     </>
   );
 }
