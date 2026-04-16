@@ -4,11 +4,11 @@ export default function AdminLoginPage() {
   const navigate = useNavigate();
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={wrap}>
 
-      <h2>Login</h2>
+      <div style={card}>
+        <h2 style={title}>Login</h2>
 
-      <div className="card">
         <div className="title">League Admin Access</div>
 
         <button
@@ -29,3 +29,26 @@ export default function AdminLoginPage() {
     </div>
   );
 }
+
+/* SAME STYLES */
+const wrap = {
+  minHeight: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 20
+};
+
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 24,
+  width: "100%",
+  maxWidth: 400,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  textAlign: "center"
+};
+
+const title = {
+  marginBottom: 12
+};
