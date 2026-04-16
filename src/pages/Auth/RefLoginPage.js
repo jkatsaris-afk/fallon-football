@@ -39,7 +39,6 @@ export default function RefLoginPage({ setPage }) {
           login();
         }}
       >
-
         <img src={logo} alt="logo" style={logoStyle} />
 
         <h2 style={{ marginBottom: 10 }}>Ref Login</h2>
@@ -67,13 +66,12 @@ export default function RefLoginPage({ setPage }) {
         <button type="submit" style={btn}>
           {loading ? "Signing In..." : "Login"}
         </button>
-
       </form>
     </div>
   );
 }
 
-/* SAME STYLES */
+/* STYLES */
 const container = {
   height: "100vh",
   display: "flex",
