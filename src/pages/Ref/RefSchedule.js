@@ -89,35 +89,37 @@ export default function RefSchedule() {
           return (
             <div key={g.id} style={card}>
 
-              {/* 🔥 BIG CENTER LOGOS */}
-              <div style={logoRow}>
-                {teamLogo && <img src={teamLogo} style={logoStyle} />}
-                <div style={vsBig}>vs</div>
-                {oppLogo && <img src={oppLogo} style={logoStyle} />}
-              </div>
-
-              {/* 🔥 TEAM NAMES */}
+              {/* 🔥 TEAMS (FIXED) */}
               <div style={teamsRow}>
-                <div style={team}>{game.team}</div>
-                <div style={team}>{game.opponent}</div>
+
+                <div style={teamBlock}>
+                  {teamLogo && <img src={teamLogo} style={logoStyle} />}
+                  <div style={teamName}>{game.team}</div>
+                </div>
+
+                <div style={vsBig}>vs</div>
+
+                <div style={teamBlock}>
+                  {oppLogo && <img src={oppLogo} style={logoStyle} />}
+                  <div style={teamName}>{game.opponent}</div>
+                </div>
+
               </div>
 
-              {/* 🔥 INFO STACK */}
+              {/* INFO */}
               <div style={infoStack}>
                 <div style={timeBar}>
                   {game.event_date} • {game.event_time}
                 </div>
-
                 <div style={fieldBar}>
                   Field {game.field}
                 </div>
-
                 <div style={divisionBar}>
                   {game.division}
                 </div>
               </div>
 
-              {/* 🔥 ROLE TILE */}
+              {/* ROLE */}
               <div style={roleTile}>
                 {g.role}
               </div>
@@ -132,9 +134,7 @@ export default function RefSchedule() {
 
 /* ---------------- STYLES ---------------- */
 
-const wrap = {
-  padding: 20
-};
+const wrap = { padding: 20 };
 
 const title = {
   fontSize: 20,
@@ -142,9 +142,7 @@ const title = {
   marginBottom: 16
 };
 
-const empty = {
-  color: "#64748b"
-};
+const empty = { color: "#64748b" };
 
 const grid = {
   display: "grid",
@@ -162,12 +160,25 @@ const card = {
   gap: 10
 };
 
-/* 🔥 LOGOS */
-const logoRow = {
+/* 🔥 TEAM BLOCK FIX */
+const teamsRow = {
   display: "flex",
-  justifyContent: "center",
+  justifyContent: "space-between",
+  alignItems: "center"
+};
+
+const teamBlock = {
+  display: "flex",
+  flexDirection: "column",
   alignItems: "center",
-  gap: 16
+  gap: 6,
+  flex: 1
+};
+
+const teamName = {
+  fontWeight: 700,
+  fontSize: 13,
+  textAlign: "center"
 };
 
 const logoStyle = {
@@ -176,27 +187,14 @@ const logoStyle = {
 
 const vsBig = {
   fontWeight: 800,
-  fontSize: 16,
   color: "#64748b"
 };
 
-/* 🔥 TEAM NAMES */
-const teamsRow = {
-  display: "flex",
-  justifyContent: "space-between"
-};
-
-const team = {
-  fontWeight: 700,
-  fontSize: 14
-};
-
-/* 🔥 INFO STACK */
+/* INFO */
 const infoStack = {
   display: "flex",
   flexDirection: "column",
-  gap: 6,
-  marginTop: 6
+  gap: 6
 };
 
 const pillBase = {
@@ -209,25 +207,11 @@ const pillBase = {
   boxSizing: "border-box"
 };
 
-const timeBar = {
-  ...pillBase,
-  background: "#e0f2fe",
-  color: "#0369a1"
-};
+const timeBar = { ...pillBase, background: "#e0f2fe", color: "#0369a1" };
+const fieldBar = { ...pillBase, background: "#dcfce7", color: "#166534" };
+const divisionBar = { ...pillBase, background: "#fef9c3", color: "#854d0e" };
 
-const fieldBar = {
-  ...pillBase,
-  background: "#dcfce7",
-  color: "#166534"
-};
-
-const divisionBar = {
-  ...pillBase,
-  background: "#fef9c3",
-  color: "#854d0e"
-};
-
-/* 🔥 ROLE TILE */
+/* ROLE */
 const roleTile = {
   marginTop: 8,
   background: "#f1f5f9",
