@@ -19,7 +19,7 @@ import CoachLoginPage from "./pages/Auth/CoachLoginPage";
 import RefLoginPage from "./pages/Auth/RefLoginPage";
 import ParentLoginPage from "./pages/Auth/ParentLoginPage";
 import AdminLoginPage from "./pages/Auth/AdminLoginPage";
-import ResetPasswordPage from "./pages/Auth/ResetPasswordPage"; // 🔥 ADDED
+import ResetPasswordPage from "./pages/Auth/ResetPasswordPage";
 
 // REF APP
 import RefLayout from "./layouts/RefLayout";
@@ -52,6 +52,8 @@ export default function App() {
       }
 
       if (path === "/") setPage("home");
+      else if (path === "/schedule") setPage("schedule"); // 🔥 FIX
+      else if (path === "/scoreboard") setPage("scoreboard"); // 🔥 FIX
       else if (path === "/signup") setPage("signup");
       else if (path === "/coach-signup") setPage("coachSignup");
       else if (path === "/ref-signup") setPage("refSignup");
@@ -61,8 +63,7 @@ export default function App() {
       else if (path === "/coach-login") setPage("coachLogin");
       else if (path === "/parent-login") setPage("parentLogin");
       else if (path === "/admin-login") setPage("adminLogin");
-
-      else if (path === "/reset-password") setPage("resetPassword"); // 🔥 ADDED
+      else if (path === "/reset-password") setPage("resetPassword");
 
       else if (path.startsWith("/admin")) {
         await checkAdmin();
@@ -149,6 +150,8 @@ export default function App() {
 
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
+    if (page === "schedule") window.history.pushState({}, "", "/schedule"); // 🔥 FIX
+    if (page === "scoreboard") window.history.pushState({}, "", "/scoreboard"); // 🔥 FIX
     if (page === "signup") window.history.pushState({}, "", "/signup");
     if (page === "coachSignup") window.history.pushState({}, "", "/coach-signup");
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
@@ -159,7 +162,7 @@ export default function App() {
     if (page === "parentLogin") window.history.pushState({}, "", "/parent-login");
     if (page === "adminLogin") window.history.pushState({}, "", "/admin-login");
 
-    if (page === "resetPassword") window.history.pushState({}, "", "/reset-password"); // 🔥 ADDED
+    if (page === "resetPassword") window.history.pushState({}, "", "/reset-password");
 
     if (page === "refDashboard") window.history.pushState({}, "", "/ref");
     if (page === "refSchedule") window.history.pushState({}, "", "/ref/schedule");
@@ -180,18 +183,17 @@ export default function App() {
           document.body
         )}
 
-      {/* 🔥 LOGIN + RESET FULL SCREEN */}
       {(page === "adminLogin" ||
         page === "refLogin" ||
         page === "coachLogin" ||
         page === "parentLogin" ||
-        page === "resetPassword") && ( // 🔥 ADDED
+        page === "resetPassword") && (
         <>
           {page === "adminLogin" && <AdminLoginPage />}
           {page === "refLogin" && <RefLoginPage setPage={setPage} />}
           {page === "coachLogin" && <CoachLoginPage setPage={setPage} />}
           {page === "parentLogin" && <ParentLoginPage setPage={setPage} />}
-          {page === "resetPassword" && <ResetPasswordPage />} {/* 🔥 ADDED */}
+          {page === "resetPassword" && <ResetPasswordPage />}
         </>
       )}
 
@@ -218,7 +220,7 @@ export default function App() {
         page !== "refLogin" &&
         page !== "coachLogin" &&
         page !== "parentLogin" &&
-        page !== "resetPassword" && ( // 🔥 ADDED
+        page !== "resetPassword" &&
         (!page.startsWith("ref") ||
           page === "refSignup") && (
           <PublicLayout page={page} setPage={setPage}>
@@ -234,7 +236,7 @@ export default function App() {
             {page === "coachSignup" && <CoachSignUpPage />}
             {page === "refSignup" && <RefSignUpPage />}
           </PublicLayout>
-        ))}
+        )}
     </>
   );
 }
