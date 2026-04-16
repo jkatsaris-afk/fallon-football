@@ -1,78 +1,50 @@
-import React from "react";
+import React, { useState } from "react";
+import ScoreManagementPage from "./GameManagerPages/ScoreManagementPage";
+import ScoreRecordsPage from "./GameManagerPages/ScoreRecordsPage";
+import LiveScoreboardPage from "./GameManagerPages/LiveScoreboardPage";
 
 export default function GameManager() {
+  const [tab, setTab] = useState("score");
+
   return (
-    <div style={container}>
+    <div style={wrap}>
 
-      <div style={card}>
+      <div style={statsGrid}>
+        <StatTile label="Score Management" active={tab==="score"} onClick={()=>setTab("score")} />
+        <StatTile label="Score Records" active={tab==="records"} onClick={()=>setTab("records")} />
+        <StatTile label="Live Scoreboard" active={tab==="live"} onClick={()=>setTab("live")} />
+      </div>
 
-        <div style={icon}>🏈</div>
-
-        <h1 style={title}>Game Manager</h1>
-
-        <p style={subtitle}>
-          This feature is currently under development.
-        </p>
-
-        <div style={features}>
-          <div>• Live score tracking</div>
-          <div>• Game clock controls</div>
-          <div>• Referee assignment</div>
-          <div>• Real-time updates</div>
-        </div>
-
-        <div style={comingSoon}>
-          Coming Soon 🚧
-        </div>
-
+      <div style={section}>
+        {tab === "score" && <ScoreManagementPage />}
+        {tab === "records" && <ScoreRecordsPage />}
+        {tab === "live" && <LiveScoreboardPage />}
       </div>
 
     </div>
   );
 }
 
-/* ================= STYLES ================= */
+function StatTile({ label, active, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: "#fff",
+        borderRadius: 18,
+        padding: 18,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+        cursor: "pointer",
+        outline: active ? "2px solid #16a34a" : "none",
+        textAlign: "center",
+        fontWeight: 600
+      }}
+    >
+      {label}
+    </div>
+  );
+}
 
-const container = {
-  height: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "transparent"
-};
-
-const card = {
-  background: "rgba(255,255,255,0.4)",
-  backdropFilter: "blur(12px)",
-  borderRadius: 16,
-  padding: 40,
-  textAlign: "center",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-  maxWidth: 400
-};
-
-const icon = {
-  fontSize: 50,
-  marginBottom: 10
-};
-
-const title = {
-  marginBottom: 10
-};
-
-const subtitle = {
-  color: "#64748b",
-  marginBottom: 20
-};
-
-const features = {
-  textAlign: "left",
-  marginBottom: 20,
-  color: "#334155"
-};
-
-const comingSoon = {
-  marginTop: 10,
-  fontWeight: "600",
-  color: "#2f6ea6"
-};
+const wrap = { display:"flex", flexDirection:"column", gap:20 };
+const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(160px,1fr))", gap:14 };
+const section = { background:"#fff", borderRadius:18, padding:20, boxShadow:"0 8px 24px rgba(0,0,0,0.08)" };
