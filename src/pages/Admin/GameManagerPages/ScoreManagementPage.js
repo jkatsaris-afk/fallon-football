@@ -145,6 +145,13 @@ export default function ScoreManagementPage() {
           const awayLogo = TEAM_LOGOS[g.opponent];
           const final = isFinal(g);
 
+          /* 🔥 FIXED DIVISION */
+          const division =
+            g.division ||
+            g.divisions?.name ||
+            g.division_name ||
+            "No Division";
+
           return (
             <div key={g.id} style={card}>
 
@@ -162,9 +169,28 @@ export default function ScoreManagementPage() {
                 Week {g.week} • {g.time || g.event_time} • {g.field}
               </div>
 
+              {/* 🔥 DIVISION BADGE */}
+              <div style={divisionBadge}>
+                {division}
+              </div>
+
               {!final && (
                 <button
-                  style={btn}
+                  style={{
+                    marginTop: 14,
+                    padding: "10px 18px",
+                    borderRadius: 999,
+                    background: "#16a34a",
+                    color: "#fff",
+                    border: "none",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    display: "block",
+                    marginLeft: "auto",
+                    marginRight: "auto",
+                    width: "fit-content",
+                    minWidth: 150
+                  }}
                   onMouseEnter={(e)=>e.target.style.background="#15803d"}
                   onMouseLeave={(e)=>e.target.style.background="#16a34a"}
                   onClick={() => openModal(g)}
@@ -277,18 +303,19 @@ const vs = { fontWeight:700 };
 const gameTitle = { textAlign:"center", fontWeight:700 };
 const gameMeta = { textAlign:"center", fontSize:12, color:"#64748b" };
 
-const btn = {
-  marginTop:14,
-  padding:"10px 18px",
-  borderRadius:999,
-  background:"#16a34a",
-  color:"#fff",
-  border:"none",
-  cursor:"pointer",
-  fontWeight:600,
-  display:"block",
-  marginLeft:"auto",
-  marginRight:"auto"
+const divisionBadge = {
+  marginTop: 10,
+  background: "linear-gradient(135deg, #dbeafe, #bfdbfe)",
+  color: "#1e40af",
+  padding: "6px 12px",
+  borderRadius: 999,
+  fontSize: 12,
+  textAlign: "center",
+  fontWeight: 700,
+  width: "fit-content",
+  marginLeft: "auto",
+  marginRight: "auto",
+  boxShadow: "0 2px 6px rgba(0,0,0,0.08)"
 };
 
 const finalBadge = {
