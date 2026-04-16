@@ -15,7 +15,6 @@ export default function RefSchedule() {
 
     if (!user) return;
 
-    // 🔥 GET REF ID
     const { data: ref } = await supabase
       .from("referees")
       .select("id")
@@ -26,7 +25,6 @@ export default function RefSchedule() {
 
     setRefId(ref.id);
 
-    // 🔥 GET ASSIGNED GAMES
     const { data: assignments } = await supabase
       .from("ref_assignments")
       .select(`
@@ -57,30 +55,38 @@ export default function RefSchedule() {
       <div style={grid}>
         {games.map((g) => {
           const game = g.schedule_master_auto;
-
           if (!game) return null;
 
           return (
             <div key={g.id} style={card}>
-              <div style={matchup}>
-                {game.team} vs {game.opponent}
+
+              {/* 🔥 TEAMS */}
+              <div style={teamsRow}>
+                <div style={team}>{game.team}</div>
+                <div style={vs}>vs</div>
+                <div style={team}>{game.opponent}</div>
               </div>
 
-              <div style={meta}>
-                {game.division}
+              {/* 🔥 INFO STACK */}
+              <div style={infoStack}>
+                <div style={timeBar}>
+                  {game.event_date} • {game.event_time}
+                </div>
+
+                <div style={fieldBar}>
+                  Field {game.field}
+                </div>
+
+                <div style={divisionBar}>
+                  {game.division}
+                </div>
               </div>
 
-              <div style={meta}>
-                {game.event_date} • {game.event_time}
-              </div>
-
-              <div style={meta}>
-                Field {game.field}
-              </div>
-
-              <div style={role}>
+              {/* 🔥 ROLE TILE */}
+              <div style={roleTile}>
                 {g.role}
               </div>
+
             </div>
           );
         })}
@@ -115,21 +121,72 @@ const card = {
   background: "#fff",
   borderRadius: 16,
   padding: 16,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 10
 };
 
-const matchup = {
+/* 🔥 TEAMS */
+const teamsRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center"
+};
+
+const team = {
   fontWeight: 700,
-  marginBottom: 6
+  fontSize: 14
 };
 
-const meta = {
-  fontSize: 13,
+const vs = {
+  fontWeight: 700,
   color: "#64748b"
 };
 
-const role = {
-  marginTop: 10,
+/* 🔥 INFO STACK (MATCHES REFTIME) */
+const infoStack = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  marginTop: 6
+};
+
+const pillBase = {
+  width: "100%",
+  padding: "10px",
+  borderRadius: 12,
+  fontSize: 13,
   fontWeight: 600,
-  color: "#16a34a"
+  textAlign: "center",
+  boxSizing: "border-box"
+};
+
+const timeBar = {
+  ...pillBase,
+  background: "#e0f2fe",
+  color: "#0369a1"
+};
+
+const fieldBar = {
+  ...pillBase,
+  background: "#dcfce7",
+  color: "#166534"
+};
+
+const divisionBar = {
+  ...pillBase,
+  background: "#fef9c3",
+  color: "#854d0e"
+};
+
+/* 🔥 ROLE TILE */
+const roleTile = {
+  marginTop: 8,
+  background: "#f1f5f9",
+  padding: "10px",
+  borderRadius: 12,
+  textAlign: "center",
+  fontWeight: 700,
+  color: "#334155"
 };
