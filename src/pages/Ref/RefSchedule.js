@@ -1,6 +1,27 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
+/* LOGOS */
+import bills from "../../resources/Buffalo Bills.png";
+import bengals from "../../resources/Cincinnati Bengals.png";
+import broncos from "../../resources/Denver Broncos.png";
+import lions from "../../resources/Detroit Lions.png";
+import colts from "../../resources/Indianapolis Colts.png";
+import chiefs from "../../resources/Kansas City Chiefs.png";
+import raiders from "../../resources/Las Vegas Raiders.png";
+import rams from "../../resources/Los Angeles Rams.png";
+import jets from "../../resources/New York Jets.png";
+import eagles from "../../resources/Philadelphia Eagles.png";
+import steelers from "../../resources/Pittsburgh Steelers.png";
+import niners from "../../resources/San Francisco 49ers.png";
+import ravens from "../../resources/Baltimore Ravens.png";
+
+const teamLogos = {
+  bills, bengals, broncos, lions, colts,
+  chiefs, raiders, rams, jets, eagles,
+  steelers, "49ers": niners, ravens
+};
+
 export default function RefSchedule() {
   const [refId, setRefId] = useState(null);
   const [games, setGames] = useState([]);
@@ -44,6 +65,11 @@ export default function RefSchedule() {
     setGames(assignments || []);
   };
 
+  const getLogo = (team) => {
+    if (!team) return null;
+    return teamLogos[team.toLowerCase().trim()];
+  };
+
   return (
     <div style={wrap}>
       <h2 style={title}>My Schedule</h2>
@@ -57,13 +83,22 @@ export default function RefSchedule() {
           const game = g.schedule_master_auto;
           if (!game) return null;
 
+          const teamLogo = getLogo(game.team);
+          const oppLogo = getLogo(game.opponent);
+
           return (
             <div key={g.id} style={card}>
 
-              {/* 🔥 TEAMS */}
+              {/* 🔥 BIG CENTER LOGOS */}
+              <div style={logoRow}>
+                {teamLogo && <img src={teamLogo} style={logoStyle} />}
+                <div style={vsBig}>vs</div>
+                {oppLogo && <img src={oppLogo} style={logoStyle} />}
+              </div>
+
+              {/* 🔥 TEAM NAMES */}
               <div style={teamsRow}>
                 <div style={team}>{game.team}</div>
-                <div style={vs}>vs</div>
                 <div style={team}>{game.opponent}</div>
               </div>
 
@@ -127,11 +162,28 @@ const card = {
   gap: 10
 };
 
-/* 🔥 TEAMS */
+/* 🔥 LOGOS */
+const logoRow = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: 16
+};
+
+const logoStyle = {
+  width: 60
+};
+
+const vsBig = {
+  fontWeight: 800,
+  fontSize: 16,
+  color: "#64748b"
+};
+
+/* 🔥 TEAM NAMES */
 const teamsRow = {
   display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
+  justifyContent: "space-between"
 };
 
 const team = {
@@ -139,12 +191,7 @@ const team = {
   fontSize: 14
 };
 
-const vs = {
-  fontWeight: 700,
-  color: "#64748b"
-};
-
-/* 🔥 INFO STACK (MATCHES REFTIME) */
+/* 🔥 INFO STACK */
 const infoStack = {
   display: "flex",
   flexDirection: "column",
