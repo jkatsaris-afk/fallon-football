@@ -81,14 +81,11 @@ export default function App() {
     init();
   }, []);
 
-  // 🔥 FIXED ADMIN CHECK
   const checkAdmin = async () => {
     const {
       data: { user },
       error
     } = await supabase.auth.getUser();
-
-    console.log("CHECK ADMIN USER:", user);
 
     if (!user) {
       setPage("adminLogin");
@@ -101,10 +98,7 @@ export default function App() {
       .eq("auth_id", user.id)
       .maybeSingle();
 
-    console.log("ADMIN ROLE DATA:", userData);
-
     if (roleError) {
-      console.error("ROLE ERROR:", roleError);
       setPage("adminLogin");
       return;
     }
@@ -181,7 +175,18 @@ export default function App() {
           document.body
         )}
 
-      {page === "adminLogin" && <AdminLoginPage />}
+      {/* 🔥 ALL LOGIN PAGES FULL SCREEN */}
+      {(page === "adminLogin" ||
+        page === "refLogin" ||
+        page === "coachLogin" ||
+        page === "parentLogin") && (
+        <>
+          {page === "adminLogin" && <AdminLoginPage />}
+          {page === "refLogin" && <RefLoginPage setPage={setPage} />}
+          {page === "coachLogin" && <CoachLoginPage setPage={setPage} />}
+          {page === "parentLogin" && <ParentLoginPage setPage={setPage} />}
+        </>
+      )}
 
       {page === "dashboard" && (
         <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
@@ -203,8 +208,10 @@ export default function App() {
 
       {page !== "dashboard" &&
         page !== "adminLogin" &&
+        page !== "refLogin" &&
+        page !== "coachLogin" &&
+        page !== "parentLogin" &&
         (!page.startsWith("ref") ||
-          page === "refLogin" ||
           page === "refSignup") && (
           <PublicLayout page={page} setPage={setPage}>
             {page === "home" && <HomePage setPage={setPage} />}
@@ -213,9 +220,6 @@ export default function App() {
             {page === "teamSchedules" && <TeamSchedulesPage setPage={setPage} />}
 
             {page === "loginSelect" && <LoginSelectPage setPage={setPage} />}
-            {page === "coachLogin" && <CoachLoginPage />}
-            {page === "refLogin" && <RefLoginPage setPage={setPage} />}
-            {page === "parentLogin" && <ParentLoginPage />}
 
             {page === "signupSelect" && <SignUpSelectPage setPage={setPage} />}
             {page === "signup" && <SignUpPage />}
