@@ -50,37 +50,59 @@ export default function TeamStatsPage() {
 
   /* 🔥 GET DIVISIONS */
   const divisions = useMemo(() => {
-    const unique = [...new Set(games.map(g => g.division).filter(Boolean))];
+    const unique = [
+      ...new Set(
+        games
+          .map(g => g.division)
+          .filter(d => d && d !== "Unknown")
+      )
+    ];
     return ["all", ...unique];
   }, [games]);
 
-  /* 🔥 BUILD TEAM STATS */
+  /* 🔥 FIXED TEAM STATS (TEAM + DIVISION) */
   const teamStats = useMemo(() => {
     const map = {};
 
     games.forEach(g => {
+      const division =
+        g.division ||
+        g.divisions?.name ||
+        g.division_name ||
+        "Unknown";
+
       const teams = [
-        { name: g.home_team, scored: g.home_score, allowed: g.away_score },
-        { name: g.away_team, scored: g.away_score, allowed: g.home_score }
+        {
+          name: g.home_team,
+          scored: g.home_score,
+          allowed: g.away_score
+        },
+        {
+          name: g.away_team,
+          scored: g.away_score,
+          allowed: g.home_score
+        }
       ];
 
       teams.forEach(t => {
-        if (!map[t.name]) {
-          map[t.name] = {
+        const key = `${t.name}_${division}`; // 🔥 FIX
+
+        if (!map[key]) {
+          map[key] = {
             team: t.name,
+            division,
             wins: 0,
             losses: 0,
             pf: 0,
-            pa: 0,
-            division: g.division || "Unknown"
+            pa: 0
           };
         }
 
-        map[t.name].pf += t.scored;
-        map[t.name].pa += t.allowed;
+        map[key].pf += t.scored;
+        map[key].pa += t.allowed;
 
-        if (t.scored > t.allowed) map[t.name].wins += 1;
-        else map[t.name].losses += 1;
+        if (t.scored > t.allowed) map[key].wins += 1;
+        else map[key].losses += 1;
       });
     });
 
@@ -98,7 +120,7 @@ export default function TeamStatsPage() {
 
       <h2 style={title}>Team Stats</h2>
 
-      {/* 🔥 DIVISION FILTER */}
+      {/* DIVISION FILTER */}
       <div style={filterGrid}>
         {divisions.map(d => (
           <div
@@ -114,13 +136,16 @@ export default function TeamStatsPage() {
         ))}
       </div>
 
-      {/* 🔥 TEAM GRID */}
+      {/* TEAM GRID */}
       <div style={grid}>
         {filteredTeams.map(team => {
           const logo = TEAM_LOGOS[team.team];
 
           return (
-            <div key={team.team} style={card}>
+            <div
+              key={`${team.team}_${team.division}`} // 🔥 FIXED KEY
+              style={card}
+            >
 
               {logo && <img src={logo} style={logoStyle} />}
 
