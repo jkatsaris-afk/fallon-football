@@ -29,6 +29,22 @@ export default function RefSchedule() {
     load();
   }, []);
 
+  const parseGameDate = (dateStr, timeStr) => {
+    if (!dateStr) return null;
+
+    const [y, m, d] = dateStr.split("-");
+    let hour = 0;
+    let minute = 0;
+
+    if (timeStr) {
+      const parts = timeStr.split(":");
+      hour = parseInt(parts[0]) || 0;
+      minute = parseInt(parts[1]) || 0;
+    }
+
+    return new Date(y, m - 1, d, hour, minute);
+  };
+
   const load = async () => {
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user;
@@ -58,25 +74,18 @@ export default function RefSchedule() {
       `)
       .eq("referee_id", ref.id);
 
-    // 🔥 FILTER UPCOMING ONLY
     const now = new Date();
 
     const upcoming = (assignments || []).filter((g) => {
       const game = g.schedule_master_auto;
-      if (!game?.event_date || !game?.event_time) return false;
-
-      // Combine date + time
-      const gameDateTime = new Date(
-        `${game.event_date}T${game.event_time}`
-      );
-
-      return gameDateTime >= now;
+      const gameDate = parseGameDate(game?.event_date, game?.event_time);
+      if (!gameDate) return false;
+      return gameDate >= now;
     });
 
-    // 🔥 SORT BY SOONEST
     upcoming.sort((a, b) => {
-      const g1 = new Date(`${a.schedule_master_auto.event_date}T${a.schedule_master_auto.event_time}`);
-      const g2 = new Date(`${b.schedule_master_auto.event_date}T${b.schedule_master_auto.event_time}`);
+      const g1 = parseGameDate(a.schedule_master_auto.event_date, a.schedule_master_auto.event_time);
+      const g2 = parseGameDate(b.schedule_master_auto.event_date, b.schedule_master_auto.event_time);
       return g1 - g2;
     });
 
@@ -88,6 +97,16 @@ export default function RefSchedule() {
     return teamLogos[team.toLowerCase().trim()];
   };
 
+  const isToday = (dateStr) => {
+    const today = new Date();
+    const d = new Date(dateStr);
+    return (
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate()
+    );
+  };
+
   return (
     <div style={wrap}>
       <h2 style={title}>Upcoming Games</h2>
@@ -97,16 +116,31 @@ export default function RefSchedule() {
       )}
 
       <div style={grid}>
-        {games.map((g) => {
+        {games.map((g, index) => {
           const game = g.schedule_master_auto;
           if (!game) return null;
 
           const teamLogo = getLogo(game.team);
           const oppLogo = getLogo(game.opponent);
 
-          return (
-            <div key={g.id} style={card}>
+          const nextGame = index === 0;
 
+          return (
+            <div
+              key={g.id}
+              style={{
+                ...card,
+                ...(nextGame && nextGameHighlight)
+              }}
+            >
+
+              {/* BADGES */}
+              <div style={badgeRow}>
+                {nextGame && <div style={nextBadge}>NEXT</div>}
+                {isToday(game.event_date) && <div style={todayBadge}>TODAY</div>}
+              </div>
+
+              {/* TEAMS */}
               <div style={teamsRow}>
                 <div style={teamBlock}>
                   {teamLogo && <img src={teamLogo} style={logoStyle} />}
@@ -121,6 +155,7 @@ export default function RefSchedule() {
                 </div>
               </div>
 
+              {/* INFO */}
               <div style={infoStack}>
                 <div style={timeBar}>
                   {game.event_date} • {game.event_time}
@@ -133,6 +168,7 @@ export default function RefSchedule() {
                 </div>
               </div>
 
+              {/* ROLE */}
               <div style={roleTile}>
                 {g.role}
               </div>
@@ -145,16 +181,10 @@ export default function RefSchedule() {
   );
 }
 
-/* ---------------- STYLES ---------------- */
+/* STYLES */
 
 const wrap = { padding: 20 };
-
-const title = {
-  fontSize: 20,
-  fontWeight: 700,
-  marginBottom: 16
-};
-
+const title = { fontSize: 20, fontWeight: 700, marginBottom: 16 };
 const empty = { color: "#64748b" };
 
 const grid = {
@@ -171,6 +201,30 @@ const card = {
   display: "flex",
   flexDirection: "column",
   gap: 10
+};
+
+const nextGameHighlight = {
+  border: "2px solid #16a34a"
+};
+
+const badgeRow = {
+  display: "flex",
+  gap: 6
+};
+
+const nextBadge = {
+  background: "#16a34a",
+  color: "#fff",
+  padding: "4px 8px",
+  borderRadius: 6,
+  fontSize: 11
+};
+
+const todayBadge = {
+  background: "#facc15",
+  padding: "4px 8px",
+  borderRadius: 6,
+  fontSize: 11
 };
 
 const teamsRow = {
@@ -193,14 +247,8 @@ const teamName = {
   textAlign: "center"
 };
 
-const logoStyle = {
-  width: 60
-};
-
-const vsBig = {
-  fontWeight: 800,
-  color: "#64748b"
-};
+const logoStyle = { width: 60 };
+const vsBig = { fontWeight: 800, color: "#64748b" };
 
 const infoStack = {
   display: "flex",
