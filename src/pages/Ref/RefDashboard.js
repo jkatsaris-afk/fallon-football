@@ -19,7 +19,6 @@ export default function RefDashboard() {
 
     setUser(currentUser);
 
-    // REF PROFILE
     const { data: refData } = await supabase
       .from("referees")
       .select("*")
@@ -29,7 +28,6 @@ export default function RefDashboard() {
     setRef(refData);
     if (!refData) return;
 
-    // EARNINGS
     const { data: checkins } = await supabase
       .from("ref_checkins")
       .select("pay")
@@ -42,7 +40,6 @@ export default function RefDashboard() {
 
     setEarnings(total);
 
-    // ASSIGNED GAMES
     const { data: gamesData } = await supabase
       .from("ref_assignments")
       .select(`
@@ -60,7 +57,6 @@ export default function RefDashboard() {
 
     setGames(gamesData || []);
 
-    // 🔥 HEAD REF FROM referees TABLE
     const { data: headRefData } = await supabase
       .from("referees")
       .select("first_name, last_name, phone, profile_image")
@@ -77,7 +73,7 @@ export default function RefDashboard() {
     if (!file) return null;
 
     const SUPABASE_URL = "https://qfgxbzqhwpscjpflxqfs.supabase.co";
-    const BUCKET = "avatars"; // 🔥 change if needed
+    const BUCKET = "profile-images"; // ✅ CORRECT BUCKET
 
     return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${file}`;
   };
@@ -90,7 +86,6 @@ export default function RefDashboard() {
 
       <div style={grid}>
 
-        {/* EARNINGS */}
         <Tile>
           <div style={tileTitle}>Total Earnings</div>
 
@@ -103,7 +98,6 @@ export default function RefDashboard() {
           </div>
         </Tile>
 
-        {/* STATUS */}
         <Tile>
           <div style={tileTitle}>Approval Status</div>
 
@@ -149,7 +143,6 @@ export default function RefDashboard() {
           )}
         </Tile>
 
-        {/* MY GAMES */}
         <Tile>
           <div style={tileTitle}>My Games</div>
 
