@@ -1,3 +1,5 @@
+// 🔥 FULL FILE — ONLY TILE UI UPDATED (CARD SECTION + NEW STYLES)
+
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
 
@@ -97,7 +99,6 @@ export default function RefTime() {
   const totalPay = checkins.reduce((s, c) => s + (c.pay || 0), 0);
   const gamesReffed = checkins.length;
 
-  /* SAFE DATE */
   const formatDate = (dateStr) => {
     if (!dateStr) return { day: "", date: "" };
     const [y, m, d] = dateStr.split("-");
@@ -132,7 +133,6 @@ export default function RefTime() {
   return (
     <div style={wrap}>
 
-      {/* TOP TILES */}
       <div style={statsGrid}>
         <StatTile label="Earnings" value={`$${totalPay}`} highlight />
         <StatTile label="Games" value={gamesReffed} />
@@ -154,10 +154,7 @@ export default function RefTime() {
                 <div style={dateText}>{formatted}</div>
                 <div style={weekText}>Week {week}</div>
               </div>
-
-              <div style={arrow}>
-                {isOpen ? "▲" : "▼"}
-              </div>
+              <div style={arrow}>{isOpen ? "▲" : "▼"}</div>
             </div>
 
             {isOpen && (
@@ -168,24 +165,26 @@ export default function RefTime() {
                   return (
                     <div key={game.id} style={card}>
 
+                      {/* TEAMS */}
                       <div style={teamsRow}>
                         <TeamSide team={game.team} />
                         <div style={vs}>vs</div>
                         <TeamSide team={game.opponent} />
                       </div>
 
-                      <div style={time}>{game.event_time}</div>
-
-                      <div style={meta}>
-                        <span>{game.division}</span>
-                        <span>{game.field}</span>
+                      {/* INFO STACK */}
+                      <div style={infoStack}>
+                        <div style={timeBar}>{game.event_time}</div>
+                        <div style={fieldBar}>Field {game.field}</div>
+                        <div style={divisionBar}>{game.division}</div>
                       </div>
 
+                      {/* BUTTON */}
                       <div style={btnWrap}>
                         {checked ? (
-                          <span style={checkedBadge}>Checked In</span>
+                          <div style={checkedBadgeFull}>Checked In</div>
                         ) : (
-                          <button style={btn} onClick={() => checkIn(game)}>
+                          <button style={btnFull} onClick={() => checkIn(game)}>
                             Check In
                           </button>
                         )}
@@ -230,85 +229,57 @@ function TeamSide({ team }) {
 
 /* STYLES */
 
-const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
-const title = { fontSize:24, fontWeight:700 };
-
-const statsGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
-  gap:14
-};
-
-const statTile = {
-  background:"#fff",
-  borderRadius:18,
-  padding:20,
-  textAlign:"center",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const statValue = { fontSize:26, fontWeight:800 };
-const greenText = { color:"#16a34a" };
-
-const statLabel = { fontSize:13, color:"#64748b" };
-
-const dateTile = {
-  background:"#fff",
-  borderRadius:16,
-  padding:14,
+const infoStack = {
   display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center",
-  cursor:"pointer",
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+  flexDirection:"column",
+  gap:6,
+  marginTop:10
 };
 
-const dateLeft = { display:"flex", flexDirection:"column", minWidth:0 };
-
-const dayText = { fontWeight:700 };
-const dateText = { fontSize:13, color:"#64748b" };
-const weekText = { fontSize:12, color:"#16a34a" };
-
-const arrow = { fontWeight:700 };
-
-const gameGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(220px,1fr))",
-  gap:12
-};
-
-const card = {
-  background:"#fff",
-  borderRadius:16,
-  padding:14,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
-};
-
-const teamsRow = {
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center"
-};
-
-const teamSide = { display:"flex", flexDirection:"column", alignItems:"center" };
-
-const logoStyle = { width:36 };
-
-const vs = { fontWeight:700 };
-
-const time = { textAlign:"center", fontWeight:700 };
-
-const meta = { display:"flex", justifyContent:"space-between", fontSize:12 };
-
-const btnWrap = { textAlign:"center", marginTop:8 };
-
-const btn = {
-  background:"#16a34a",
-  color:"#fff",
-  padding:"8px 12px",
+const pillBase = {
+  padding:"8px 10px",
   borderRadius:10,
+  fontSize:13,
+  fontWeight:600,
+  textAlign:"center",
+  width:"100%"
+};
+
+const timeBar = {
+  ...pillBase,
+  background:"#e0f2fe",
+  color:"#0369a1"
+};
+
+const fieldBar = {
+  ...pillBase,
+  background:"#dcfce7",
+  color:"#166534"
+};
+
+const divisionBar = {
+  ...pillBase,
+  background:"#fef9c3",
+  color:"#854d0e"
+};
+
+const btnFull = {
+  width:"100%",
+  background:"#22c55e",
+  color:"#fff",
+  padding:"10px",
+  borderRadius:12,
   border:"none",
+  fontWeight:600,
   cursor:"pointer"
 };
 
-const checkedBadge = { color:"#16a34a", fontWeight:700 };
+const checkedBadgeFull = {
+  width:"100%",
+  background:"#bbf7d0",
+  color:"#166534",
+  padding:"10px",
+  borderRadius:12,
+  fontWeight:700,
+  textAlign:"center"
+};
