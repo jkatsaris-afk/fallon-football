@@ -15,6 +15,8 @@ export default function RefAvailabilityPage() {
   const [refId, setRefId] = useState(null);
   const [availability, setAvailability] = useState({});
 
+  const [touchStart, setTouchStart] = useState(null);
+
   useEffect(() => {
     loadWeeks();
     getRefId();
@@ -35,6 +37,7 @@ export default function RefAvailabilityPage() {
 
     const unique = [...new Set(data.map((g) => g.week))].sort((a, b) => a - b);
     setWeeks(unique);
+    if (!selectedWeek && unique.length) setSelectedWeek(unique[0]);
   };
 
   const getRefId = async () => {
@@ -60,10 +63,8 @@ export default function RefAvailabilityPage() {
       .eq("week", selectedWeek);
 
     const map = {};
-
     data?.forEach((a) => {
-      const time = normalizeTime(a.time_block);
-      map[time] = a.available;
+      map[normalizeTime(a.time_block)] = a.available;
     });
 
     setAvailability(map);
@@ -75,31 +76,76 @@ export default function RefAvailabilityPage() {
     if (!refId || !selectedWeek) return;
 
     const current = availability?.[time];
-
-    let newValue;
-    if (current === undefined) newValue = true;
-    else newValue = !current;
+    const newValue = current === undefined ? true : !current;
 
     setAvailability((prev) => ({
       ...prev,
       [time]: newValue,
     }));
 
-    await supabase
-      .from("ref_availability")
-      .upsert(
+    await supabase.from("ref_availability").upsert(
+      [
+        {
+          referee_id: refId,
+          week: selectedWeek,
+          time_block: normalizeTime(time),
+          available: newValue,
+        },
+      ],
+      {
+        onConflict: ["referee_id", "week", "time_block"],
+      }
+    );
+  };
+
+  /* ---------------- BULK ACTIONS ---------------- */
+
+  const setAll = async (value) => {
+    const updates = {};
+
+    TIMES.forEach((t) => {
+      updates[t] = value;
+    });
+
+    setAvailability(updates);
+
+    for (let t of TIMES) {
+      await supabase.from("ref_availability").upsert(
         [
           {
             referee_id: refId,
             week: selectedWeek,
-            time_block: normalizeTime(time),
-            available: newValue,
+            time_block: t,
+            available: value,
           },
         ],
         {
           onConflict: ["referee_id", "week", "time_block"],
         }
       );
+    }
+  };
+
+  /* ---------------- SWIPE ---------------- */
+
+  const handleTouchStart = (e) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchStart) return;
+
+    const diff = touchStart - e.changedTouches[0].clientX;
+
+    const currentIndex = weeks.indexOf(selectedWeek);
+
+    if (diff > 50 && currentIndex < weeks.length - 1) {
+      setSelectedWeek(weeks[currentIndex + 1]); // swipe left
+    }
+
+    if (diff < -50 && currentIndex > 0) {
+      setSelectedWeek(weeks[currentIndex - 1]); // swipe right
+    }
   };
 
   /* ---------------- STATS ---------------- */
@@ -110,25 +156,28 @@ export default function RefAvailabilityPage() {
   /* ---------------- UI ---------------- */
 
   return (
-    <div style={wrap}>
+    <div
+      style={wrap}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
 
-      {/* HEADER */}
       <div style={header}>My Availability</div>
 
       {/* STATS */}
       <div style={statsGrid}>
-        <StatTile label="Set Slots" value={totalSet} />
+        <StatTile label="Set" value={totalSet} />
         <StatTile label="Available" value={totalAvailable} />
       </div>
 
-      {/* WEEK SELECT */}
-      <div style={weekGrid}>
+      {/* WEEK */}
+      <div style={weekRow}>
         {weeks.map((w) => (
           <div
             key={w}
             style={{
-              ...weekCard,
-              border: selectedWeek === w ? "2px solid #16a34a" : "2px solid transparent",
+              ...weekTile,
+              ...(selectedWeek === w && activeTile),
             }}
             onClick={() => setSelectedWeek(w)}
           >
@@ -137,34 +186,36 @@ export default function RefAvailabilityPage() {
         ))}
       </div>
 
-      {/* TIME BLOCKS */}
+      {/* QUICK ACTIONS */}
+      {selectedWeek && (
+        <div style={actionRow}>
+          <button style={greenBtn} onClick={() => setAll(true)}>
+            All Available
+          </button>
+          <button style={redBtn} onClick={() => setAll(false)}>
+            Clear All
+          </button>
+        </div>
+      )}
+
+      {/* TIMES */}
       {selectedWeek && (
         <div style={timeGrid}>
           {TIMES.map((t) => {
             const value = availability?.[t];
 
-            let bg = "#f1f5f9"; // cleaner gray
-            let color = "#111";
+            let style = { ...timeTile };
 
-            if (value === true) {
-              bg = "#16a34a";
-              color = "#fff";
-            } else if (value === false) {
-              bg = "#dc2626";
-              color = "#fff";
-            }
+            if (value === true) style = { ...style, ...greenTile };
+            if (value === false) style = { ...style, ...redTile };
 
             return (
               <div
                 key={t}
-                style={{
-                  ...timeCard,
-                  background: bg,
-                  color: color,
-                }}
+                style={style}
                 onClick={() => toggle(t)}
               >
-                <div style={timeText}>{t}</div>
+                {t}
               </div>
             );
           })}
@@ -206,7 +257,7 @@ const header = {
 const statsGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2,1fr)",
-  gap: 12
+  gap: 10
 };
 
 const statCard = {
@@ -228,20 +279,45 @@ const statLabel = {
   color: "#64748b"
 };
 
-const weekGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(100px,1fr))",
+const weekRow = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto"
+};
+
+const weekTile = {
+  padding: 10,
+  borderRadius: 12,
+  background: "#fff",
+  cursor: "pointer",
+  fontWeight: 700,
+};
+
+const activeTile = {
+  boxShadow: "0 0 0 2px #16a34a inset"
+};
+
+const actionRow = {
+  display: "flex",
   gap: 10
 };
 
-const weekCard = {
-  padding: 14,
-  borderRadius: 14,
-  background: "#fff",
-  textAlign: "center",
-  fontWeight: 700,
-  cursor: "pointer",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
+const greenBtn = {
+  flex: 1,
+  padding: 10,
+  borderRadius: 10,
+  background: "#16a34a",
+  color: "#fff",
+  border: "none"
+};
+
+const redBtn = {
+  flex: 1,
+  padding: 10,
+  borderRadius: 10,
+  background: "#dc2626",
+  color: "#fff",
+  border: "none"
 };
 
 const timeGrid = {
@@ -250,15 +326,24 @@ const timeGrid = {
   gap: 12
 };
 
-const timeCard = {
-  padding: 22,
+const timeTile = {
+  padding: 24,
   borderRadius: 18,
   textAlign: "center",
   fontWeight: 800,
+  background: "#f1f5f9",
   cursor: "pointer",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.08)"
+  transition: "0.15s"
 };
 
-const timeText = {
-  fontSize: 18
+const greenTile = {
+  background: "#16a34a",
+  color: "#fff",
+  boxShadow: "0 0 12px rgba(22,163,74,0.5)"
+};
+
+const redTile = {
+  background: "#dc2626",
+  color: "#fff",
+  boxShadow: "0 0 12px rgba(220,38,38,0.5)"
 };
