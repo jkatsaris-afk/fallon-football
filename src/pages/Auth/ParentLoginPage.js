@@ -3,21 +3,19 @@ import { useNavigate } from "react-router-dom";
 export default function ParentLoginPage() {
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    localStorage.setItem("parent_logged_in", "true");
-    navigate("/parent");
-  };
-
   return (
-    <div style={{ padding: 20 }}>
+    <div style={wrap}>
 
-      <h2>Parent Login</h2>
+      <div style={card}>
+        <h2 style={title}>Login</h2>
 
-      <div className="card">
         <div className="title">Parent Access</div>
 
-        <button className="button" onClick={handleLogin}>
-          Login
+        <button
+          className="button"
+          onClick={() => navigate("/parent")}
+        >
+          Login as Parent
         </button>
 
         <button
@@ -31,3 +29,26 @@ export default function ParentLoginPage() {
     </div>
   );
 }
+
+/* SAME STYLES */
+const wrap = {
+  minHeight: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 20
+};
+
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 24,
+  width: "100%",
+  maxWidth: 400,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  textAlign: "center"
+};
+
+const title = {
+  marginBottom: 12
+};
