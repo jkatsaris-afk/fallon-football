@@ -40,6 +40,18 @@ const DIVISION_ORDER = [
   "6th-8th"
 ];
 
+/* 🔥 NORMALIZE DIVISION (FIX) */
+const normalizeDivision = (d) => {
+  if (!d) return "Unknown";
+
+  if (d.includes("K")) return "K-1st";
+  if (d.includes("2") && d.includes("3")) return "2nd-3rd";
+  if (d.includes("4") && d.includes("5")) return "4th-5th";
+  if (d.includes("6") || d.includes("7") || d.includes("8")) return "6th-8th";
+
+  return d;
+};
+
 export default function TeamStatsPage() {
   const [games, setGames] = useState([]);
   const [scheduleMap, setScheduleMap] = useState({});
@@ -72,12 +84,13 @@ export default function TeamStatsPage() {
     return ["all", ...DIVISION_ORDER];
   }, []);
 
-  /* 🔥 TEAM STATS */
+  /* 🔥 TEAM STATS (FIXED DIVISION) */
   const teamStats = useMemo(() => {
     const map = {};
 
     games.forEach(g => {
-      const division = scheduleMap[g.schedule_id] || "Unknown";
+      const rawDivision = scheduleMap[g.schedule_id];
+      const division = normalizeDivision(rawDivision);
 
       const teams = [
         { name: g.home_team, scored: g.home_score, allowed: g.away_score },
@@ -109,10 +122,13 @@ export default function TeamStatsPage() {
     return Object.values(map);
   }, [games, scheduleMap]);
 
-  /* 🔥 FILTER */
+  /* 🔥 FILTER (FIXED) */
   const filteredTeams = useMemo(() => {
     if (selectedDivision === "all") return teamStats;
-    return teamStats.filter(t => t.division === selectedDivision);
+
+    return teamStats.filter(
+      t => normalizeDivision(t.division) === selectedDivision
+    );
   }, [teamStats, selectedDivision]);
 
   /* 🔥 SORT FOR STANDINGS */
