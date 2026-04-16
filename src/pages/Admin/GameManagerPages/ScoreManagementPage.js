@@ -32,6 +32,7 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
+/* normalize names */
 const normalize = (name) => {
   if (!name) return "";
   const lower = name.toLowerCase();
@@ -39,23 +40,22 @@ const normalize = (name) => {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 };
 
+/* derive week from date (used for 1–8 only) */
 const getWeek = (dateStr) => {
   if (!dateStr) return 1;
-  const start = new Date("2026-03-01");
+  const start = new Date("2026-03-01"); // adjust if needed
   const gameDate = new Date(dateStr);
   const diff = Math.floor((gameDate - start) / (1000 * 60 * 60 * 24));
   return Math.floor(diff / 7) + 1;
 };
 
-export default function ScoreManagementPage({ setGameId, setTab }) {
+export default function ScoreManagementPage() {
   const [games, setGames] = useState([]);
-  const [liveGames, setLiveGames] = useState([]);
   const [finalGames, setFinalGames] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState("all");
 
   useEffect(() => {
     loadGames();
-    loadLiveGames();
     loadFinalGames();
   }, []);
 
@@ -68,44 +68,12 @@ export default function ScoreManagementPage({ setGameId, setTab }) {
     setGames(data || []);
   };
 
-  const loadLiveGames = async () => {
-    const { data } = await supabase
-      .from("games_live")
-      .select("*");
-
-    setLiveGames(data || []);
-  };
-
   const loadFinalGames = async () => {
     const { data } = await supabase
       .from("game_scores")
       .select("*");
 
     setFinalGames(data || []);
-  };
-
-  const startGame = async (game) => {
-    const { data } = await supabase.from("games_live")
-      .insert({
-        schedule_id: game.id,
-        home_team: game.team,
-        away_team: game.opponent,
-        home_score: 0,
-        away_score: 0,
-        status: "live"
-      })
-      .select()
-      .single();
-
-    setGameId(data.id);
-    setTab("live");
-  };
-
-  const resumeGame = (game) => {
-    const existing = liveGames.find(g => g.schedule_id === game.id);
-    if (!existing) return;
-    setGameId(existing.id);
-    setTab("live");
   };
 
   const enterFinal = async (game) => {
@@ -124,29 +92,34 @@ export default function ScoreManagementPage({ setGameId, setTab }) {
     loadFinalGames();
   };
 
-  const getStatus = (game) => {
-    if (finalGames.find(g => g.schedule_id === game.id)) return "final";
-    if (liveGames.find(g => g.schedule_id === game.id)) return "live";
-    return "not-started";
+  const isFinal = (game) => {
+    return finalGames.find(g => g.schedule_id === game.id);
   };
 
-  const gamesWithWeek = useMemo(() => {
-    return games.map(g => ({ ...g, week: getWeek(g.event_date) }));
-  }, [games]);
+  /* 🔥 FIXED WEEKS */
+  const weeks = [
+    "all",
+    1, 2, 3, 4, 5, 6, 7, 8,
+    "championship"
+  ];
 
-  const weeks = useMemo(() => {
-    const unique = [...new Set(gamesWithWeek.map(g => g.week))];
-    return ["all", ...unique.sort((a,b)=>a-b)];
-  }, [gamesWithWeek]);
-
+  /* 🔥 FILTER */
   const filteredGames = useMemo(() => {
-    if (selectedWeek === "all") return gamesWithWeek;
-    return gamesWithWeek.filter(g => g.week === selectedWeek);
-  }, [gamesWithWeek, selectedWeek]);
+    if (selectedWeek === "all") return games;
+
+    if (selectedWeek === "championship") {
+      return games.filter(g =>
+        (g.event_type || "").toLowerCase().includes("champ")
+      );
+    }
+
+    return games.filter(g => getWeek(g.event_date) === selectedWeek);
+  }, [games, selectedWeek]);
 
   return (
     <div style={wrap}>
 
+      {/* WEEK FILTER */}
       <div style={weekGrid}>
         {weeks.map(w => (
           <div
@@ -154,16 +127,19 @@ export default function ScoreManagementPage({ setGameId, setTab }) {
             style={{ ...weekTile, ...(selectedWeek === w ? activeTile : {}) }}
             onClick={() => setSelectedWeek(w)}
           >
-            {w === "all" ? "All" : `Week ${w}`}
+            {w === "all" && "All"}
+            {w !== "all" && w !== "championship" && `Week ${w}`}
+            {w === "championship" && "Championships"}
           </div>
         ))}
       </div>
 
+      {/* GAME CARDS */}
       <div style={grid}>
         {filteredGames.map(g => {
           const home = normalize(g.team);
           const away = normalize(g.opponent);
-          const status = getStatus(g);
+          const final = isFinal(g);
 
           return (
             <div key={g.id} style={card}>
@@ -175,28 +151,19 @@ export default function ScoreManagementPage({ setGameId, setTab }) {
               </div>
 
               <div style={sub}>
-                Week {g.week} • {g.event_time} • {g.field}
+                {g.event_date} • {g.event_time} • {g.field}
               </div>
 
-              {status === "not-started" && (
-                <div style={btnRow}>
-                  <button style={btn} onClick={() => startGame(g)}>
-                    Start Game
-                  </button>
-                  <button style={btnGray} onClick={() => enterFinal(g)}>
-                    Enter Final
-                  </button>
-                </div>
-              )}
-
-              {status === "live" && (
-                <button style={btnBlue} onClick={() => resumeGame(g)}>
-                  Resume Game
+              {!final && (
+                <button style={btn} onClick={() => enterFinal(g)}>
+                  Enter Final
                 </button>
               )}
 
-              {status === "final" && (
-                <div style={finalBadge}>Final</div>
+              {final && (
+                <div style={finalBadge}>
+                  Final: {final.home_score} - {final.away_score}
+                </div>
               )}
 
             </div>
@@ -269,31 +236,14 @@ const logoStyle = { width:32, height:32 };
 
 const sub = { fontSize:12, color:"#64748b", marginTop:8 };
 
-const btnRow = { display:"flex", gap:8, marginTop:10 };
-
 const btn = {
+  marginTop:10,
   padding:"8px 12px",
   borderRadius:8,
   background:"#16a34a",
   color:"#fff",
-  border:"none"
-};
-
-const btnGray = {
-  padding:"8px 12px",
-  borderRadius:8,
-  background:"#6b7280",
-  color:"#fff",
-  border:"none"
-};
-
-const btnBlue = {
-  marginTop:10,
-  padding:"8px 12px",
-  borderRadius:8,
-  background:"#2563eb",
-  color:"#fff",
-  border:"none"
+  border:"none",
+  cursor:"pointer"
 };
 
 const finalBadge = {
@@ -301,5 +251,6 @@ const finalBadge = {
   padding:"6px 10px",
   borderRadius:8,
   background:"#e5e7eb",
-  textAlign:"center"
+  textAlign:"center",
+  fontWeight:600
 };
