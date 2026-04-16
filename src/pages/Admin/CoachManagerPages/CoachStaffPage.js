@@ -90,7 +90,7 @@ export default function CoachStaffPage() {
       : "Assistant Coach";
   };
 
-  /* 🔥 GET TEAM (HEAD OR ASSISTANT) */
+  /* 🔥 GET TEAM */
   const getCoachTeam = (coach) => {
     if (coach.teams && coach.teams.length > 0) return coach.teams[0];
     if (coach.assistant_teams && coach.assistant_teams.length > 0) return coach.assistant_teams[0];
@@ -225,7 +225,6 @@ export default function CoachStaffPage() {
                       <button style={btnRed} onClick={() => handleStatusUpdate(coach.id, "denied")}>Deny</button>
                     </div>
 
-                    {/* 🔥 ASSIGNED TEAM DISPLAY */}
                     <div style={{ marginTop: 10 }}>
                       <div style={{ fontSize: 12, color: "#64748b" }}>
                         Assigned Team
@@ -276,4 +275,120 @@ function StatTile({ label, value, active, onClick }) {
   );
 }
 
-/* STYLES unchanged below */
+/* ---------------- STYLES ---------------- */
+
+const wrap = {
+  display:"flex",
+  flexDirection:"column",
+  gap:20
+};
+
+const statsGrid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))",
+  gap:14
+};
+
+const stat = {
+  background:"#fff",
+  borderRadius:18,
+  padding:18,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
+  cursor:"pointer"
+};
+
+const statActive = { outline:"2px solid #16a34a" };
+
+const statValue = { fontSize:26, fontWeight:800 };
+const statLabel = { fontSize:12, color:"#64748b" };
+
+const section = {
+  background:"#fff",
+  borderRadius:18,
+  padding:20,
+  boxShadow:"0 8px 24px rgba(0,0,0,0.08)"
+};
+
+const title = { fontSize:24, fontWeight:700 };
+
+const list = { display:"flex", flexDirection:"column", gap:16 };
+
+const card = {
+  border:"1px solid #e5e7eb",
+  borderRadius:18,
+  padding:18,
+  background:"#f8fafc"
+};
+
+const row = {
+  display:"flex",
+  justifyContent:"space-between",
+  alignItems:"flex-start",
+  flexWrap:"wrap",
+  gap:10,
+  marginBottom:14
+};
+
+const left = { display:"flex", gap:12, alignItems:"center" };
+
+const avatar = {
+  width:56,
+  height:56,
+  borderRadius:"50%",
+  flexShrink:0
+};
+
+const name = { fontWeight:700 };
+const sub = { fontSize:13, color:"#64748b" };
+
+const grid = {
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit, minmax(180px,1fr))",
+  gap:12
+};
+
+const tile = {
+  background:"#fff",
+  borderRadius:16,
+  padding:16
+};
+
+const label = { fontWeight:700, marginBottom:8 };
+
+const input = { width:"100%", padding:10, borderRadius:10 };
+
+const btnRow = {
+  display:"flex",
+  gap:8,
+  flexWrap:"wrap"
+};
+
+const btnGreen = {
+  background:"rgba(34,197,94,0.12)",
+  color:"#166534",
+  border:"1px solid rgba(34,197,94,0.25)",
+  padding:"10px 12px",
+  borderRadius:10
+};
+
+const btnYellow = {
+  background:"rgba(245,158,11,0.12)",
+  color:"#92400e",
+  border:"1px solid rgba(245,158,11,0.25)",
+  padding:"10px 12px",
+  borderRadius:10
+};
+
+const btnRed = {
+  background:"rgba(239,68,68,0.12)",
+  color:"#991b1b",
+  border:"1px solid rgba(239,68,68,0.25)",
+  padding:"10px 12px",
+  borderRadius:10
+};
+
+const badge = { padding:"6px 12px", borderRadius:999, fontWeight:700 };
+
+const green = { background:"rgba(34,197,94,0.12)", color:"#166534" };
+const yellow = { background:"rgba(245,158,11,0.12)", color:"#92400e" };
+const red = { background:"rgba(239,68,68,0.12)", color:"#991b1b" };
