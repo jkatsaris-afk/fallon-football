@@ -51,13 +51,17 @@ export default function CoachStaffPage() {
         *,
         teams:teams!teams_coach_id_fkey (
           id,
-          nfl_team_id,
-          division
+          division,
+          nfl_team:nfl_teams (
+            name
+          )
         ),
         assistant_teams:teams!teams_assistant_coach_id_fkey (
           id,
-          nfl_team_id,
-          division
+          division,
+          nfl_team:nfl_teams (
+            name
+          )
         )
       `);
 
@@ -90,7 +94,6 @@ export default function CoachStaffPage() {
       : "Assistant Coach";
   };
 
-  /* 🔥 GET TEAM */
   const getCoachTeam = (coach) => {
     if (coach.teams && coach.teams.length > 0) return coach.teams[0];
     if (coach.assistant_teams && coach.assistant_teams.length > 0) return coach.assistant_teams[0];
@@ -176,6 +179,8 @@ export default function CoachStaffPage() {
           {filteredCoaches.map((coach) => {
             const role = getRole(coach);
             const team = getCoachTeam(coach);
+            const teamName = team?.nfl_team?.name;
+            const logo = TEAM_LOGOS[teamName];
 
             return (
               <div key={coach.id} style={card}>
@@ -238,14 +243,11 @@ export default function CoachStaffPage() {
 
                       {team && (
                         <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
-                          {TEAM_LOGOS[team.nfl_team_id] && (
-                            <img
-                              src={TEAM_LOGOS[team.nfl_team_id]}
-                              style={{ width: 28, height: 28 }}
-                            />
+                          {logo && (
+                            <img src={logo} style={{ width: 28, height: 28 }} />
                           )}
                           <div style={{ fontSize: 13 }}>
-                            {team.nfl_team_id}
+                            {teamName}
                           </div>
                         </div>
                       )}
