@@ -3,21 +3,19 @@ import { useNavigate } from "react-router-dom";
 export default function CoachLoginPage() {
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    localStorage.setItem("coach_logged_in", "true");
-    navigate("/coach");
-  };
-
   return (
-    <div style={{ padding: 20 }}>
+    <div style={wrap}>
 
-      <h2>Coach Login</h2>
+      <div style={card}>
+        <h2 style={title}>Login</h2>
 
-      <div className="card">
         <div className="title">Coach Access</div>
 
-        <button className="button" onClick={handleLogin}>
-          Login
+        <button
+          className="button"
+          onClick={() => navigate("/coach")}
+        >
+          Login as Coach
         </button>
 
         <button
@@ -31,3 +29,26 @@ export default function CoachLoginPage() {
     </div>
   );
 }
+
+/* SAME STYLES */
+const wrap = {
+  minHeight: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 20
+};
+
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 24,
+  width: "100%",
+  maxWidth: 400,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  textAlign: "center"
+};
+
+const title = {
+  marginBottom: 12
+};
