@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../supabase";
+import { supabase } from "../../../supabase";
 
 export default function Fields() {
   const [fields, setFields] = useState([]);
