@@ -32,8 +32,13 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-/* 🔥 YOUR ORDER */
-const DIVISION_ORDER = ["K-1st", "2nd-3rd", "4th-5th", "6th-8th"];
+/* 🔥 FIXED DIVISION ORDER */
+const DIVISION_ORDER = [
+  "K-1st",
+  "2nd-3rd",
+  "4th-5th",
+  "6th-8th"
+];
 
 export default function TeamStatsPage() {
   const [games, setGames] = useState([]);
@@ -62,23 +67,10 @@ export default function TeamStatsPage() {
     setGames(scores || []);
   };
 
-  /* 🔥 GET REAL DIVISIONS */
+  /* 🔥 ORDERED DIVISIONS */
   const divisions = useMemo(() => {
-    const found = [
-      ...new Set(
-        games
-          .map(g => scheduleMap[g.schedule_id])
-          .filter(Boolean)
-      )
-    ];
-
-    // 🔥 SORT USING YOUR ORDER
-    const sorted = [...found].sort(
-      (a, b) => DIVISION_ORDER.indexOf(a) - DIVISION_ORDER.indexOf(b)
-    );
-
-    return ["all", ...sorted];
-  }, [games, scheduleMap]);
+    return ["all", ...DIVISION_ORDER];
+  }, []);
 
   /* 🔥 TEAM STATS */
   const teamStats = useMemo(() => {
@@ -123,7 +115,7 @@ export default function TeamStatsPage() {
     return teamStats.filter(t => t.division === selectedDivision);
   }, [teamStats, selectedDivision]);
 
-  /* 🔥 SORT STANDINGS */
+  /* 🔥 SORT FOR STANDINGS */
   const rankedTeams = useMemo(() => {
     return [...filteredTeams].sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
@@ -139,7 +131,7 @@ export default function TeamStatsPage() {
 
       <h2 style={title}>Team Stats</h2>
 
-      {/* FILTER */}
+      {/* DIVISION FILTER */}
       <div style={filterGrid}>
         {divisions.map(d => (
           <div
@@ -155,29 +147,37 @@ export default function TeamStatsPage() {
         ))}
       </div>
 
-      {/* TEAM TILES (ALWAYS SHOW) */}
+      {/* TEAM GRID */}
       <div style={grid}>
         {rankedTeams.map(team => {
           const logo = TEAM_LOGOS[team.team];
 
           return (
             <div key={`${team.team}_${team.division}`} style={card}>
+
               {logo && <img src={logo} style={logoStyle} />}
+
               <div style={teamName}>{team.team}</div>
-              <div style={record}>{team.wins} - {team.losses}</div>
+
+              <div style={record}>
+                {team.wins} - {team.losses}
+              </div>
 
               <div style={statsRow}>
                 <span>PF: {team.pf}</span>
                 <span>PA: {team.pa}</span>
               </div>
 
-              <div style={divisionBadge}>{team.division}</div>
+              <div style={divisionBadge}>
+                {team.division}
+              </div>
+
             </div>
           );
         })}
       </div>
 
-      {/* 🔥 BRACKET (BELOW, NOT REPLACING) */}
+      {/* 🔥 BRACKET */}
       {selectedDivision !== "all" && bracketTeams.length >= 4 && (
         <div style={bracketWrap}>
 
@@ -186,11 +186,18 @@ export default function TeamStatsPage() {
           </h3>
 
           <div style={bracketGrid}>
+
+            {/* SEMI 1 */}
             <Match t1={bracketTeams[0]} t2={bracketTeams[3]} />
+
+            {/* SEMI 2 */}
             <Match t1={bracketTeams[1]} t2={bracketTeams[2]} />
+
           </div>
 
-          <div style={finalBox}>Championship Game</div>
+          <div style={finalBox}>
+            Championship Game
+          </div>
 
         </div>
       )}
@@ -199,7 +206,7 @@ export default function TeamStatsPage() {
   );
 }
 
-/* MATCH */
+/* 🔥 MATCH COMPONENT */
 function Match({ t1, t2 }) {
   return (
     <div style={matchCard}>
@@ -211,83 +218,88 @@ function Match({ t1, t2 }) {
 }
 
 /* STYLES */
-const wrap = { display:"flex", flexDirection:"column", gap:20 };
-const title = { fontSize:24, fontWeight:700 };
+
+const wrap = { display: "flex", flexDirection: "column", gap: 20 };
+
+const title = { fontSize: 24, fontWeight: 700 };
 
 const filterGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",
-  gap:10
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))",
+  gap: 10
 };
 
 const filterTile = {
-  background:"#fff",
-  padding:12,
-  borderRadius:14,
-  textAlign:"center",
-  cursor:"pointer",
-  fontWeight:600
+  background: "#fff",
+  padding: 12,
+  borderRadius: 14,
+  textAlign: "center",
+  cursor: "pointer",
+  fontWeight: 600
 };
 
-const activeTile = { outline:"2px solid #2563eb" };
+const activeTile = { outline: "2px solid #2563eb" };
 
 const grid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",
-  gap:16
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px,1fr))",
+  gap: 16
 };
 
 const card = {
-  background:"#fff",
-  borderRadius:18,
-  padding:18,
-  boxShadow:"0 8px 24px rgba(0,0,0,0.08)",
-  textAlign:"center"
+  background: "#fff",
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  textAlign: "center"
 };
 
-const logoStyle = { width:50, marginBottom:8 };
-const teamName = { fontWeight:700 };
-const record = { fontSize:18, fontWeight:700 };
+const logoStyle = { width: 50, marginBottom: 8 };
+
+const teamName = { fontWeight: 700 };
+
+const record = { fontSize: 18, fontWeight: 700 };
 
 const statsRow = {
-  display:"flex",
-  justifyContent:"center",
-  gap:10,
-  fontSize:12,
-  color:"#64748b"
+  display: "flex",
+  justifyContent: "center",
+  gap: 10,
+  fontSize: 12,
+  color: "#64748b"
 };
 
 const divisionBadge = {
-  marginTop:8,
-  background:"#e0f2fe",
-  color:"#0369a1",
-  padding:"4px 10px",
-  borderRadius:999,
-  fontSize:12
+  marginTop: 8,
+  background: "#e0f2fe",
+  color: "#0369a1",
+  padding: "4px 10px",
+  borderRadius: 999,
+  fontSize: 12
 };
 
+/* 🔥 BRACKET */
 const bracketWrap = {
-  marginTop:30,
-  padding:20,
-  background:"#fff",
-  borderRadius:18
+  marginTop: 30,
+  padding: 20,
+  background: "#fff",
+  borderRadius: 18
 };
 
 const bracketGrid = {
-  display:"grid",
-  gridTemplateColumns:"1fr 1fr",
-  gap:20
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 20
 };
 
 const matchCard = {
-  padding:12,
-  background:"#f8fafc",
-  borderRadius:12,
-  textAlign:"center"
+  padding: 12,
+  background: "#f8fafc",
+  borderRadius: 12,
+  textAlign: "center"
 };
 
 const finalBox = {
-  marginTop:20,
-  textAlign:"center",
-  fontWeight:700
+  marginTop: 20,
+  textAlign: "center",
+  fontWeight: 700
 };
