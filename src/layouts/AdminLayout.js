@@ -43,7 +43,10 @@ export default function AdminLayout({
           <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
           <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
           <NavBtn label="Fields" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
-          <NavBtn label="Coaches" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
+
+          {/* 🔥 ONLY CHANGE HERE */}
+          <NavBtn label="Coach Manager" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
+
           <NavBtn label="Referee Manager" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
           <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
           <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
@@ -60,7 +63,6 @@ export default function AdminLayout({
           </button>
         </div>
 
-        {/* 🔥 FIX IS HERE */}
         <div
           style={content}
           onMouseDown={(e) => e.stopPropagation()}
