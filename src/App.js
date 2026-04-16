@@ -18,6 +18,7 @@ import LoginSelectPage from "./pages/Public/LoginSelectPage";
 import CoachLoginPage from "./pages/Public/CoachLoginPage";
 import RefLoginPage from "./pages/Ref/RefLogin";
 import ParentLoginPage from "./pages/Public/ParentLoginPage";
+import AdminLoginPage from "./pages/Public/AdminLoginPage"; // 🔥 ADDED
 
 // REF APP
 import RefLayout from "./layouts/RefLayout";
@@ -28,7 +29,7 @@ import RefProfile from "./pages/Ref/RefProfile";
 import RefAvailabilityPage from "./pages/Ref/RefAvailabilityPage";
 
 import Dashboard from "./pages/Admin/Dashboard";
-import LoginModal from "./components/LoginModal";
+// import LoginModal from "./components/LoginModal"; ❌ REMOVED
 
 import PublicLayout from "./layouts/PublicLayout";
 import AdminLayout from "./layouts/AdminLayout";
@@ -56,8 +57,11 @@ export default function App() {
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/login") setPage("loginSelect");
 
-      // 🔥 ✅ THIS IS THE ONLY ADDITION
+      // 🔥 LOGIN ROUTES (ADDED)
       else if (path === "/ref-login") setPage("refLogin");
+      else if (path === "/coach-login") setPage("coachLogin");
+      else if (path === "/parent-login") setPage("parentLogin");
+      else if (path === "/admin-login") setPage("adminLogin");
 
       else if (path.startsWith("/admin")) {
         await checkAdmin();
@@ -140,6 +144,12 @@ export default function App() {
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
     if (page === "loginSelect") window.history.pushState({}, "", "/login");
 
+    // 🔥 LOGIN URL SYNC (ADDED)
+    if (page === "refLogin") window.history.pushState({}, "", "/ref-login");
+    if (page === "coachLogin") window.history.pushState({}, "", "/coach-login");
+    if (page === "parentLogin") window.history.pushState({}, "", "/parent-login");
+    if (page === "adminLogin") window.history.pushState({}, "", "/admin-login");
+
     if (page === "refDashboard") window.history.pushState({}, "", "/ref");
     if (page === "refSchedule") window.history.pushState({}, "", "/ref/schedule");
     if (page === "refTime") window.history.pushState({}, "", "/ref/time");
@@ -159,7 +169,8 @@ export default function App() {
           document.body
         )}
 
-      {page === "adminLogin" && <LoginModal setPage={setPage} />}
+      {/* 🔥 ADMIN LOGIN FIXED */}
+      {page === "adminLogin" && <AdminLoginPage />}
 
       {page === "dashboard" && (
         <AdminLayout adminPage={adminPage} setAdminPage={setAdminPage}>
