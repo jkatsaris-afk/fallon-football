@@ -19,7 +19,7 @@ export default function RefDashboard() {
 
     setUser(currentUser);
 
-    // 🔥 LOAD REF PROFILE
+    // REF PROFILE
     const { data: refData } = await supabase
       .from("referees")
       .select("*")
@@ -29,7 +29,7 @@ export default function RefDashboard() {
     setRef(refData);
     if (!refData) return;
 
-    // 🔥 LOAD EARNINGS
+    // EARNINGS
     const { data: checkins } = await supabase
       .from("ref_checkins")
       .select("pay")
@@ -42,7 +42,7 @@ export default function RefDashboard() {
 
     setEarnings(total);
 
-    // 🔥 LOAD ASSIGNED GAMES
+    // ASSIGNED GAMES
     const { data: gamesData } = await supabase
       .from("ref_assignments")
       .select(`
@@ -60,7 +60,7 @@ export default function RefDashboard() {
 
     setGames(gamesData || []);
 
-    // 🔥 LOAD HEAD REF FROM referees TABLE
+    // 🔥 HEAD REF FROM referees TABLE
     const { data: headRefData } = await supabase
       .from("referees")
       .select("first_name, last_name, phone, profile_image")
@@ -70,6 +70,16 @@ export default function RefDashboard() {
     if (headRefData) {
       setHeadRef(headRefData);
     }
+  };
+
+  /* 🔥 FIXED IMAGE BUILDER */
+  const getProfileImage = (file) => {
+    if (!file) return null;
+
+    const SUPABASE_URL = "https://qfgxbzqhwpscjpflxqfs.supabase.co";
+    const BUCKET = "avatars"; // 🔥 change if needed
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${file}`;
   };
 
   if (!ref) return <div style={{ padding: 20 }}>Loading...</div>;
@@ -108,7 +118,7 @@ export default function RefDashboard() {
           )}
         </Tile>
 
-        {/* 🔥 HEAD REF TILE (UPDATED) */}
+        {/* 🔥 HEAD REF TILE */}
         <Tile>
           <div style={tileTitle}>Head Ref</div>
 
@@ -118,11 +128,16 @@ export default function RefDashboard() {
 
           {headRef && (
             <div style={headRefWrap}>
-              {headRef.profile_image && (
+
+              {getProfileImage(headRef.profile_image) ? (
                 <img
-                  src={headRef.profile_image}
+                  src={getProfileImage(headRef.profile_image)}
                   style={headRefImg}
                 />
+              ) : (
+                <div style={avatarFallback}>
+                  {headRef.first_name?.[0]}
+                </div>
               )}
 
               <div style={headRefName}>
@@ -215,7 +230,8 @@ const statusStyle = (status) => ({
       : "#f59e0b"
 });
 
-/* 🔥 HEAD REF UI */
+/* HEAD REF */
+
 const headRefWrap = {
   display: "flex",
   flexDirection: "column",
@@ -228,6 +244,19 @@ const headRefImg = {
   height: 70,
   borderRadius: "50%",
   objectFit: "cover"
+};
+
+const avatarFallback = {
+  width: 70,
+  height: 70,
+  borderRadius: "50%",
+  background: "#e2e8f0",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 700,
+  fontSize: 22,
+  color: "#475569"
 };
 
 const headRefName = {
