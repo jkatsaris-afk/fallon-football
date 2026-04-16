@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
 import DefaultProfile from "../../../resources/Default-A.png";
 
-/* 🔥 TEAM LOGOS */
+/* TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
 import LogoBengals from "../../../resources/Cincinnati Bengals.png";
 import LogoBills from "../../../resources/Buffalo Bills.png";
@@ -17,7 +17,7 @@ import LogoRams from "../../../resources/Los Angeles Rams.png";
 import LogoSteelers from "../../../resources/Pittsburgh Steelers.png";
 import LogoRavens from "../../../resources/Baltimore Ravens.png";
 
-/* 🔥 LOGO MAP (PROPER CASE KEYS) */
+/* FINAL LOGO MAP */
 const TEAM_LOGOS = {
   "49ers": Logo49ers,
   Bengals: LogoBengals,
@@ -32,6 +32,38 @@ const TEAM_LOGOS = {
   Rams: LogoRams,
   Steelers: LogoSteelers,
   Ravens: LogoRavens,
+};
+
+/* 🔥 HANDLE ABBREVIATIONS */
+const TEAM_ABBR_MAP = {
+  sf: "49ers",
+  cin: "Bengals",
+  buf: "Bills",
+  den: "Broncos",
+  kc: "Chiefs",
+  ind: "Colts",
+  phi: "Eagles",
+  nyj: "Jets",
+  det: "Lions",
+  lv: "Raiders",
+  lar: "Rams",
+  pit: "Steelers",
+  bal: "Ravens",
+};
+
+/* 🔥 FINAL NORMALIZER */
+const normalizeTeam = (raw) => {
+  if (!raw) return "";
+
+  const lower = raw.toLowerCase();
+
+  // abbreviation case
+  if (TEAM_ABBR_MAP[lower]) return TEAM_ABBR_MAP[lower];
+
+  // full lowercase → Proper Case
+  if (lower === "49ers") return "49ers";
+
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
 };
 
 export default function CoachStaffPage() {
@@ -76,13 +108,6 @@ export default function CoachStaffPage() {
     setLoadingState(false);
   };
 
-  /* 🔥 FIX: normalize lowercase → Proper Case */
-  const formatTeamName = (name) => {
-    if (!name) return "";
-    if (name === "49ers") return "49ers"; // special case
-    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-  };
-
   const getName = (c) =>
     `${c.first_name || ""} ${c.last_name || ""}`.trim();
 
@@ -94,25 +119,9 @@ export default function CoachStaffPage() {
   };
 
   const getCoachTeam = (coach) => {
-    if (coach.teams && coach.teams.length > 0) return coach.teams[0];
-    if (coach.assistant_teams && coach.assistant_teams.length > 0) return coach.assistant_teams[0];
+    if (coach.teams?.length) return coach.teams[0];
+    if (coach.assistant_teams?.length) return coach.assistant_teams[0];
     return null;
-  };
-
-  const handleStatusUpdate = async (id, status) => {
-    await supabase.from("coaches").update({ status }).eq("id", id);
-    loadCoaches();
-  };
-
-  const handleRoleUpdate = async (coach, newRole) => {
-    await supabase
-      .from("coaches")
-      .update({
-        role: newRole === "head" ? "Head Coach" : "Assistant Coach",
-      })
-      .eq("id", coach.id);
-
-    loadCoaches();
   };
 
   const stats = useMemo(() => ({
@@ -131,25 +140,10 @@ export default function CoachStaffPage() {
     return coaches;
   }, [coaches, filter]);
 
-  const getProfileImage = (c) => {
-    const raw = c?.profile_image || "";
-    if (!raw) return DefaultProfile;
-    if (raw.startsWith("http")) return raw;
-
-    const { data } = supabase.storage
-      .from("profile-images")
-      .getPublicUrl(raw);
-
-    return data?.publicUrl || DefaultProfile;
-  };
-
-  if (loadingState) {
-    return <div style={{ padding: 20 }}>Loading coaches...</div>;
-  }
+  if (loadingState) return <div style={{ padding: 20 }}>Loading coaches...</div>;
 
   return (
     <div style={wrap}>
-
       <div style={statsGrid}>
         <StatTile label="All" value={stats.total} active={filter==="all"} onClick={()=>setFilter("all")} />
         <StatTile label="Pending" value={stats.pending} active={filter==="pending"} onClick={()=>setFilter("pending")} />
@@ -163,92 +157,41 @@ export default function CoachStaffPage() {
 
         <div style={list}>
           {filteredCoaches.map((coach) => {
-            const role = getRole(coach);
             const team = getCoachTeam(coach);
 
-            const rawName = team?.nfl_team?.short_name;
-            const teamName = formatTeamName(rawName);
+            const raw = team?.nfl_team?.short_name;
+            const teamName = normalizeTeam(raw);
             const logo = TEAM_LOGOS[teamName];
 
             return (
               <div key={coach.id} style={card}>
-
                 <div style={row}>
                   <div style={left}>
-                    <img src={getProfileImage(coach)} style={avatar} />
+                    <img src={DefaultProfile} style={avatar} />
                     <div>
                       <div style={name}>{getName(coach)}</div>
-                      <div style={sub}>
-                        {(coach.email || "") + (coach.phone ? " • " + coach.phone : "")}
-                      </div>
+                      <div style={sub}>{coach.email}</div>
                     </div>
                   </div>
-
-                  <span style={{
-                    ...badge,
-                    ...(getStatus(coach)==="approved" ? green :
-                        getStatus(coach)==="denied" ? red : yellow)
-                  }}>
-                    {getStatus(coach)}
-                  </span>
                 </div>
 
-                <div style={grid}>
+                <div style={tile}>
+                  <div style={label}>Assigned Team</div>
 
-                  <div style={tile}>
-                    <div style={label}>Role</div>
-                    <select
-                      value={role}
-                      onChange={(e) => handleRoleUpdate(coach, e.target.value)}
-                      style={input}
-                    >
-                      <option value="assistant">Assistant Coach</option>
-                      <option value="head">Head Coach</option>
-                    </select>
-                  </div>
+                  {!team && <div style={{ color:"#9ca3af" }}>🚫 Not Assigned</div>}
 
-                  <div style={tile}>
-                    <div style={label}>Status</div>
-
-                    <div style={btnRow}>
-                      <button style={btnGreen} onClick={() => handleStatusUpdate(coach.id, "approved")}>Approve</button>
-                      <button style={btnYellow} onClick={() => handleStatusUpdate(coach.id, "pending")}>Pending</button>
-                      <button style={btnRed} onClick={() => handleStatusUpdate(coach.id, "denied")}>Deny</button>
-                    </div>
-
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ fontSize: 12, color: "#64748b" }}>
-                        Assigned Team
+                  {team && (
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                        {logo && <img src={logo} style={{ width:28 }} />}
+                        <div>{teamName}</div>
                       </div>
 
-                      {!team && (
-                        <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                          🚫 Not Assigned
-                        </div>
-                      )}
-
-                      {team && (
-                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            {logo && <img src={logo} style={{ width: 28, height: 28 }} />}
-                            <div style={{ fontSize: 13 }}>{teamName}</div>
-                          </div>
-
-                          <div style={{
-                            fontSize: 12,
-                            color: "#64748b",
-                            background: "#f1f5f9",
-                            padding: "4px 8px",
-                            borderRadius: 8
-                          }}>
-                            {team.division || "No Division"}
-                          </div>
-                        </div>
-                      )}
+                      <div style={divisionBadge}>
+                        {team.division}
+                      </div>
                     </div>
-
-                  </div>
-
+                  )}
                 </div>
 
               </div>
@@ -260,19 +203,17 @@ export default function CoachStaffPage() {
   );
 }
 
-/* STAT TILE */
+/* COMPONENT */
 function StatTile({ label, value, active, onClick }) {
   return (
     <div onClick={onClick} style={{
-      background: "#fff",
-      borderRadius: 18,
-      padding: 18,
-      boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-      cursor: "pointer",
+      background:"#fff",
+      borderRadius:18,
+      padding:18,
       outline: active ? "2px solid #16a34a" : "none"
     }}>
-      <div style={{ fontSize: 26, fontWeight: 800 }}>{value}</div>
-      <div style={{ fontSize: 12, color: "#64748b" }}>{label}</div>
+      <div style={{ fontSize:26, fontWeight:800 }}>{value}</div>
+      <div style={{ fontSize:12 }}>{label}</div>
     </div>
   );
 }
@@ -280,24 +221,15 @@ function StatTile({ label, value, active, onClick }) {
 /* STYLES */
 const wrap = { display:"flex", flexDirection:"column", gap:20 };
 const statsGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(140px,1fr))", gap:14 };
-const section = { background:"#fff", borderRadius:18, padding:20, boxShadow:"0 8px 24px rgba(0,0,0,0.08)" };
+const section = { background:"#fff", borderRadius:18, padding:20 };
 const title = { fontSize:24, fontWeight:700 };
 const list = { display:"flex", flexDirection:"column", gap:16 };
-const card = { border:"1px solid #e5e7eb", borderRadius:18, padding:18, background:"#f8fafc" };
-const row = { display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10, marginBottom:14 };
-const left = { display:"flex", gap:12, alignItems:"center" };
-const avatar = { width:56, height:56, borderRadius:"50%" };
+const card = { border:"1px solid #e5e7eb", borderRadius:18, padding:18 };
+const row = { display:"flex", justifyContent:"space-between" };
+const left = { display:"flex", gap:12 };
+const avatar = { width:56, borderRadius:"50%" };
 const name = { fontWeight:700 };
 const sub = { fontSize:13, color:"#64748b" };
-const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(180px,1fr))", gap:12 };
-const tile = { background:"#fff", borderRadius:16, padding:16 };
-const label = { fontWeight:700, marginBottom:8 };
-const input = { width:"100%", padding:10, borderRadius:10 };
-const btnRow = { display:"flex", gap:8, flexWrap:"wrap" };
-const btnGreen = { background:"rgba(34,197,94,0.12)", color:"#166534", border:"1px solid rgba(34,197,94,0.25)", padding:"10px 12px", borderRadius:10 };
-const btnYellow = { background:"rgba(245,158,11,0.12)", color:"#92400e", border:"1px solid rgba(245,158,11,0.25)", padding:"10px 12px", borderRadius:10 };
-const btnRed = { background:"rgba(239,68,68,0.12)", color:"#991b1b", border:"1px solid rgba(239,68,68,0.25)", padding:"10px 12px", borderRadius:10 };
-const badge = { padding:"6px 12px", borderRadius:999, fontWeight:700 };
-const green = { background:"rgba(34,197,94,0.12)", color:"#166534" };
-const yellow = { background:"rgba(245,158,11,0.12)", color:"#92400e" };
-const red = { background:"rgba(239,68,68,0.12)", color:"#991b1b" };
+const tile = { marginTop:10 };
+const label = { fontWeight:700 };
+const divisionBadge = { background:"#f1f5f9", padding:"4px 8px", borderRadius:8 };
