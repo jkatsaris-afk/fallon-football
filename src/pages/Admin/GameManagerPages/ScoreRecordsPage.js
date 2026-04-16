@@ -60,7 +60,7 @@ export default function TeamStatsPage() {
     return ["all", ...unique];
   }, [games]);
 
-  /* 🔥 FIXED TEAM STATS (TEAM + DIVISION) */
+  /* 🔥 FIXED TEAM STATS (SWAPPED WIN/LOSS LOGIC) */
   const teamStats = useMemo(() => {
     const map = {};
 
@@ -85,7 +85,7 @@ export default function TeamStatsPage() {
       ];
 
       teams.forEach(t => {
-        const key = `${t.name}_${division}`; // 🔥 FIX
+        const key = `${t.name}_${division}`;
 
         if (!map[key]) {
           map[key] = {
@@ -101,8 +101,13 @@ export default function TeamStatsPage() {
         map[key].pf += t.scored;
         map[key].pa += t.allowed;
 
-        if (t.scored > t.allowed) map[key].wins += 1;
-        else map[key].losses += 1;
+        // 🔥 FIXED (SWAPPED)
+        if (t.scored < t.allowed) {
+          map[key].wins += 1;
+        } else if (t.scored > t.allowed) {
+          map[key].losses += 1;
+        }
+        // ties ignored
       });
     });
 
@@ -143,7 +148,7 @@ export default function TeamStatsPage() {
 
           return (
             <div
-              key={`${team.team}_${team.division}`} // 🔥 FIXED KEY
+              key={`${team.team}_${team.division}`}
               style={card}
             >
 
