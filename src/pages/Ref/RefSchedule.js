@@ -24,10 +24,20 @@ const teamLogos = {
 
 export default function RefSchedule() {
   const [games, setGames] = useState([]);
+  const [allGames, setAllGames] = useState([]); // 🔥 NEW
 
   useEffect(() => {
     load();
   }, []);
+
+  // 🔥 LIVE UPDATE EVERY MINUTE
+  useEffect(() => {
+    const interval = setInterval(() => {
+      filterGames();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [allGames]);
 
   const parseGameDate = (dateStr, timeStr) => {
     if (!dateStr) return null;
@@ -43,6 +53,25 @@ export default function RefSchedule() {
     }
 
     return new Date(y, m - 1, d, hour, minute);
+  };
+
+  const filterGames = () => {
+    const now = new Date();
+
+    const upcoming = (allGames || []).filter((g) => {
+      const game = g.schedule_master_auto;
+      const gameDate = parseGameDate(game?.event_date, game?.event_time);
+      if (!gameDate) return false;
+      return gameDate >= now;
+    });
+
+    upcoming.sort((a, b) => {
+      const g1 = parseGameDate(a.schedule_master_auto.event_date, a.schedule_master_auto.event_time);
+      const g2 = parseGameDate(b.schedule_master_auto.event_date, b.schedule_master_auto.event_time);
+      return g1 - g2;
+    });
+
+    setGames(upcoming);
   };
 
   const load = async () => {
@@ -74,22 +103,10 @@ export default function RefSchedule() {
       `)
       .eq("referee_id", ref.id);
 
-    const now = new Date();
+    setAllGames(assignments || []);
 
-    const upcoming = (assignments || []).filter((g) => {
-      const game = g.schedule_master_auto;
-      const gameDate = parseGameDate(game?.event_date, game?.event_time);
-      if (!gameDate) return false;
-      return gameDate >= now;
-    });
-
-    upcoming.sort((a, b) => {
-      const g1 = parseGameDate(a.schedule_master_auto.event_date, a.schedule_master_auto.event_time);
-      const g2 = parseGameDate(b.schedule_master_auto.event_date, b.schedule_master_auto.event_time);
-      return g1 - g2;
-    });
-
-    setGames(upcoming);
+    // 🔥 run immediately
+    setTimeout(() => filterGames(), 0);
   };
 
   const getLogo = (team) => {
@@ -122,7 +139,6 @@ export default function RefSchedule() {
 
           const teamLogo = getLogo(game.team);
           const oppLogo = getLogo(game.opponent);
-
           const nextGame = index === 0;
 
           return (
@@ -134,13 +150,11 @@ export default function RefSchedule() {
               }}
             >
 
-              {/* BADGES */}
               <div style={badgeRow}>
                 {nextGame && <div style={nextBadge}>NEXT</div>}
                 {isToday(game.event_date) && <div style={todayBadge}>TODAY</div>}
               </div>
 
-              {/* TEAMS */}
               <div style={teamsRow}>
                 <div style={teamBlock}>
                   {teamLogo && <img src={teamLogo} style={logoStyle} />}
@@ -155,7 +169,6 @@ export default function RefSchedule() {
                 </div>
               </div>
 
-              {/* INFO */}
               <div style={infoStack}>
                 <div style={timeBar}>
                   {game.event_date} • {game.event_time}
@@ -168,7 +181,6 @@ export default function RefSchedule() {
                 </div>
               </div>
 
-              {/* ROLE */}
               <div style={roleTile}>
                 {g.role}
               </div>
@@ -180,102 +192,3 @@ export default function RefSchedule() {
     </div>
   );
 }
-
-/* STYLES */
-
-const wrap = { padding: 20 };
-const title = { fontSize: 20, fontWeight: 700, marginBottom: 16 };
-const empty = { color: "#64748b" };
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px,1fr))",
-  gap: 12
-};
-
-const card = {
-  background: "#fff",
-  borderRadius: 16,
-  padding: 16,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-  display: "flex",
-  flexDirection: "column",
-  gap: 10
-};
-
-const nextGameHighlight = {
-  border: "2px solid #16a34a"
-};
-
-const badgeRow = {
-  display: "flex",
-  gap: 6
-};
-
-const nextBadge = {
-  background: "#16a34a",
-  color: "#fff",
-  padding: "4px 8px",
-  borderRadius: 6,
-  fontSize: 11
-};
-
-const todayBadge = {
-  background: "#facc15",
-  padding: "4px 8px",
-  borderRadius: 6,
-  fontSize: 11
-};
-
-const teamsRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
-};
-
-const teamBlock = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 6,
-  flex: 1
-};
-
-const teamName = {
-  fontWeight: 700,
-  fontSize: 13,
-  textAlign: "center"
-};
-
-const logoStyle = { width: 60 };
-const vsBig = { fontWeight: 800, color: "#64748b" };
-
-const infoStack = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 6
-};
-
-const pillBase = {
-  width: "100%",
-  padding: "10px",
-  borderRadius: 12,
-  fontSize: 13,
-  fontWeight: 600,
-  textAlign: "center",
-  boxSizing: "border-box"
-};
-
-const timeBar = { ...pillBase, background: "#e0f2fe", color: "#0369a1" };
-const fieldBar = { ...pillBase, background: "#dcfce7", color: "#166534" };
-const divisionBar = { ...pillBase, background: "#fef9c3", color: "#854d0e" };
-
-const roleTile = {
-  marginTop: 8,
-  background: "#f1f5f9",
-  padding: "10px",
-  borderRadius: 12,
-  textAlign: "center",
-  fontWeight: 700,
-  color: "#334155"
-};
