@@ -45,7 +45,7 @@ export default function PublicLayout({ children, page, setPage }) {
         />
       )}
 
-      {/* 🔥 UPDATED POPUP */}
+      {/* POPUP */}
       {showSignupMenu && (
         <div className="popup-wrap">
           <div className="popup-card" onClick={(e) => e.stopPropagation()}>
@@ -53,7 +53,7 @@ export default function PublicLayout({ children, page, setPage }) {
             <PopupItem
               icon={<Users size={20} />}
               label="Player"
-              onClick={() => handleSignupSelect("signUp")} {/* 🔥 FIXED */}
+              onClick={() => handleSignupSelect("signUp")}
             />
 
             <PopupItem
@@ -96,13 +96,12 @@ export default function PublicLayout({ children, page, setPage }) {
           onClick={() => handleNav("scoreboard")}
         />
 
-        {/* 🔥 UPDATED ACTIVE LOGIC */}
         <NavItem
           icon={<UserPlus size={22} />}
           label="Sign Up"
           active={
             showSignupMenu ||
-            page === "signUp" ||     // 🔥 FIXED
+            page === "signUp" ||
             page === "coachSignup" ||
             page === "refSignup"
           }
@@ -126,7 +125,6 @@ export default function PublicLayout({ children, page, setPage }) {
   );
 }
 
-/* NAV ITEM */
 function NavItem({ icon, label, active, onClick }) {
   return (
     <div
@@ -139,7 +137,6 @@ function NavItem({ icon, label, active, onClick }) {
   );
 }
 
-/* POPUP ITEM */
 function PopupItem({ icon, label, onClick }) {
   return (
     <div className="popup-item" onClick={onClick}>
