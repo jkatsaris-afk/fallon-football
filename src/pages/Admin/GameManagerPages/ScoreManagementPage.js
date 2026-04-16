@@ -32,23 +32,6 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
-/* normalize names */
-const normalize = (name) => {
-  if (!name) return "";
-  const lower = name.toLowerCase();
-  if (lower.includes("49")) return "49ers";
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
-};
-
-/* derive week from date (used for 1–8 only) */
-const getWeek = (dateStr) => {
-  if (!dateStr) return 1;
-  const start = new Date("2026-03-01"); // adjust if needed
-  const gameDate = new Date(dateStr);
-  const diff = Math.floor((gameDate - start) / (1000 * 60 * 60 * 24));
-  return Math.floor(diff / 7) + 1;
-};
-
 export default function ScoreManagementPage() {
   const [games, setGames] = useState([]);
   const [finalGames, setFinalGames] = useState([]);
@@ -61,7 +44,7 @@ export default function ScoreManagementPage() {
 
   const loadGames = async () => {
     const { data } = await supabase
-      .from("schedule_master")
+      .from("schedule_master_auto") // ✅ FIXED SOURCE
       .select("*")
       .ilike("event_type", "%game%");
 
@@ -96,12 +79,14 @@ export default function ScoreManagementPage() {
     return finalGames.find(g => g.schedule_id === game.id);
   };
 
-  /* 🔥 FIXED WEEKS */
-  const weeks = [
-    "all",
-    1, 2, 3, 4, 5, 6, 7, 8,
-    "championship"
-  ];
+  /* 🔥 WEEK LIST (FROM DB) */
+  const weeks = useMemo(() => {
+    const unique = [
+      ...new Set(games.map(g => g.week).filter(Boolean))
+    ];
+
+    return ["all", ...unique.sort((a, b) => Number(a) - Number(b)), "championship"];
+  }, [games]);
 
   /* 🔥 FILTER */
   const filteredGames = useMemo(() => {
@@ -113,45 +98,56 @@ export default function ScoreManagementPage() {
       );
     }
 
-    return games.filter(g => getWeek(g.event_date) === selectedWeek);
+    return games.filter(g => String(g.week) === String(selectedWeek));
   }, [games, selectedWeek]);
 
   return (
     <div style={wrap}>
 
       {/* WEEK FILTER */}
-      <div style={weekGrid}>
+      <div style={weekTileGrid}>
         {weeks.map(w => (
-          <div
+          <WeekTile
             key={w}
-            style={{ ...weekTile, ...(selectedWeek === w ? activeTile : {}) }}
+            label={
+              w === "all"
+                ? "All Weeks"
+                : w === "championship"
+                ? "Championships"
+                : `Week ${w}`
+            }
+            active={selectedWeek === w}
             onClick={() => setSelectedWeek(w)}
-          >
-            {w === "all" && "All"}
-            {w !== "all" && w !== "championship" && `Week ${w}`}
-            {w === "championship" && "Championships"}
-          </div>
+          />
         ))}
       </div>
 
-      {/* GAME CARDS */}
+      {/* GAME GRID */}
       <div style={grid}>
-        {filteredGames.map(g => {
-          const home = normalize(g.team);
-          const away = normalize(g.opponent);
+        {filteredGames.map((g) => {
+          const homeLogo = TEAM_LOGOS[g.team];
+          const awayLogo = TEAM_LOGOS[g.opponent];
           const final = isFinal(g);
 
           return (
             <div key={g.id} style={card}>
 
-              <div style={matchupRow}>
-                <Team logo={TEAM_LOGOS[home]} name={home} />
+              <div style={logoRow}>
+                {homeLogo && <img src={homeLogo} style={logo} />}
                 <div style={vs}>VS</div>
-                <Team logo={TEAM_LOGOS[away]} name={away} />
+                {awayLogo && <img src={awayLogo} style={logo} />}
               </div>
 
-              <div style={sub}>
-                {g.event_date} • {g.event_time} • {g.field}
+              <div style={gameTitle}>
+                {g.team} vs {g.opponent}
+              </div>
+
+              <div style={gameMeta}>
+                Week {g.week} • {g.time || g.event_time} • {g.field}
+              </div>
+
+              <div style={divisionBadge}>
+                {g.division || "No Division"}
               </div>
 
               {!final && (
@@ -176,81 +172,100 @@ export default function ScoreManagementPage() {
 }
 
 /* COMPONENTS */
-function Team({ logo, name }) {
+function WeekTile({ label, active, onClick }) {
   return (
-    <div style={teamWrap}>
-      {logo && <img src={logo} style={logoStyle} />}
-      <div>{name}</div>
-    </div>
+    <button
+      onClick={onClick}
+      style={{ ...weekTile, ...(active ? activeWeekTile : {}) }}
+    >
+      {label}
+    </button>
   );
 }
 
 /* STYLES */
-const wrap = { display:"flex", flexDirection:"column", gap:20 };
+const wrap = { padding: 20, display: "flex", flexDirection: "column", gap: 20 };
 
-const weekGrid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(100px,1fr))",
-  gap:10
+const weekTileGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
+  gap: 10
 };
 
 const weekTile = {
-  background:"#fff",
-  padding:10,
-  borderRadius:12,
-  textAlign:"center",
-  cursor:"pointer"
+  background: "#fff",
+  borderRadius: 14,
+  padding: 12,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+  border: "none",
+  fontWeight: 700,
+  cursor: "pointer"
 };
 
-const activeTile = { outline:"2px solid #16a34a" };
+const activeWeekTile = {
+  outline: "2px solid #2563eb"
+};
 
 const grid = {
-  display:"grid",
-  gridTemplateColumns:"repeat(auto-fit, minmax(240px,1fr))",
-  gap:16
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))",
+  gap: 16
 };
 
 const card = {
-  padding:16,
-  borderRadius:16,
-  background:"#f8fafc",
-  boxShadow:"0 6px 18px rgba(0,0,0,0.06)"
+  background: "#fff",
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
 };
 
-const matchupRow = {
-  display:"flex",
-  justifyContent:"space-between",
-  alignItems:"center"
+const logoRow = {
+  display: "flex",
+  justifyContent: "center",
+  gap: 10
 };
 
-const vs = { fontWeight:700 };
+const logo = { width: 40 };
+const vs = { fontWeight: 700 };
 
-const teamWrap = {
-  display:"flex",
-  flexDirection:"column",
-  alignItems:"center",
-  gap:6
+const gameTitle = {
+  textAlign: "center",
+  fontWeight: 700,
+  marginTop: 6
 };
 
-const logoStyle = { width:32, height:32 };
+const gameMeta = {
+  textAlign: "center",
+  fontSize: 12,
+  color: "#64748b"
+};
 
-const sub = { fontSize:12, color:"#64748b", marginTop:8 };
+const divisionBadge = {
+  marginTop: 8,
+  background: "rgba(59,130,246,0.12)",
+  color: "#1d4ed8",
+  padding: "4px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  textAlign: "center",
+  fontWeight: 600
+};
 
 const btn = {
-  marginTop:10,
-  padding:"8px 12px",
-  borderRadius:8,
-  background:"#16a34a",
-  color:"#fff",
-  border:"none",
-  cursor:"pointer"
+  marginTop: 10,
+  padding: "8px 12px",
+  borderRadius: 8,
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  cursor: "pointer"
 };
 
 const finalBadge = {
-  marginTop:10,
-  padding:"6px 10px",
-  borderRadius:8,
-  background:"#e5e7eb",
-  textAlign:"center",
-  fontWeight:600
+  marginTop: 10,
+  padding: "6px 10px",
+  borderRadius: 8,
+  background: "#e5e7eb",
+  textAlign: "center",
+  fontWeight: 600
 };
