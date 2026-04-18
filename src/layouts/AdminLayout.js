@@ -43,7 +43,6 @@ export default function AdminLayout({
           <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
           <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
 
-          {/* ✅ ONLY CHANGE HERE */}
           <NavBtn label="Field Manager" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
 
           <NavBtn label="Coach Manager" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
@@ -71,8 +70,9 @@ export default function AdminLayout({
           {children}
         </div>
 
+        {/* 🔥 FIXED MOBILE NAV */}
         {isMobile && (
-          <div className="nav">
+          <div className="nav-wrap" style={{ zIndex: 1000 }}>
             <NavItem icon={<Home size={22} />} label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
             <NavItem icon={<Users size={22} />} label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
             <NavItem icon={<Search size={22} />} label="Lookup" active={adminPage === "lookup"} onClick={() => setAdminPage("lookup")} />
@@ -86,10 +86,13 @@ export default function AdminLayout({
   );
 }
 
-/* NAV ITEM */
+/* NAV ITEM (🔥 MATCH PUBLIC) */
 function NavItem({ icon, label, active, onClick }) {
   return (
-    <div className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
+    <div
+      className={`nav-item2 ${active ? "active" : ""}`}
+      onClick={onClick}
+    >
       {icon}
       <span>{label}</span>
     </div>
