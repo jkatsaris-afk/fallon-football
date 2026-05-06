@@ -78,6 +78,18 @@ export default function PlayerManager() {
     loadData();
   };
 
+  const updatePlayerRating = async (id, value) => {
+    await supabase
+      .from("players")
+      .update({
+        rating: value,
+        rank_score: value,
+      })
+      .eq("id", id);
+
+    loadData();
+  };
+
   const updateDivision = async (playerId, divisionName) => {
     const { data: divisionData } = await supabase
       .from("divisions")
@@ -181,7 +193,7 @@ export default function PlayerManager() {
   <div style={cell}>Name</div>
   <div style={cell}>Age</div>
   <div style={cell}>Division</div>
-  <div style={cell}>Rating</div> {/* 🔥 NEW */}
+  <div style={cell}>Rating</div>
   <div style={cell}>Shirt</div>
   <div style={cell}>Payment</div>
   <div style={cellLast}>Team</div>
@@ -217,6 +229,18 @@ export default function PlayerManager() {
                     <option value="">Select</option>
                     {divisions.map(d => (
                       <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={cell}>
+                  <select
+                    value={p.rating || p.rank_score || 3}
+                    onChange={(e) => updatePlayerRating(p.id, Number(e.target.value))}
+                    style={input}
+                  >
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <option key={rating} value={rating}>{rating}</option>
                     ))}
                   </select>
                 </div>
@@ -317,13 +341,13 @@ const tileWrapper = {
 
 const gridHeader = {
   display: "grid",
-  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
+  gridTemplateColumns: "180px 60px 160px 90px 120px 140px 1fr",
   borderBottom: "1px solid #e5e7eb"
 };
 
 const gridRow = {
   display: "grid",
-  gridTemplateColumns: "180px 60px 160px 120px 140px 1fr",
+  gridTemplateColumns: "180px 60px 160px 90px 120px 140px 1fr",
   alignItems: "center",
   borderBottom: "1px solid #f1f5f9"
 };

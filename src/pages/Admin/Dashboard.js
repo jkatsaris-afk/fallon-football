@@ -134,13 +134,18 @@ export default function Dashboard({
         <>
           <h2>More</h2>
           <div style={moreGrid}>
-            <MoreBtn label="User Manager" onClick={() => setAdminPage("users")} />
             <MoreBtn label="Division Manager" onClick={() => setAdminPage("divisions")} />
+            <MoreBtn label="Team Manager" onClick={() => setAdminPage("teams")} />
             <MoreBtn label="Player Manager" onClick={() => setAdminPage("players")} />
+            <MoreBtn label="Matchup Manager" onClick={() => setAdminPage("matchups")} />
+            <MoreBtn label="Schedule Manager" onClick={() => setAdminPage("schedule")} />
+            <MoreBtn label="Game Manager" onClick={() => setAdminPage("games")} />
+            <MoreBtn label="Field Manager" onClick={() => setAdminPage("fields")} />
             <MoreBtn label="Coach Manager" onClick={() => setAdminPage("coaches")} />
             <MoreBtn label="Referee Manager" onClick={() => setAdminPage("referees")} />
             <MoreBtn label="Report Manager" onClick={() => setAdminPage("reports")} />
-            <MoreBtn label="Settings Manager" onClick={() => setAdminPage("settings")} />
+            <MoreBtn label="Settings" onClick={() => setAdminPage("settings")} />
+            <MoreBtn label="User Manager" onClick={() => setAdminPage("users")} />
           </div>
         </>
       )}

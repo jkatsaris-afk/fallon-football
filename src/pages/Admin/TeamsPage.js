@@ -57,6 +57,19 @@ export default function TeamsPage() {
     return c ? `${c.first_name} ${c.last_name}` : "—";
   };
 
+  const getPlayerRating = (player) => Number(player.rating || player.rank_score || 3);
+
+  const getTeamRanking = (teamId) => {
+    const teamPlayers = players.filter((player) => player.team_id === teamId);
+    const total = teamPlayers.reduce((sum, player) => sum + getPlayerRating(player), 0);
+
+    return {
+      average: teamPlayers.length ? (total / teamPlayers.length).toFixed(1) : "0.0",
+      count: teamPlayers.length,
+      total,
+    };
+  };
+
   const removeFromTeam = async (playerId) => {
     await supabase.from("players").update({ team_id: null }).eq("id", playerId);
     loadData();
@@ -159,6 +172,7 @@ export default function TeamsPage() {
   if (activeTeam) {
     const nfl = nflTeams.find(n => n.id === activeTeam.nfl_team_id);
     const teamPlayers = players.filter(p => p.team_id === activeTeam.id);
+    const teamRanking = getTeamRanking(activeTeam.id);
 
     return (
       <div style={{ padding: 20 }}>
@@ -190,6 +204,12 @@ export default function TeamsPage() {
               <span style={coachLabel}>Assistant</span>
               <span>{getCoachName(activeTeam.assistant_coach_id)}</span>
             </div>
+          </div>
+
+          <div style={rankingPanel}>
+            <div style={coachTitle}>Team Ranking</div>
+            <div style={rankingBig}>{teamRanking.total}</div>
+            <div style={rankingSub}>Avg {teamRanking.average} • {teamRanking.count} players</div>
           </div>
         </div>
 
@@ -233,7 +253,10 @@ export default function TeamsPage() {
         <div style={table}>
           {teamPlayers.map(p => (
             <div key={p.id} style={tableRow}>
-              <div>{p.first_name} {p.last_name}</div>
+              <div>
+                <div>{p.first_name} {p.last_name}</div>
+                <div style={playerRatingText}>Rating {getPlayerRating(p)}</div>
+              </div>
               <button style={removeBtn} onClick={() => removeFromTeam(p.id)}>Remove</button>
             </div>
           ))}
@@ -275,6 +298,7 @@ export default function TeamsPage() {
               {divTeams.map(t => {
                 const nfl = nflTeams.find(n => n.id === t.nfl_team_id);
                 const count = players.filter(p => p.team_id === t.id).length;
+                const ranking = getTeamRanking(t.id);
 
                 return (
                   <div key={t.id} style={tile} onClick={() => setActiveTeam(t)}>
@@ -283,6 +307,9 @@ export default function TeamsPage() {
                     <div style={{ fontSize: 11 }}>Coach: {getCoachName(t.coach_id)}</div>
                     <div style={{ fontSize: 11 }}>Asst: {getCoachName(t.assistant_coach_id)}</div>
                     <div style={{ fontSize: 12 }}>{count} Players</div>
+                    <div style={teamRankBadge}>
+                      Rank {ranking.total} • Avg {ranking.average}
+                    </div>
                   </div>
                 );
               })}
@@ -330,7 +357,7 @@ const removeBtn = {
   borderRadius:6
 };
 
-const dashboardCard = { display:"flex", justifyContent:"space-between", background:"#fff", padding:20, borderRadius:16 };
+const dashboardCard = { display:"flex", justifyContent:"space-between", background:"#fff", padding:20, borderRadius:16, gap:14, flexWrap:"wrap" };
 const leftSide = { display:"flex", gap:20, alignItems:"center" };
 const teamLogoWide = { width:120 };
 
@@ -338,6 +365,9 @@ const coachPanel = { background:"#f8fafc", padding:15, borderRadius:12, minWidth
 const coachTitle = { fontWeight:"600", marginBottom:8 };
 const coachRow = { display:"flex", justifyContent:"space-between" };
 const coachLabel = { color:"#64748b" };
+const rankingPanel = { background:"#ecfdf5", padding:15, borderRadius:12, minWidth:160, textAlign:"center" };
+const rankingBig = { color:"#166534", fontSize:30, fontWeight:"800" };
+const rankingSub = { color:"#166534", fontSize:12, fontWeight:"700" };
 
 const divisionBadge = { background:"#e2e8f0", padding:"4px 10px", borderRadius:8 };
 
@@ -345,7 +375,8 @@ const actionBar = { display:"flex", gap:10, marginTop:20 };
 const panel = { background:"#fff", padding:20, borderRadius:12, marginTop:20 };
 
 const table = { background:"#fff", borderRadius:12, marginTop:20 };
-const tableRow = { display:"flex", justifyContent:"space-between", padding:12 };
+const tableRow = { display:"flex", justifyContent:"space-between", padding:12, alignItems:"center", borderBottom:"1px solid #f1f5f9" };
+const playerRatingText = { color:"#64748b", fontSize:12, marginTop:2 };
 
 const row = { display:"flex", justifyContent:"space-between", padding:10 };
 
@@ -354,6 +385,7 @@ const formInput = { width:"100%", padding:8, marginBottom:10 };
 
 const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:15 };
 const tile = { background:"#fff", borderRadius:12, padding:10, textAlign:"center", cursor:"pointer" };
+const teamRankBadge = { background:"#ecfdf5", borderRadius:8, color:"#166534", fontSize:11, fontWeight:"700", marginTop:8, padding:"5px 6px" };
 
 const divisionTile = { background:"#fff", borderRadius:14, padding:15, marginBottom:20 };
 const divisionHeader = { fontWeight:"600", marginBottom:10 };

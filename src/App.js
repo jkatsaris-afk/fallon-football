@@ -12,6 +12,7 @@ import CoachSignUpPage from "./pages/Public/CoachSignUpPage";
 import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
+import CoachRankingsPage from "./pages/Public/CoachRankingsPage";
 
 // LOGIN
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
@@ -60,6 +61,7 @@ export default function App() {
       else if (path === "/signup") setPage("signup");
       else if (path === "/coach-signup") setPage("coachSignup");
       else if (path === "/ref-signup") setPage("refSignup");
+      else if (path === "/coach-rankings") setPage("coachRankings");
       else if (path === "/login") setPage("loginSelect");
 
       else if (path === "/ref-login") setPage("refLogin");
@@ -161,6 +163,7 @@ export default function App() {
     if (page === "signup") window.history.pushState({}, "", "/signup");
     if (page === "coachSignup") window.history.pushState({}, "", "/coach-signup");
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
+    if (page === "coachRankings") window.history.pushState({}, "", "/coach-rankings");
     if (page === "loginSelect") window.history.pushState({}, "", "/login");
 
     if (page === "refLogin") window.history.pushState({}, "", "/ref-login");
@@ -252,6 +255,7 @@ export default function App() {
             {page === "signup" && <SignUpPage />}
             {page === "coachSignup" && <CoachSignUpPage />}
             {page === "refSignup" && <RefSignUpPage />}
+            {page === "coachRankings" && <CoachRankingsPage />}
           </PublicLayout>
         )}
     </>

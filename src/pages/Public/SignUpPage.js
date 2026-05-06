@@ -4,6 +4,8 @@ import { supabase } from "../../supabase";
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState(null);
+  const [divisions, setDivisions] = useState([]);
+  const [status, setStatus] = useState(null);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -29,41 +31,87 @@ export default function SignUpPage() {
       .single();
 
     setSettings(data);
+
+    const { data: divisionData } = await supabase
+      .from("divisions")
+      .select("id, name");
+
+    setDivisions(divisionData || []);
   };
 
   const getDivision = (age) => {
     if (age <= 5) return "K-1";
     if (age <= 7) return "2nd-3rd";
     if (age <= 9) return "4th-5th";
-    return "6th+";
+    return "6th-8th";
   };
 
   const handleSubmit = async () => {
+    setStatus(null);
+
     if (!form.waiver) {
-      alert("You must agree to the waiver");
+      setStatus({ type: "error", message: "You must agree to the waiver." });
       return;
     }
 
     setLoading(true);
 
     const division = getDivision(Number(form.age));
+    const divisionId = divisions.find((item) => item.name === division)?.id || null;
+    const parentEmail = cleanText(form.parentEmail).toLowerCase();
 
-    await supabase.from("players").insert([
-      {
-        first_name: form.firstName,
-        last_name: form.lastName,
-        age: Number(form.age),
-        experience_level: form.experience,
-        division,
-        shirt_size: form.shirtSize,
-        season_id: settings.current_season,
-        waiver_signed: true,
-        registration_fee: settings.registration_fee,
-        payment_status: "unpaid"
-      }
-    ]);
+    const profilePayload = {
+      first_name: cleanText(form.firstName),
+      last_name: cleanText(form.lastName),
+      age: Number(form.age),
+      experience_level: form.experience,
+      shirt_size: form.shirtSize,
+      season_id: settings.current_season,
+      division_id: divisionId,
+      parent_name: cleanText(form.parentName),
+      parent_phone: cleanText(form.parentPhone),
+      parent_email: parentEmail,
+      waiver_signed: true,
+    };
 
-    alert("✅ Registered!");
+    const insertPayload = {
+      ...profilePayload,
+      registration_fee: settings.registration_fee,
+      payment_status: "unpaid"
+    };
+
+    const { data: existingPlayers, error: lookupError } = await supabase
+      .from("players")
+      .select("id")
+      .ilike("first_name", profilePayload.first_name)
+      .ilike("last_name", profilePayload.last_name)
+      .eq("parent_email", parentEmail)
+      .eq("season_id", settings.current_season)
+      .limit(1);
+
+    if (lookupError) {
+      console.error("Player lookup failed:", lookupError);
+      setStatus({ type: "error", message: "Could not check existing player profile." });
+      setLoading(false);
+      return;
+    }
+
+    const existingPlayer = existingPlayers?.[0];
+    const { error } = existingPlayer
+      ? await supabase.from("players").update(profilePayload).eq("id", existingPlayer.id)
+      : await supabase.from("players").insert([insertPayload]);
+
+    if (error) {
+      console.error("Registration save failed:", error);
+      setStatus({ type: "error", message: "Registration could not be saved." });
+      setLoading(false);
+      return;
+    }
+
+    setStatus({
+      type: "success",
+      message: existingPlayer ? "Player profile updated." : "Player registered.",
+    });
     setLoading(false);
   };
 
@@ -179,6 +227,15 @@ export default function SignUpPage() {
               ? "Submitting..."
               : `Register ($${settings.registration_fee})`}
           </button>
+
+          {status && (
+            <div style={{
+              ...statusBox,
+              ...(status.type === "error" ? errorBox : successBox),
+            }}>
+              {status.message}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -260,3 +317,26 @@ const submitBtn = {
   cursor: "pointer",
   marginTop: 10
 };
+
+const statusBox = {
+  borderRadius: 10,
+  fontSize: 13,
+  fontWeight: 800,
+  marginTop: 12,
+  padding: 10,
+  textAlign: "center"
+};
+
+const successBox = {
+  background: "#dcfce7",
+  color: "#166534"
+};
+
+const errorBox = {
+  background: "#fee2e2",
+  color: "#991b1b"
+};
+
+function cleanText(value) {
+  return (value || "").toString().replace(/\s+/g, " ").trim();
+}

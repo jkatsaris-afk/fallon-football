@@ -7,6 +7,7 @@ export default function ChampionshipMatchupsPage() {
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [eliminationType, setEliminationType] = useState("single");
   const [matchupDrafts, setMatchupDrafts] = useState({});
+  const [manualOverride, setManualOverride] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -146,6 +147,8 @@ export default function ChampionshipMatchupsPage() {
     return map;
   }, [standings, selectedDivision]);
 
+  const plannerUnlocked = regularGameStatus.ready || manualOverride;
+
   const addMatchup = (division, rows) => {
     setMatchupDrafts((current) => ({
       ...current,
@@ -207,7 +210,9 @@ export default function ChampionshipMatchupsPage() {
             Regular season scoring: {regularGameStatus.scored} of {regularGameStatus.total} games complete
           </div>
           <div style={statusText}>
-            {regularGameStatus.ready
+            {plannerUnlocked && manualOverride && !regularGameStatus.ready
+              ? `Override is on. ${regularGameStatus.missing} unscored game${regularGameStatus.missing === 1 ? "" : "s"} will be ignored for matchup planning.`
+              : regularGameStatus.ready
               ? "All regular season games are scored. Matchup planning is unlocked."
               : `${regularGameStatus.missing} game${regularGameStatus.missing === 1 ? "" : "s"} still need scores before matchup planning opens.`}
           </div>
@@ -219,9 +224,9 @@ export default function ChampionshipMatchupsPage() {
             style={{
               ...toggleBtn,
               ...(eliminationType === "single" ? activeToggleBtn : {}),
-              ...(!regularGameStatus.ready ? disabledBtn : {}),
+              ...(!plannerUnlocked ? disabledBtn : {}),
             }}
-            disabled={!regularGameStatus.ready}
+            disabled={!plannerUnlocked}
             onClick={() => setEliminationType("single")}
           >
             Single Elimination
@@ -231,13 +236,25 @@ export default function ChampionshipMatchupsPage() {
             style={{
               ...toggleBtn,
               ...(eliminationType === "double" ? activeToggleBtn : {}),
-              ...(!regularGameStatus.ready ? disabledBtn : {}),
+              ...(!plannerUnlocked ? disabledBtn : {}),
             }}
-            disabled={!regularGameStatus.ready}
+            disabled={!plannerUnlocked}
             onClick={() => setEliminationType("double")}
           >
             Double Elimination
           </button>
+          {!regularGameStatus.ready && (
+            <button
+              type="button"
+              style={{
+                ...overrideBtn,
+                ...(manualOverride ? activeOverrideBtn : {}),
+              }}
+              onClick={() => setManualOverride((current) => !current)}
+            >
+              {manualOverride ? "Override On" : "Override Missing Games"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -289,13 +306,14 @@ export default function ChampionshipMatchupsPage() {
 
             <div style={{
               ...matchupPanel,
-              ...(!regularGameStatus.ready ? lockedPanel : {}),
+              ...(!plannerUnlocked ? lockedPanel : {}),
+              ...(manualOverride && !regularGameStatus.ready ? overridePanel : {}),
             }}>
               <div style={matchupHeader}>
                 <div>
                   <div style={matchupTitle}>Seed Matchup Planner</div>
                   <div style={sectionSub}>
-                    {regularGameStatus.ready
+                    {plannerUnlocked
                       ? `${eliminationType === "single" ? "Single" : "Double"} elimination selected`
                       : "Locked until every regular season game has a score"}
                   </div>
@@ -304,16 +322,16 @@ export default function ChampionshipMatchupsPage() {
                 <div style={matchupActions}>
                   <button
                     type="button"
-                    style={{ ...smallBtn, ...(!regularGameStatus.ready ? disabledBtn : {}) }}
-                    disabled={!regularGameStatus.ready}
+                    style={{ ...smallBtn, ...(!plannerUnlocked ? disabledBtn : {}) }}
+                    disabled={!plannerUnlocked}
                     onClick={() => createSuggestedMatchups(division, rows)}
                   >
                     Suggest Seeds
                   </button>
                   <button
                     type="button"
-                    style={{ ...smallBtn, ...(!regularGameStatus.ready ? disabledBtn : {}) }}
-                    disabled={!regularGameStatus.ready}
+                    style={{ ...smallBtn, ...(!plannerUnlocked ? disabledBtn : {}) }}
+                    disabled={!plannerUnlocked}
                     onClick={() => addMatchup(division, rows)}
                   >
                     Add Matchup
@@ -321,7 +339,7 @@ export default function ChampionshipMatchupsPage() {
                 </div>
               </div>
 
-              {regularGameStatus.ready && divisionDrafts.length === 0 && (
+              {plannerUnlocked && divisionDrafts.length === 0 && (
                 <div style={plannerEmpty}>No seed matchups selected yet.</div>
               )}
 
@@ -337,13 +355,19 @@ export default function ChampionshipMatchupsPage() {
                 />
               ))}
 
-              {regularGameStatus.ready && eliminationType === "double" && (
+              {plannerUnlocked && eliminationType === "double" && (
                 <div style={doubleNote}>
                   Double elimination selected. Build the opening seed matchups here, then use the results to schedule the winners and elimination brackets.
                 </div>
               )}
 
-              {!regularGameStatus.ready && (
+              {manualOverride && !regularGameStatus.ready && (
+                <div style={overrideNote}>
+                  Override active. Current seeds only include games that already have scores.
+                </div>
+              )}
+
+              {!plannerUnlocked && (
                 <div style={plannerEmpty}>
                   Finish entering regular season scores to choose seed matchups.
                 </div>
@@ -380,8 +404,11 @@ const eliminationControl = { display: "flex", gap: 8, flexWrap: "wrap" };
 const toggleBtn = { background: "#f8fafc", border: "1px solid #d1d5db", borderRadius: 10, color: "#334155", cursor: "pointer", fontWeight: 800, padding: "9px 12px" };
 const activeToggleBtn = { background: "#dcfce7", borderColor: "#16a34a", color: "#166534" };
 const disabledBtn = { cursor: "not-allowed", opacity: 0.5 };
+const overrideBtn = { background: "#fff7ed", border: "1px solid #fdba74", borderRadius: 10, color: "#9a3412", cursor: "pointer", fontWeight: 800, padding: "9px 12px" };
+const activeOverrideBtn = { background: "#fb923c", borderColor: "#ea580c", color: "#fff" };
 const matchupPanel = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, marginTop: 14, padding: 14 };
 const lockedPanel = { background: "#f1f5f9" };
+const overridePanel = { borderColor: "#fdba74" };
 const matchupHeader = { alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between", flexWrap: "wrap" };
 const matchupTitle = { fontWeight: 800 };
 const matchupActions = { display: "flex", gap: 8, flexWrap: "wrap" };
@@ -392,6 +419,7 @@ const seedSelect = { background: "#fff", border: "1px solid #d1d5db", borderRadi
 const vsText = { color: "#64748b", fontSize: 12, fontWeight: 800 };
 const removeBtn = { background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 10, color: "#be123c", cursor: "pointer", fontWeight: 800, padding: "8px 10px" };
 const doubleNote = { background: "#fff7ed", borderRadius: 10, color: "#9a3412", fontSize: 12, fontWeight: 700, marginTop: 12, padding: 10 };
+const overrideNote = { background: "#fffbeb", borderRadius: 10, color: "#92400e", fontSize: 12, fontWeight: 800, marginTop: 12, padding: 10 };
 const gameLabel = { color: "#334155", flex: "0 0 70px", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
 const participantCell = { flex: "1 1 180px", minWidth: 0 };
 const winnerCell = { display: "flex", flex: "1 1 190px", flexDirection: "column", gap: 4, minWidth: 0 };

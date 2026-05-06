@@ -39,6 +39,7 @@ export default function ScheduleManager() {
   const [championshipDate, setChampionshipDate] = useState("");
   const [championshipWeek, setChampionshipWeek] = useState(9);
   const [championshipSeeds, setChampionshipSeeds] = useState({});
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   const TABLE = "schedule_master_auto";
 
@@ -188,6 +189,7 @@ export default function ScheduleManager() {
     }
 
     setStatus({ type: "success", message: "Schedule generated from database matchups." });
+    setConfirmRegenerate(false);
     await loadAll();
   };
 
@@ -324,6 +326,27 @@ export default function ScheduleManager() {
   const matchupWeeks = [...new Set(matchups.map((matchup) => matchup.week))]
     .filter(Boolean)
     .sort((a, b) => Number(a) - Number(b));
+  const regeneratePreview = (() => {
+    const dateByWeek = {};
+    schedule.forEach((game) => {
+      if (game.week && game.event_date && !dateByWeek[game.week]) {
+        dateByWeek[game.week] = game.event_date;
+      }
+    });
+
+    const generatedRows = matchupWeeks.reduce((total, week) => (
+      total + buildScheduleRowsForWeek(week, dateByWeek[week]).length
+    ), 0);
+
+    return {
+      currentRows: schedule.length,
+      excelRows: schedule.filter((game) => (game.source || "").toLowerCase() === "excel").length,
+      autoRows: schedule.filter((game) => (game.source || "").toLowerCase() === "auto").length,
+      championshipRows: schedule.filter((game) => (game.event_type || "").toLowerCase().includes("champ")).length,
+      generatedRows,
+      weeks: matchupWeeks.length,
+    };
+  })();
   const divisions = [...new Set([
     ...matchups.map((matchup) => matchup.division),
     ...teams.map((team) => team.division),
@@ -381,7 +404,7 @@ export default function ScheduleManager() {
 
   const getLogo = (teamName) => {
     if (!teamName) return null;
-    const key = teamName.toString().trim().toLowerCase();
+    const key = cleanTeamName(teamName).toLowerCase();
     if (key.includes("49")) return teamLogos["49ers"];
     return teamLogos[key] || null;
   };
@@ -431,11 +454,45 @@ export default function ScheduleManager() {
         />
         <ToolTile
           title="Regenerate Season"
-          desc="Rebuild all weeks from matchups"
-          active={false}
-          onClick={generateSchedule}
+          desc="Danger: replaces current schedule"
+          active={confirmRegenerate}
+          onClick={() => setConfirmRegenerate(true)}
         />
       </div>
+
+      {confirmRegenerate && (
+        <div style={dangerPanel}>
+          <div>
+            <div style={dangerTitle}>Regenerate Season Will Replace This Schedule</div>
+            <div style={dangerText}>
+              This deletes every current schedule row in schedule_master_auto, then inserts a fresh generated schedule from matchups.
+            </div>
+            <div style={dangerPreviewGrid}>
+              <PreviewStat label="Rows deleted" value={regeneratePreview.currentRows} />
+              <PreviewStat label="Excel rows deleted" value={regeneratePreview.excelRows} />
+              <PreviewStat label="Auto rows deleted" value={regeneratePreview.autoRows} />
+              <PreviewStat label="Champ rows deleted" value={regeneratePreview.championshipRows} />
+              <PreviewStat label="Rows inserted" value={regeneratePreview.generatedRows} />
+              <PreviewStat label="Weeks rebuilt" value={regeneratePreview.weeks} />
+            </div>
+          </div>
+          <div style={dangerActions}>
+            <button style={cancelBtn} onClick={() => setConfirmRegenerate(false)}>
+              Cancel
+            </button>
+            <button
+              style={{
+                ...dangerBtn,
+                ...(regeneratePreview.generatedRows === 0 ? disabledDangerBtn : {}),
+              }}
+              disabled={regeneratePreview.generatedRows === 0}
+              onClick={generateSchedule}
+            >
+              Yes, Regenerate
+            </button>
+          </div>
+        </div>
+      )}
 
       {status && (
         <div style={{
@@ -546,15 +603,15 @@ export default function ScheduleManager() {
             <h2 style={weekHeader}>
               Week {week}
               {getWeekDateRange(week) && (
-                <div style={weekDate}>{getWeekDateRange(week)}</div>
+                <div style={weekDateStyle}>{getWeekDateRange(week)}</div>
               )}
             </h2>
 
             <div style={scheduleCardGrid}>
               {weekGames.map((game) => {
                 const gameInfo = getGame(game);
-                const homeName = gameInfo?.home?.short_name || game.team || "Team";
-                const awayName = gameInfo?.away?.short_name || game.opponent || "Team";
+                const homeName = cleanTeamName(gameInfo?.home?.short_name || game.team || "Team");
+                const awayName = cleanTeamName(gameInfo?.away?.short_name || game.opponent || "Team");
                 const homeLogo = getLogo(homeName);
                 const awayLogo = getLogo(awayName);
 
@@ -602,6 +659,19 @@ function ToolTile({ title, desc, active, onClick }) {
       <div style={toolDesc}>{desc}</div>
     </button>
   );
+}
+
+function PreviewStat({ label, value }) {
+  return (
+    <div style={previewStat}>
+      <div style={previewValue}>{value}</div>
+      <div style={previewLabel}>{label}</div>
+    </div>
+  );
+}
+
+function cleanTeamName(value) {
+  return (value || "").toString().replace(/\s+/g, " ").trim();
 }
 
 /* ================= STYLES ================= */
@@ -721,7 +791,7 @@ const weekHeader = {
   marginBottom: 15
 };
 
-const weekDate = {
+const weekDateStyle = {
   color: "#64748b",
   fontSize: 13,
   fontWeight: 600,
@@ -800,66 +870,86 @@ const errorBox = {
   color: "#991b1b"
 };
 
-const grid = {
-  display: "grid",
-  gap: 6,
-  marginBottom: 6
-};
-
-const fieldHeader = (type) => ({
-  textAlign: "center",
-  fontWeight: "600",
-  color: type === "practice" ? "#64748b" : "#000"
-});
-
-const fieldSub = {
-  color: "#64748b",
-  fontSize: 11,
-  fontWeight: 500,
-  marginTop: 2
-};
-
-const timeCell = {
-  fontWeight: "600"
-};
-
-const cell = {
-  border: "1px solid #ddd",
-  borderRadius: 6,
-  padding: 5,
-  minHeight: 80
-};
-
-const tile = {
-  background: "#f8fafc",
-  borderRadius: 8,
-  padding: 6,
-  textAlign: "center"
-};
-
-const divisionTextStyle = {
-  fontSize: 10,
-  color: "#64748b"
-};
-
-const teamsRow = {
+const dangerPanel = {
+  alignItems: "flex-start",
+  background: "#fff7ed",
+  border: "1px solid #fdba74",
+  borderRadius: 12,
   display: "flex",
+  gap: 12,
   justifyContent: "space-between",
-  alignItems: "center"
+  marginTop: 12,
+  padding: 14,
+  flexWrap: "wrap"
 };
 
-const teamCellStyle = {
+const dangerPreviewGrid = {
+  display: "grid",
+  gap: 8,
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  marginTop: 12,
+  maxWidth: 760
+};
+
+const previewStat = {
+  background: "#fff",
+  border: "1px solid #fed7aa",
+  borderRadius: 10,
+  padding: 10
+};
+
+const previewValue = {
+  color: "#9a3412",
+  fontSize: 20,
+  fontWeight: 900
+};
+
+const previewLabel = {
+  color: "#9a3412",
+  fontSize: 11,
+  fontWeight: 800,
+  marginTop: 2,
+  textTransform: "uppercase"
+};
+
+const dangerTitle = {
+  color: "#9a3412",
+  fontWeight: 900
+};
+
+const dangerText = {
+  color: "#9a3412",
+  fontSize: 13,
+  marginTop: 4
+};
+
+const dangerActions = {
   display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  width: "40%"
+  gap: 8,
+  flexWrap: "wrap"
 };
 
-const teamLogoStyle = {
-  width: 26,
-  height: 26
+const cancelBtn = {
+  background: "#fff",
+  border: "1px solid #d1d5db",
+  borderRadius: 10,
+  color: "#111827",
+  cursor: "pointer",
+  fontWeight: 800,
+  padding: "9px 12px"
 };
 
-const vs = {
-  fontWeight: "700"
+const dangerBtn = {
+  background: "#dc2626",
+  border: "none",
+  borderRadius: 10,
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 900,
+  padding: "9px 12px"
+};
+
+const disabledDangerBtn = {
+  cursor: "not-allowed",
+  opacity: 0.45
 };

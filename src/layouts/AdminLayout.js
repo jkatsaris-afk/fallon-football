@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 import fallonLogo from "../resources/logo.png";
+import {
+  Home,
+  Layers,
+  MoreHorizontal,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { supabase } from "../supabase";
 
 const ADMIN_NAV_ITEMS = [
@@ -14,7 +21,7 @@ const ADMIN_NAV_ITEMS = [
   { label: "Coach Manager", page: "coaches" },
   { label: "Referee Manager", page: "referees" },
   { label: "Report Manager", page: "reports" },
-  { label: "Settings Manager", page: "settings" },
+  { label: "Settings", page: "settings" },
 ];
 
 export default function AdminLayout({
@@ -24,6 +31,7 @@ export default function AdminLayout({
   setPage
 }) {
   const [isMobile, setIsMobile] = useState(false);
+  const primaryMobilePages = ["dashboard", "divisions", "teams", "games"];
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 800);
@@ -60,21 +68,6 @@ export default function AdminLayout({
         <div style={topBar}>
           <div style={topBarTitle}>
             <span>Fallon Football Admin</span>
-
-            {isMobile && (
-              <select
-                value={ADMIN_NAV_ITEMS.some((item) => item.page === adminPage) ? adminPage : "dashboard"}
-                onChange={(e) => setAdminPage(e.target.value)}
-                style={mobileNavSelect}
-                aria-label="Admin manager navigation"
-              >
-                {ADMIN_NAV_ITEMS.map((item) => (
-                  <option key={item.page} value={item.page}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
           <button style={logoutBtn} onClick={logout}>
@@ -83,14 +76,61 @@ export default function AdminLayout({
         </div>
 
         <div
-          style={{ ...content, paddingBottom: isMobile ? 20 : 80 }}
+          style={{ ...content, paddingBottom: isMobile ? 92 : 80 }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {children}
         </div>
 
+        {isMobile && (
+          <div className="nav-wrap" style={{ zIndex: 1000 }}>
+            <NavItem
+              icon={<Home size={22} />}
+              label="Home"
+              active={adminPage === "dashboard"}
+              onClick={() => setAdminPage("dashboard")}
+            />
+            <NavItem
+              icon={<Layers size={22} />}
+              label="Divisions"
+              active={adminPage === "divisions"}
+              onClick={() => setAdminPage("divisions")}
+            />
+            <NavItem
+              icon={<Users size={22} />}
+              label="Teams"
+              active={adminPage === "teams"}
+              onClick={() => setAdminPage("teams")}
+            />
+            <NavItem
+              icon={<Trophy size={22} />}
+              label="Games"
+              active={adminPage === "games"}
+              onClick={() => setAdminPage("games")}
+            />
+            <NavItem
+              icon={<MoreHorizontal size={22} />}
+              label="More"
+              active={adminPage === "more" || !primaryMobilePages.includes(adminPage)}
+              onClick={() => setAdminPage("more")}
+            />
+          </div>
+        )}
+
       </div>
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active, onClick }) {
+  return (
+    <div
+      className={`nav-item2 ${active ? "active" : ""}`}
+      onClick={onClick}
+    >
+      {icon}
+      <span>{label}</span>
     </div>
   );
 }
@@ -152,18 +192,6 @@ const topBarTitle = {
   flex: 1,
   gap: 12,
   minWidth: 0
-};
-
-const mobileNavSelect = {
-  background: "#f8fafc",
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
-  color: "#111827",
-  flex: 1,
-  fontSize: 14,
-  fontWeight: 700,
-  minWidth: 0,
-  padding: "8px 10px"
 };
 
 const content = {

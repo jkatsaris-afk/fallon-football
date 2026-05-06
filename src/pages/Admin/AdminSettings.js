@@ -93,6 +93,21 @@ export default function AdminSettings() {
 
           </Tile>
 
+          {/* COACH TOOLS */}
+          <Tile title="Coach Tools">
+
+            <ToggleRow
+              label="Coach Player Rankings Open"
+              value={settings.coach_rankings_open}
+              onChange={(val) => update("coach_rankings_open", val)}
+            />
+
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Controls the public /coach-rankings form.
+            </div>
+
+          </Tile>
+
           {/* SEASON */}
           <Tile title="Season">
             <InputRow
