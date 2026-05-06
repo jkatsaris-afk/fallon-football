@@ -24,6 +24,7 @@ const teamLogos = {
 
 export default function RefSchedule() {
   const [games, setGames] = useState([]);
+  const [currentRefId, setCurrentRefId] = useState(null);
 
   useEffect(() => {
     load();
@@ -57,6 +58,7 @@ export default function RefSchedule() {
       .single();
 
     if (!ref) return;
+    setCurrentRefId(ref.id);
 
     const { data: assignments } = await supabase
       .from("ref_assignments")
@@ -69,23 +71,54 @@ export default function RefSchedule() {
           opponent,
           event_date,
           event_time,
+          time,
           field
+        ),
+        referees (
+          id,
+          first_name,
+          last_name
         )
-      `)
-      .eq("referee_id", ref.id);
+      `);
 
     const now = new Date();
 
-    const upcoming = (assignments || []).filter((g) => {
+    const assignmentsByGame = {};
+
+    (assignments || []).forEach((assignment) => {
+      const gameId = assignment.game_id;
+      if (!gameId) return;
+      if (!assignmentsByGame[gameId]) assignmentsByGame[gameId] = [];
+      assignmentsByGame[gameId].push(assignment);
+    });
+
+    const upcoming = Object.entries(assignmentsByGame)
+      .map(([gameId, gameAssignments]) => {
+        const game = gameAssignments[0]?.schedule_master_auto;
+        const hasMyAssignment = gameAssignments.some((assignment) => assignment.referee_id === ref.id);
+        const openSlots = gameAssignments.filter((assignment) => !assignment.referee_id);
+
+        if (!hasMyAssignment && openSlots.length === 0) return null;
+
+        return {
+          id: gameId,
+          schedule_master_auto: game,
+          assignments: gameAssignments,
+          hasMyAssignment,
+          openSlots,
+        };
+      })
+      .filter(Boolean)
+      .filter((g) => {
       const game = g.schedule_master_auto;
-      const gameDate = parseGameDate(game?.event_date, game?.event_time);
+      const gameDate = parseGameDate(game?.event_date, game?.event_time || game?.time);
       if (!gameDate) return false;
       return gameDate >= now;
     });
 
     upcoming.sort((a, b) => {
-      const g1 = parseGameDate(a.schedule_master_auto.event_date, a.schedule_master_auto.event_time);
-      const g2 = parseGameDate(b.schedule_master_auto.event_date, b.schedule_master_auto.event_time);
+      const g1 = parseGameDate(a.schedule_master_auto.event_date, a.schedule_master_auto.event_time || a.schedule_master_auto.time);
+      const g2 = parseGameDate(b.schedule_master_auto.event_date, b.schedule_master_auto.event_time || b.schedule_master_auto.time);
       return g1 - g2;
     });
 
@@ -120,6 +153,17 @@ export default function RefSchedule() {
           const game = g.schedule_master_auto;
           if (!game) return null;
 
+          const gameTime = game.event_time || game.time;
+          const myAssignment = g.assignments.find((assignment) => assignment.referee_id === currentRefId);
+          const openSlots = g.openSlots || [];
+          const otherRefs = g.assignments
+            .filter((assignment) => assignment.referee_id && assignment.referee_id !== currentRefId)
+            .map((assignment) => ({
+              role: assignment.role,
+              name: `${assignment.referees?.first_name || ""} ${assignment.referees?.last_name || ""}`.trim(),
+            }))
+            .filter((assignment) => assignment.name);
+          const isOpenGame = !myAssignment && openSlots.length > 0;
           const teamLogo = getLogo(game.team);
           const oppLogo = getLogo(game.opponent);
 
@@ -138,6 +182,7 @@ export default function RefSchedule() {
               <div style={badgeRow}>
                 {nextGame && <div style={nextBadge}>NEXT</div>}
                 {isToday(game.event_date) && <div style={todayBadge}>TODAY</div>}
+                {isOpenGame && <div style={openBadge}>OPEN</div>}
               </div>
 
               {/* TEAMS */}
@@ -158,7 +203,7 @@ export default function RefSchedule() {
               {/* INFO */}
               <div style={infoStack}>
                 <div style={timeBar}>
-                  {game.event_date} • {game.event_time}
+                  {game.event_date} • {gameTime}
                 </div>
                 <div style={fieldBar}>
                   Field {game.field}
@@ -170,7 +215,31 @@ export default function RefSchedule() {
 
               {/* ROLE */}
               <div style={roleTile}>
-                {g.role}
+                {myAssignment ? myAssignment.role : "Open Game"}
+              </div>
+
+              <div style={crewBox}>
+                <div style={crewTitle}>Ref Crew</div>
+                {myAssignment && (
+                  <div style={crewRow}>
+                    <span>You</span>
+                    <strong>{myAssignment.role}</strong>
+                  </div>
+                )}
+
+                {otherRefs.map((ref) => (
+                  <div key={`${ref.role}-${ref.name}`} style={crewRow}>
+                    <span>{ref.name}</span>
+                    <strong>{ref.role}</strong>
+                  </div>
+                ))}
+
+                {openSlots.map((slot) => (
+                  <div key={slot.id} style={openCrewRow}>
+                    <span>{slot.role}</span>
+                    <strong>Open / Not Assigned</strong>
+                  </div>
+                ))}
               </div>
 
             </div>
@@ -227,6 +296,15 @@ const todayBadge = {
   fontSize: 11
 };
 
+const openBadge = {
+  background: "#fee2e2",
+  color: "#991b1b",
+  padding: "4px 8px",
+  borderRadius: 6,
+  fontSize: 11,
+  fontWeight: 800
+};
+
 const teamsRow = {
   display: "flex",
   justifyContent: "space-between",
@@ -278,4 +356,32 @@ const roleTile = {
   textAlign: "center",
   fontWeight: 700,
   color: "#334155"
+};
+
+const crewBox = {
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: 12,
+  padding: 10
+};
+
+const crewTitle = {
+  color: "#64748b",
+  fontSize: 11,
+  fontWeight: 800,
+  marginBottom: 6,
+  textTransform: "uppercase"
+};
+
+const crewRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 8,
+  fontSize: 13,
+  padding: "4px 0"
+};
+
+const openCrewRow = {
+  ...crewRow,
+  color: "#991b1b"
 };

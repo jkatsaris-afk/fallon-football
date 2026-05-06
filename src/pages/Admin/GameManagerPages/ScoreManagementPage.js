@@ -105,6 +105,39 @@ export default function ScoreManagementPage() {
     return ["all", ...unique.sort((a,b)=>a-b), "championship"];
   }, [games]);
 
+  const parseDate = (date) => {
+    if (!date) return null;
+    const [year, month, day] = date.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDate = (date) => date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  const getWeekDateRange = (weekValue) => {
+    const dates = games
+      .filter((game) => {
+        if (weekValue === "all") return false;
+        if (weekValue === "championship") {
+          return (game.event_type || "").toLowerCase().includes("champ") && game.event_date;
+        }
+        return String(game.week) === String(weekValue) && game.event_date;
+      })
+      .map((game) => parseDate(game.event_date))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+
+    if (!dates.length) return "";
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    return first.toDateString() === last.toDateString()
+      ? formatDate(first)
+      : `${formatDate(first)} - ${formatDate(last)}`;
+  };
+
   const filteredGames = useMemo(() => {
     if (selectedWeek === "all") return games;
 
@@ -132,6 +165,7 @@ export default function ScoreManagementPage() {
                 ? "Championships"
                 : `Week ${w}`
             }
+            date={getWeekDateRange(w)}
             active={selectedWeek === w}
             onClick={() => setSelectedWeek(w)}
           />
@@ -252,13 +286,14 @@ export default function ScoreManagementPage() {
 }
 
 /* COMPONENTS */
-function WeekTile({ label, active, onClick }) {
+function WeekTile({ label, date, active, onClick }) {
   return (
     <button
       onClick={onClick}
       style={{ ...weekTile, ...(active ? activeWeekTile : {}) }}
     >
-      {label}
+      <div>{label}</div>
+      {date && <div style={weekDate}>{date}</div>}
     </button>
   );
 }
@@ -282,6 +317,7 @@ const weekTile = {
 };
 
 const activeWeekTile = { outline:"2px solid #2563eb" };
+const weekDate = { color:"#64748b", fontSize:11, fontWeight:600, marginTop:4 };
 
 const grid = {
   display:"grid",

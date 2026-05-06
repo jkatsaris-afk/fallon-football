@@ -9,6 +9,7 @@ import CoachManager from "./CoachManager";
 import MatchupManager from "./MatchupManager";
 import RefereeManager from "./RefereeManager";
 import FieldManager from "./FieldManager";
+import Divisions from "./FieldManagerPages/Divisions";
 import ReportsPage from "./ReportsPage";
 import AdminSettings from "./AdminSettings";
 import PlayerLookup from "./PlayerLookup";
@@ -133,12 +134,13 @@ export default function Dashboard({
         <>
           <h2>More</h2>
           <div style={moreGrid}>
-            <MoreBtn label="Users" onClick={() => setAdminPage("users")} />
-            <MoreBtn label="Players" onClick={() => setAdminPage("players")} />
-            <MoreBtn label="Coaches" onClick={() => setAdminPage("coaches")} />
-            <MoreBtn label="Referees" onClick={() => setAdminPage("referees")} />
-            <MoreBtn label="Reports" onClick={() => setAdminPage("reports")} />
-            <MoreBtn label="Settings" onClick={() => setAdminPage("settings")} />
+            <MoreBtn label="User Manager" onClick={() => setAdminPage("users")} />
+            <MoreBtn label="Division Manager" onClick={() => setAdminPage("divisions")} />
+            <MoreBtn label="Player Manager" onClick={() => setAdminPage("players")} />
+            <MoreBtn label="Coach Manager" onClick={() => setAdminPage("coaches")} />
+            <MoreBtn label="Referee Manager" onClick={() => setAdminPage("referees")} />
+            <MoreBtn label="Report Manager" onClick={() => setAdminPage("reports")} />
+            <MoreBtn label="Settings Manager" onClick={() => setAdminPage("settings")} />
           </div>
         </>
       )}
@@ -149,6 +151,7 @@ export default function Dashboard({
       {adminPage === "schedule" && <ScheduleManager />}
       {adminPage === "games" && <GameManager />}
       {adminPage === "matchups" && <MatchupManager />}
+      {adminPage === "divisions" && <Divisions />}
       {adminPage === "fields" && <FieldManager />}
       {adminPage === "coaches" && <CoachManager />}
       {adminPage === "referees" && <RefereeManager />}

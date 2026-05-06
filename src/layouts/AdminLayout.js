@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import fallonLogo from "../resources/logo.png";
-import {
-  Home,
-  Users,
-  Search,
-  Trophy,
-  MoreHorizontal
-} from "lucide-react";
 import { supabase } from "../supabase";
+
+const ADMIN_NAV_ITEMS = [
+  { label: "Home", page: "dashboard" },
+  { label: "Division Manager", page: "divisions" },
+  { label: "Team Manager", page: "teams" },
+  { label: "Player Manager", page: "players" },
+  { label: "Matchup Manager", page: "matchups" },
+  { label: "Schedule Manager", page: "schedule" },
+  { label: "Game Manager", page: "games" },
+  { label: "Field Manager", page: "fields" },
+  { label: "Coach Manager", page: "coaches" },
+  { label: "Referee Manager", page: "referees" },
+  { label: "Report Manager", page: "reports" },
+  { label: "Settings Manager", page: "settings" },
+];
 
 export default function AdminLayout({
   adminPage,
@@ -36,26 +44,38 @@ export default function AdminLayout({
         <div style={sidebar}>
           <img src={fallonLogo} alt="logo" style={{ width: 36, marginBottom: 20 }} />
 
-          <NavBtn label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
-          <NavBtn label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
-          <NavBtn label="Players" active={adminPage === "players"} onClick={() => setAdminPage("players")} />
-          <NavBtn label="Matchups" active={adminPage === "matchups"} onClick={() => setAdminPage("matchups")} />
-          <NavBtn label="Schedule" active={adminPage === "schedule"} onClick={() => setAdminPage("schedule")} />
-          <NavBtn label="Games" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
-
-          <NavBtn label="Field Manager" active={adminPage === "fields"} onClick={() => setAdminPage("fields")} />
-
-          <NavBtn label="Coach Manager" active={adminPage === "coaches"} onClick={() => setAdminPage("coaches")} />
-          <NavBtn label="Referee Manager" active={adminPage === "referees"} onClick={() => setAdminPage("referees")} />
-          <NavBtn label="Reports" active={adminPage === "reports"} onClick={() => setAdminPage("reports")} />
-          <NavBtn label="Settings" active={adminPage === "settings"} onClick={() => setAdminPage("settings")} />
+          {ADMIN_NAV_ITEMS.map((item) => (
+            <NavBtn
+              key={item.page}
+              label={item.label}
+              active={adminPage === item.page}
+              onClick={() => setAdminPage(item.page)}
+            />
+          ))}
         </div>
       )}
 
       <div style={main}>
 
         <div style={topBar}>
-          Fallon Football Admin
+          <div style={topBarTitle}>
+            <span>Fallon Football Admin</span>
+
+            {isMobile && (
+              <select
+                value={ADMIN_NAV_ITEMS.some((item) => item.page === adminPage) ? adminPage : "dashboard"}
+                onChange={(e) => setAdminPage(e.target.value)}
+                style={mobileNavSelect}
+                aria-label="Admin manager navigation"
+              >
+                {ADMIN_NAV_ITEMS.map((item) => (
+                  <option key={item.page} value={item.page}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
           <button style={logoutBtn} onClick={logout}>
             Logout
@@ -63,38 +83,14 @@ export default function AdminLayout({
         </div>
 
         <div
-          style={content}
+          style={{ ...content, paddingBottom: isMobile ? 20 : 80 }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {children}
         </div>
 
-        {/* 🔥 FIXED MOBILE NAV */}
-        {isMobile && (
-          <div className="nav-wrap" style={{ zIndex: 1000 }}>
-            <NavItem icon={<Home size={22} />} label="Home" active={adminPage === "dashboard"} onClick={() => setAdminPage("dashboard")} />
-            <NavItem icon={<Users size={22} />} label="Teams" active={adminPage === "teams"} onClick={() => setAdminPage("teams")} />
-            <NavItem icon={<Search size={22} />} label="Lookup" active={adminPage === "lookup"} onClick={() => setAdminPage("lookup")} />
-            <NavItem icon={<Trophy size={22} />} label="Game" active={adminPage === "games"} onClick={() => setAdminPage("games")} />
-            <NavItem icon={<MoreHorizontal size={22} />} label="More" active={adminPage === "more"} onClick={() => setAdminPage("more")} />
-          </div>
-        )}
-
       </div>
-    </div>
-  );
-}
-
-/* NAV ITEM (🔥 MATCH PUBLIC) */
-function NavItem({ icon, label, active, onClick }) {
-  return (
-    <div
-      className={`nav-item2 ${active ? "active" : ""}`}
-      onClick={onClick}
-    >
-      {icon}
-      <span>{label}</span>
     </div>
   );
 }
@@ -140,7 +136,7 @@ const main = {
 };
 
 const topBar = {
-  height: 60,
+  minHeight: 60,
   background: "#fff",
   borderBottom: "1px solid #e5e7eb",
   display: "flex",
@@ -150,11 +146,30 @@ const topBar = {
   fontWeight: 600
 };
 
+const topBarTitle = {
+  alignItems: "center",
+  display: "flex",
+  flex: 1,
+  gap: 12,
+  minWidth: 0
+};
+
+const mobileNavSelect = {
+  background: "#f8fafc",
+  border: "1px solid #d1d5db",
+  borderRadius: 8,
+  color: "#111827",
+  flex: 1,
+  fontSize: 14,
+  fontWeight: 700,
+  minWidth: 0,
+  padding: "8px 10px"
+};
+
 const content = {
   flex: 1,
   overflowY: "auto",
-  padding: 20,
-  paddingBottom: 80
+  padding: 20
 };
 
 const logoutBtn = {

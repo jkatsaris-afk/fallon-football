@@ -81,6 +81,33 @@ export default function RefereeSchedulePage({ setPage }) {
     ...new Set(games.map((g) => g.week).filter(Boolean)),
   ].sort((a, b) => Number(a) - Number(b));
 
+  const parseDate = (date) => {
+    if (!date) return null;
+    const [year, month, day] = date.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDate = (date) => date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  const getWeekDateRange = (weekValue) => {
+    const dates = games
+      .filter((game) => String(game.week) === String(weekValue) && game.event_date)
+      .map((game) => parseDate(game.event_date))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+
+    if (!dates.length) return "";
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    return first.toDateString() === last.toDateString()
+      ? formatDate(first)
+      : `${formatDate(first)} - ${formatDate(last)}`;
+  };
+
   const filteredGames = useMemo(() => {
     let filtered = [...games];
 
@@ -159,7 +186,13 @@ export default function RefereeSchedulePage({ setPage }) {
       <div style={weekTileGrid}>
         <WeekTile label="All Weeks" active={week==="all"} onClick={()=>setWeek("all")} />
         {weeks.map((w)=>(
-          <WeekTile key={w} label={`Week ${w}`} active={String(week)===String(w)} onClick={()=>setWeek(w)} />
+          <WeekTile
+            key={w}
+            label={`Week ${w}`}
+            date={getWeekDateRange(w)}
+            active={String(week)===String(w)}
+            onClick={()=>setWeek(w)}
+          />
         ))}
       </div>
 
@@ -280,10 +313,11 @@ function ActionTile({ label, desc, onClick }) {
   );
 }
 
-function WeekTile({ label, active, onClick }) {
+function WeekTile({ label, date, active, onClick }) {
   return (
     <button onClick={onClick} style={{...weekTile, ...(active?activeWeekTile:{})}}>
-      {label}
+      <div>{label}</div>
+      {date && <div style={weekDate}>{date}</div>}
     </button>
   );
 }
@@ -302,6 +336,7 @@ const activeStatTile = { outline:"2px solid #16a34a" };
 
 const weekTile = { background:"#fff", borderRadius:14, padding:12, boxShadow:"0 6px 18px rgba(0,0,0,0.08)", border:"none", fontWeight:700 };
 const activeWeekTile = { outline:"2px solid #2563eb" };
+const weekDate = { color:"#64748b", fontSize:11, fontWeight:600, marginTop:4 };
 
 const statValue = { fontSize:22, fontWeight:800 };
 const statLabel = { fontSize:12, color:"#64748b" };

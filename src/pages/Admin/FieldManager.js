@@ -10,7 +10,7 @@ export default function FieldManager() {
       {/* 🔥 MATCH REF MANAGER TOP TILES */}
       <div style={statsGrid}>
         <StatTile
-          label="Fields"
+          label="Field Assignments"
           active={activeTab === "fields"}
           onClick={() => setActiveTab("fields")}
         />

@@ -10,6 +10,7 @@ const normalizeTime = (t) => {
 
 export default function RefAvailabilityPage() {
   const [weeks, setWeeks] = useState([]);
+  const [weekDates, setWeekDates] = useState({});
   const [selectedWeek, setSelectedWeek] = useState(null);
 
   const [refId, setRefId] = useState(null);
@@ -32,9 +33,22 @@ export default function RefAvailabilityPage() {
   const loadWeeks = async () => {
     const { data } = await supabase
       .from("schedule_master_auto")
-      .select("week");
+      .select("week,event_date,event_type");
 
-    const dbWeeks = [...new Set((data || []).map((g) => g.week))];
+    const dbWeeks = [...new Set((data || [])
+      .filter((g) => (g.event_type || "").toLowerCase().includes("game"))
+      .map((g) => g.week))];
+    const dateMap = {};
+
+    (data || []).forEach((game) => {
+      const eventType = game.event_type?.toLowerCase() || "";
+      if (!eventType.includes("game") && !eventType.includes("champ")) return;
+
+      const key = eventType.includes("champ") ? "Championships" : game.week;
+      if (!key) return;
+      if (!dateMap[key]) dateMap[key] = [];
+      if (game.event_date) dateMap[key].push(game.event_date);
+    });
 
     // Add missing weeks
     const extraWeeks = [7, 8, "Championships"];
@@ -48,6 +62,7 @@ export default function RefAvailabilityPage() {
     });
 
     setWeeks(sorted);
+    setWeekDates(dateMap);
 
     if (!selectedWeek && sorted.length) setSelectedWeek(sorted[0]);
   };
@@ -72,7 +87,7 @@ export default function RefAvailabilityPage() {
       .from("ref_availability")
       .select("*")
       .eq("referee_id", refId)
-      .eq("week", selectedWeek);
+      .eq("week", selectedWeek === "Championships" ? 9 : selectedWeek);
 
     const map = {};
     data?.forEach((a) => {
@@ -99,7 +114,7 @@ export default function RefAvailabilityPage() {
       [
         {
           referee_id: refId,
-          week: selectedWeek,
+          week: selectedWeek === "Championships" ? 9 : selectedWeek,
           time_block: normalizeTime(time),
           available: newValue,
         },
@@ -122,7 +137,7 @@ export default function RefAvailabilityPage() {
         [
           {
             referee_id: refId,
-            week: selectedWeek,
+            week: selectedWeek === "Championships" ? 9 : selectedWeek,
             time_block: t,
             available: value,
           },
@@ -151,6 +166,32 @@ export default function RefAvailabilityPage() {
   const totalSet = Object.keys(availability).length;
   const totalAvailable = Object.values(availability).filter(v => v === true).length;
 
+  const parseDate = (date) => {
+    if (!date) return null;
+    const [year, month, day] = date.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDate = (date) => date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  const formatDateRange = (dates) => {
+    const sorted = (dates || [])
+      .map(parseDate)
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+
+    if (!sorted.length) return "";
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    return first.toDateString() === last.toDateString()
+      ? formatDate(first)
+      : `${formatDate(first)} - ${formatDate(last)}`;
+  };
+
   /* ---------------- UI ---------------- */
 
   return (
@@ -169,6 +210,9 @@ export default function RefAvailabilityPage() {
         <div style={weekTile}>
           <div style={weekLabel}>Week</div>
           <div style={weekNumber}>{selectedWeek}</div>
+          {formatDateRange(weekDates[selectedWeek]) && (
+            <div style={weekDate}>{formatDateRange(weekDates[selectedWeek])}</div>
+          )}
         </div>
 
         <div style={arrowBtn} onClick={nextWeek}>›</div>
@@ -293,6 +337,13 @@ const weekLabel = {
 const weekNumber = {
   fontSize: 24,
   fontWeight: 800
+};
+
+const weekDate = {
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 700,
+  marginTop: 4
 };
 
 const actionRow = {

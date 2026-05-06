@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import ScoreManagementPage from "./GameManagerPages/ScoreManagementPage";
 import ScoreRecordsPage from "./GameManagerPages/ScoreRecordsPage";
 import LiveScoreboardPage from "./GameManagerPages/LiveScoreboardPage";
+import ChampionshipMatchupsPage from "./GameManagerPages/ChampionshipMatchupsPage";
 
 export default function GameManager() {
   const [view, setView] = useState("dashboard");
@@ -18,13 +19,16 @@ export default function GameManager() {
         case "live":
           return <LiveScoreboardPage />;
 
+        case "championship":
+          return <ChampionshipMatchupsPage />;
+
         default:
           return (
             <div style={contentWrap}>
               <div style={emptyStateCard}>
                 <div style={emptyTitle}>Game Manager</div>
                 <div style={emptyText}>
-                  Select a tile above to manage scores and live games.
+                  Select a tile above to manage scores, standings, and championship seeds.
                 </div>
               </div>
             </div>
@@ -49,7 +53,7 @@ export default function GameManager() {
           <div>
             <h1 style={title}>Game Manager</h1>
             <div style={subtitle}>
-              Manage scoring, live games, and historical records.
+              Manage scoring, live games, records, and championship seeds.
             </div>
           </div>
         </div>
@@ -74,6 +78,13 @@ export default function GameManager() {
             desc="Control live game scoring"
             active={view === "live"}
             onClick={() => setView("live")}
+          />
+
+          <ManagerTile
+            title="Championship Matchups"
+            desc="Calculate seeds by division"
+            active={view === "championship"}
+            onClick={() => setView("championship")}
           />
         </div>
 
