@@ -1,7 +1,6 @@
 {
   "name": "Fallon Football",
   "short_name": "Football",
-  "start_url": "/",
   "scope": "/",
   "display": "fullscreen",
   "orientation": "any",
