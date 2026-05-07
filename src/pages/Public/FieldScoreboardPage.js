@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../supabase";
 
 import bills from "../../resources/Buffalo Bills.png";
@@ -42,17 +42,20 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const [liveGame, setLiveGame] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState("");
   const [clockSeconds, setClockSeconds] = useState(DEFAULT_SETTINGS.scoreboard_game_minutes * 60);
+  const [displayClockRunning, setDisplayClockRunning] = useState(false);
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null);
+  const lastServerClockRef = useRef(null);
 
   useEffect(() => {
     loadData();
+    const refreshMs = scoreOnly ? 1500 : 3000;
     const interval = setInterval(() => {
       loadLiveGame();
       loadScoreboardSettings();
-    }, 3000);
+    }, refreshMs);
     return () => clearInterval(interval);
-  }, [fieldId]);
+  }, [fieldId, scoreOnly]);
 
   useEffect(() => {
     if (!running || !liveGame) return undefined;
@@ -67,6 +70,16 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     return () => clearInterval(interval);
   }, [running, liveGame?.id]);
+
+  useEffect(() => {
+    if (!scoreOnly || !liveGame || !displayClockRunning) return undefined;
+
+    const interval = setInterval(() => {
+      setClockSeconds((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [scoreOnly, liveGame?.id, displayClockRunning]);
 
   const loadData = async () => {
     const { data: fieldData } = await supabase
@@ -140,6 +153,8 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     const scheduleIds = [...new Set((data || []).map((row) => row.schedule_id).filter(Boolean))];
     if (!scheduleIds.length) {
+      lastServerClockRef.current = null;
+      setDisplayClockRunning(false);
       setLiveGame(null);
       return;
     }
@@ -161,12 +176,21 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     const active = hydratedRows.find((row) => fieldIds.includes(row.schedule_master_auto?.field_id));
     if (!active) {
+      lastServerClockRef.current = null;
+      setDisplayClockRunning(false);
       setLiveGame(null);
       return;
     }
 
+    const serverClockSeconds = clockToSeconds(active.clock || formatClock(settings.scoreboard_game_minutes * 60));
+    if (scoreOnly) {
+      const previousServerClock = lastServerClockRef.current;
+      setDisplayClockRunning(previousServerClock !== null && serverClockSeconds < previousServerClock);
+      lastServerClockRef.current = serverClockSeconds;
+    }
+
     setLiveGame(active);
-    setClockSeconds(clockToSeconds(active.clock || formatClock(settings.scoreboard_game_minutes * 60)));
+    setClockSeconds(serverClockSeconds);
   };
 
   const weeks = useMemo(() => (
@@ -331,6 +355,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       <ScoreOnlyBoard
         field={field}
         liveGame={scoreboardsOpen ? liveGame : null}
+        liveClock={formatClock(clockSeconds)}
         games={displayWeekGames}
         scoreboardsOpen={scoreboardsOpen}
         sideMode={displaySideMode}
@@ -387,6 +412,11 @@ export default function FieldScoreboardPage({ mode = "control" }) {
           <div style={pageSub}>Controller link for this field</div>
         </div>
         <div style={displayLinks}>
+          {liveGame && (
+            <button style={topExitBtn} onClick={() => exitLiveGame()}>
+              Exit Without Saving
+            </button>
+          )}
           <a style={displayLink} href={`/field-scoreboard/${fieldId}/display/home`} target="_blank" rel="noreferrer">
             Home Display
           </a>
@@ -458,9 +488,6 @@ export default function FieldScoreboardPage({ mode = "control" }) {
             >
               Timeout
             </button>
-            <button style={dangerGhostBtn} onClick={() => exitLiveGame()}>
-              Exit Without Saving
-            </button>
           </div>
 
           <div style={scoreGrid}>
@@ -492,8 +519,10 @@ function TeamControls({ team, score, onAdd, settings }) {
 
   return (
     <div style={teamPanel}>
-      {logo && <img src={logo} alt="" style={logoStyle} />}
-      <div style={teamName}>{cleanTeamName(team)}</div>
+      <div style={teamHeader}>
+        {logo && <img src={logo} alt="" style={logoStyle} />}
+        <div style={teamName}>{cleanTeamName(team)}</div>
+      </div>
       <div style={scoreText}>{score || 0}</div>
       <div style={pointGrid}>
         <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_touchdown_points)}>Touchdown</button>
@@ -504,7 +533,7 @@ function TeamControls({ team, score, onAdd, settings }) {
   );
 }
 
-function ScoreOnlyBoard({ field, liveGame, games = [], scoreboardsOpen = true, sideMode = "both" }) {
+function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpen = true, sideMode = "both" }) {
   const game = liveGame?.schedule_master_auto;
   const weekLabel = games[0]?.week ? `Week ${games[0].week}` : "Scheduled Games";
   const singleSide = sideMode === "home" || sideMode === "away";
@@ -541,26 +570,29 @@ function ScoreOnlyBoard({ field, liveGame, games = [], scoreboardsOpen = true, s
       )}
 
       {scoreboardsOpen && liveGame && singleSide && (
-        <ScoreOnlySide team={singleTeam} score={singleScore} single />
+        <ScoreOnlySide team={singleTeam} score={singleScore} clock={liveClock || liveGame.clock} single />
       )}
 
       {scoreboardsOpen && liveGame && !singleSide && (
         <>
-          <ScoreOnlySide team={game?.team} score={liveGame.home_score} />
-          <ScoreOnlySide team={game?.opponent} score={liveGame.away_score} />
+          <ScoreOnlySide team={game?.team} score={liveGame.home_score} clock={liveClock || liveGame.clock} />
+          <ScoreOnlySide team={game?.opponent} score={liveGame.away_score} clock={liveClock || liveGame.clock} />
         </>
       )}
     </div>
   );
 }
 
-function ScoreOnlySide({ team, score, single = false }) {
+function ScoreOnlySide({ team, score, clock, single = false }) {
   const logo = getLogo(team);
   return (
     <div style={single ? displaySingleSide : displaySide}>
-      {logo && <img src={logo} alt="" style={single ? displaySingleLogo : displayLogo} />}
-      <div style={single ? displaySingleTeam : displayTeam}>{cleanTeamName(team)}</div>
+      <div style={single ? displaySingleTop : displayTop}>
+        {logo && <img src={logo} alt="" style={single ? displaySingleLogo : displayLogo} />}
+        <div style={single ? displaySingleTeam : displayTeam}>{cleanTeamName(team)}</div>
+      </div>
       <div style={single ? displaySingleScore : displayScore}>{score || 0}</div>
+      <div style={single ? displaySingleClock : displayClock}>{clock || "0:00"}</div>
     </div>
   );
 }
@@ -693,6 +725,7 @@ const topBar = { alignItems: "center", background: "#fff", borderRadius: 18, dis
 const pageTitle = { color: "#0f172a", fontSize: 34, fontWeight: 900, lineHeight: 1.05 };
 const pageSub = { color: "#64748b", fontSize: 16, fontWeight: 800, marginTop: 4 };
 const displayLinks = { display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "flex-end" };
+const topExitBtn = { background: "#fee2e2", border: "none", borderRadius: 14, color: "#991b1b", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px" };
 const displayLink = { background: "#111827", borderRadius: 14, color: "#fff", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px", textDecoration: "none" };
 const statusBox = { borderRadius: 12, fontSize: 16, fontWeight: 900, marginTop: 14, padding: 14 };
 const successBox = { background: "#dcfce7", color: "#166534" };
@@ -706,39 +739,43 @@ const testGameTile = { background: "#f0fdf4", borderColor: "#86efac" };
 const gameTeams = { color: "#0f172a", fontSize: 23, fontWeight: 900, lineHeight: 1.1 };
 const gameMeta = { color: "#64748b", fontSize: 16, fontWeight: 800, marginTop: 8 };
 const startText = { color: "#16a34a", fontSize: 16, fontWeight: 900, marginTop: 14, textTransform: "uppercase" };
-const boardPanel = { background: "#fff", borderRadius: 20, marginTop: 18, padding: 22 };
-const timer = { color: "#0f172a", fontSize: 104, fontWeight: 900, lineHeight: 0.95, textAlign: "center" };
-const timerActions = { display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 14 };
-const primaryBtn = { background: "#16a34a", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 18, fontWeight: 900, minHeight: 58, padding: "16px 22px" };
-const secondaryBtn = { background: "#e5e7eb", border: "none", borderRadius: 14, color: "#111827", cursor: "pointer", fontSize: 18, fontWeight: 900, minHeight: 58, padding: "16px 22px" };
-const dangerGhostBtn = { background: "#fee2e2", border: "none", borderRadius: 14, color: "#991b1b", cursor: "pointer", fontSize: 18, fontWeight: 900, minHeight: 58, padding: "16px 22px" };
-const scoreGrid = { display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", marginTop: 22 };
-const teamPanel = { background: "#f8fafc", borderRadius: 20, padding: 22, textAlign: "center" };
-const logoStyle = { height: 90, objectFit: "contain", width: 90 };
-const teamName = { color: "#0f172a", fontSize: 30, fontWeight: 900, lineHeight: 1.05, marginTop: 10 };
-const scoreText = { color: "#0f172a", fontSize: 118, fontWeight: 900, lineHeight: 0.9 };
-const pointGrid = { display: "grid", gap: 12 };
-const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 19, fontWeight: 900, minHeight: 60, padding: "17px 12px" };
-const endBtn = { background: "#dc2626", border: "none", borderRadius: 16, color: "#fff", cursor: "pointer", fontSize: 20, fontWeight: 900, marginTop: 18, minHeight: 64, padding: 18, width: "100%" };
-const displayWrap = { background: "#fff", display: "grid", gridTemplateColumns: "1fr 1fr", height: "100vh", minHeight: "100vh", overflow: "hidden", width: "100vw" };
-const displaySingleWrap = { background: "#fff", display: "grid", height: "100vh", minHeight: "100vh", overflow: "hidden", width: "100vw" };
-const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: "100vh", overflow: "hidden", padding: "1.5vh 1.5vw 1vh" };
-const displaySingleSide = { alignItems: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", height: "100vh", justifyContent: "center", overflow: "hidden", padding: "2vh 2vw" };
-const displayLogo = { height: "min(15vh, 16vw)", objectFit: "contain", width: "min(15vh, 16vw)" };
-const displaySingleLogo = { height: "min(18vh, 18vw)", objectFit: "contain", width: "min(18vh, 18vw)" };
-const displayTeam = { color: "#111827", fontSize: "clamp(38px, 5.8vw, 96px)", fontWeight: 900, lineHeight: 0.95, marginTop: "1vh", maxWidth: "46vw", overflowWrap: "anywhere", textAlign: "center" };
-const displaySingleTeam = { color: "#111827", fontSize: "clamp(58px, 9vw, 150px)", fontWeight: 900, lineHeight: 0.9, marginTop: "2vh", maxWidth: "96vw", overflowWrap: "anywhere", textAlign: "center" };
-const displayScore = { color: "#111827", fontSize: "clamp(210px, 39vw, 700px)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.78, marginTop: "2vh", maxWidth: "47vw", textAlign: "center" };
-const displaySingleScore = { color: "#111827", fontSize: "clamp(360px, 72vw, 980px)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.72, marginTop: "2vh", maxWidth: "96vw", textAlign: "center" };
-const displayEmpty = { alignItems: "center", color: "#111827", display: "flex", flexDirection: "column", fontSize: "clamp(44px, 7vw, 112px)", fontWeight: 900, gridColumn: "1 / -1", height: "100vh", justifyContent: "center", padding: "4vh 4vw", textAlign: "center" };
+const boardPanel = { background: "#fff", borderRadius: 20, boxSizing: "border-box", display: "flex", flexDirection: "column", height: "calc(100dvh - 142px)", marginTop: 14, overflow: "hidden", padding: 18 };
+const timer = { color: "#0f172a", fontSize: "min(86px, 12dvh)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
+const timerActions = { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 10 };
+const primaryBtn = { background: "#16a34a", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 17, fontWeight: 900, minHeight: 50, padding: "13px 18px" };
+const secondaryBtn = { background: "#e5e7eb", border: "none", borderRadius: 14, color: "#111827", cursor: "pointer", fontSize: 17, fontWeight: 900, minHeight: 50, padding: "13px 18px" };
+const scoreGrid = { display: "grid", flex: 1, gap: 14, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginTop: 16, minHeight: 0 };
+const teamPanel = { background: "#f8fafc", borderRadius: 20, boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0, padding: 16, textAlign: "center" };
+const teamHeader = { alignItems: "center", display: "flex", gap: 12, justifyContent: "center", minHeight: 72 };
+const logoStyle = { height: "min(70px, 9dvh)", objectFit: "contain", width: "min(70px, 9dvh)" };
+const teamName = { color: "#0f172a", fontSize: "min(28px, 4dvh)", fontWeight: 900, lineHeight: 1, textAlign: "left" };
+const scoreText = { color: "#0f172a", fontSize: "min(112px, 17dvh)", fontWeight: 900, lineHeight: 0.82 };
+const pointGrid = { display: "grid", gap: 10 };
+const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: "min(18px, 2.6dvh)", fontWeight: 900, minHeight: 50, padding: "13px 10px" };
+const endBtn = { background: "#dc2626", border: "none", borderRadius: 16, color: "#fff", cursor: "pointer", fontSize: 19, fontWeight: 900, marginTop: 12, minHeight: 56, padding: 14, width: "100%" };
+const displayWrap = { background: "#fff", display: "grid", gridTemplateColumns: "1fr 1fr", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
+const displaySingleWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
+const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 18dvh) minmax(0, 66dvh) minmax(0, 12dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.4dvh 1.5vw" };
+const displaySingleSide = { alignItems: "center", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 18dvh) minmax(0, 67dvh) minmax(0, 11dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.6dvh 2vw" };
+const displayTop = { alignItems: "center", display: "flex", gap: "1.4vw", justifyContent: "center", maxWidth: "46vw", minWidth: 0 };
+const displaySingleTop = { alignItems: "center", display: "flex", gap: "2vw", justifyContent: "center", maxWidth: "96vw", minWidth: 0 };
+const displayLogo = { height: "min(10dvh, 10vw)", maxHeight: "100%", objectFit: "contain", width: "min(10dvh, 10vw)" };
+const displaySingleLogo = { height: "min(11dvh, 12vw)", maxHeight: "100%", objectFit: "contain", width: "min(11dvh, 12vw)" };
+const displayTeam = { color: "#111827", fontSize: "min(4.4vw, 6.4dvh)", fontWeight: 900, lineHeight: 0.9, maxWidth: "34vw", overflowWrap: "anywhere", textAlign: "left" };
+const displaySingleTeam = { color: "#111827", fontSize: "min(6.8vw, 8dvh)", fontWeight: 900, lineHeight: 0.86, maxWidth: "72vw", overflowWrap: "anywhere", textAlign: "left" };
+const displayScore = { alignSelf: "center", color: "#111827", fontSize: "min(47vw, 68dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.64, maxWidth: "47vw", textAlign: "center" };
+const displaySingleScore = { alignSelf: "center", color: "#111827", fontSize: "min(88vw, 76dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.6, maxWidth: "96vw", textAlign: "center" };
+const displayClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(9vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
+const displaySingleClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(13vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
+const displayEmpty = { alignItems: "center", color: "#111827", display: "flex", flexDirection: "column", fontSize: "clamp(44px, 7vw, 112px)", fontWeight: 900, gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", textAlign: "center" };
 const displayIdleTitle = { fontSize: "clamp(72px, 12vw, 180px)", fontWeight: 900, lineHeight: 0.95 };
 const displayIdleSub = { color: "#64748b", fontSize: "clamp(34px, 5vw, 78px)", marginTop: "3vh" };
-const displaySchedule = { alignItems: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100vh", justifyContent: "center", overflow: "hidden", padding: "3vh 3vw" };
-const displayFieldName = { color: "#111827", fontSize: "clamp(76px, 11vw, 170px)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
-const displayWeekLabel = { color: "#2f6ea6", fontSize: "clamp(34px, 5vw, 78px)", fontWeight: 900, marginTop: "2vh", textTransform: "uppercase" };
-const displayGameList = { display: "grid", gap: "1.8vh", marginTop: "3vh", maxWidth: "94vw", width: "100%" };
-const displayGameRow = { alignItems: "center", border: "0.45vw solid #111827", borderRadius: "1.5vw", boxSizing: "border-box", display: "grid", gap: "2vw", gridTemplateColumns: "18vw 1fr 22vw", minHeight: "12vh", padding: "1.8vh 2vw" };
-const displayGameTime = { color: "#111827", fontSize: "clamp(34px, 4.8vw, 76px)", fontWeight: 900, lineHeight: 0.95 };
-const displayGameTeams = { color: "#111827", fontSize: "clamp(36px, 5.2vw, 86px)", fontWeight: 900, lineHeight: 0.95, overflowWrap: "anywhere" };
-const displayGameDivision = { color: "#475569", fontSize: "clamp(24px, 3.6vw, 58px)", fontWeight: 900, lineHeight: 1, textAlign: "right" };
+const displaySchedule = { alignItems: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", overflow: "hidden", padding: "3dvh 3vw" };
+const displayFieldName = { color: "#111827", fontSize: "min(12vw, 15dvh)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
+const displayWeekLabel = { color: "#2f6ea6", fontSize: "min(5.6vw, 7dvh)", fontWeight: 900, marginTop: "2dvh", textTransform: "uppercase" };
+const displayGameList = { display: "grid", gap: "1.4dvh", marginTop: "2.4dvh", maxWidth: "94vw", width: "100%" };
+const displayGameRow = { alignItems: "center", border: "0.45vw solid #111827", borderRadius: "1.5vw", boxSizing: "border-box", display: "grid", gap: "2vw", gridTemplateColumns: "18vw 1fr 22vw", minHeight: "10.5dvh", padding: "1.3dvh 2vw" };
+const displayGameTime = { color: "#111827", fontSize: "min(4.8vw, 7dvh)", fontWeight: 900, lineHeight: 0.95 };
+const displayGameTeams = { color: "#111827", fontSize: "min(5.2vw, 7.4dvh)", fontWeight: 900, lineHeight: 0.95, overflowWrap: "anywhere" };
+const displayGameDivision = { color: "#475569", fontSize: "min(3.6vw, 5.2dvh)", fontWeight: 900, lineHeight: 1, textAlign: "right" };
 const displayNoGames = { color: "#64748b", fontSize: "clamp(44px, 7vw, 108px)", fontWeight: 900, textAlign: "center" };
