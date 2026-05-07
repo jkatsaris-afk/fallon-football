@@ -46,6 +46,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null);
   const lastServerClockRef = useRef(null);
+  const displayClockAnchorRef = useRef({ seconds: DEFAULT_SETTINGS.scoreboard_game_minutes * 60, syncedAt: Date.now() });
 
   useEffect(() => {
     loadData();
@@ -75,8 +76,10 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     if (!scoreOnly || !liveGame || !displayClockRunning) return undefined;
 
     const interval = setInterval(() => {
-      setClockSeconds((current) => Math.max(0, current - 1));
-    }, 1000);
+      const { seconds, syncedAt } = displayClockAnchorRef.current;
+      const elapsed = Math.floor((Date.now() - syncedAt) / 1000);
+      setClockSeconds(Math.max(0, seconds - elapsed));
+    }, 250);
 
     return () => clearInterval(interval);
   }, [scoreOnly, liveGame?.id, displayClockRunning]);
@@ -154,6 +157,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const scheduleIds = [...new Set((data || []).map((row) => row.schedule_id).filter(Boolean))];
     if (!scheduleIds.length) {
       lastServerClockRef.current = null;
+      displayClockAnchorRef.current = { seconds: 0, syncedAt: Date.now() };
       setDisplayClockRunning(false);
       setLiveGame(null);
       return;
@@ -177,6 +181,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const active = hydratedRows.find((row) => fieldIds.includes(row.schedule_master_auto?.field_id));
     if (!active) {
       lastServerClockRef.current = null;
+      displayClockAnchorRef.current = { seconds: 0, syncedAt: Date.now() };
       setDisplayClockRunning(false);
       setLiveGame(null);
       return;
@@ -185,7 +190,9 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const serverClockSeconds = clockToSeconds(active.clock || formatClock(settings.scoreboard_game_minutes * 60));
     if (scoreOnly) {
       const previousServerClock = lastServerClockRef.current;
-      setDisplayClockRunning(previousServerClock !== null && serverClockSeconds < previousServerClock);
+      const serverClockMoving = previousServerClock !== null && serverClockSeconds < previousServerClock;
+      setDisplayClockRunning(serverClockMoving);
+      displayClockAnchorRef.current = { seconds: serverClockSeconds, syncedAt: Date.now() };
       lastServerClockRef.current = serverClockSeconds;
     }
 
@@ -294,6 +301,11 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const addPoints = (side, points) => {
     const fieldName = side === "home" ? "home_score" : "away_score";
     updateLiveGame({ [fieldName]: Number(liveGame[fieldName] || 0) + Number(points || 0) });
+  };
+
+  const removePoints = (side, points) => {
+    const fieldName = side === "home" ? "home_score" : "away_score";
+    updateLiveGame({ [fieldName]: Math.max(0, Number(liveGame[fieldName] || 0) - Number(points || 0)) });
   };
 
   const endGame = async () => {
@@ -495,12 +507,14 @@ export default function FieldScoreboardPage({ mode = "control" }) {
               team={liveGame.schedule_master_auto?.team}
               score={liveGame.home_score}
               onAdd={(points) => addPoints("home", points)}
+              onRemove={(points) => removePoints("home", points)}
               settings={settings}
             />
             <TeamControls
               team={liveGame.schedule_master_auto?.opponent}
               score={liveGame.away_score}
               onAdd={(points) => addPoints("away", points)}
+              onRemove={(points) => removePoints("away", points)}
               settings={settings}
             />
           </div>
@@ -514,7 +528,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   );
 }
 
-function TeamControls({ team, score, onAdd, settings }) {
+function TeamControls({ team, score, onAdd, onRemove, settings }) {
   const logo = getLogo(team);
 
   return (
@@ -525,9 +539,14 @@ function TeamControls({ team, score, onAdd, settings }) {
       </div>
       <div style={scoreText}>{score || 0}</div>
       <div style={pointGrid}>
-        <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_touchdown_points)}>Touchdown</button>
+        <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_touchdown_points)}>+ Touchdown</button>
         <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_extra_one_points)}>+1 XP</button>
         <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_extra_two_points)}>+2 XP</button>
+      </div>
+      <div style={undoGrid}>
+        <button style={undoBtn} onClick={() => onRemove(settings.scoreboard_touchdown_points)}>- TD</button>
+        <button style={undoBtn} onClick={() => onRemove(settings.scoreboard_extra_one_points)}>-1</button>
+        <button style={undoBtn} onClick={() => onRemove(settings.scoreboard_extra_two_points)}>-2</button>
       </div>
     </div>
   );
@@ -752,6 +771,8 @@ const teamName = { color: "#0f172a", fontSize: "min(28px, 4dvh)", fontWeight: 90
 const scoreText = { color: "#0f172a", fontSize: "min(112px, 17dvh)", fontWeight: 900, lineHeight: 0.82 };
 const pointGrid = { display: "grid", gap: 10 };
 const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: "min(18px, 2.6dvh)", fontWeight: 900, minHeight: 50, padding: "13px 10px" };
+const undoGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 10 };
+const undoBtn = { background: "#fee2e2", border: "none", borderRadius: 12, color: "#991b1b", cursor: "pointer", fontSize: "min(16px, 2.3dvh)", fontWeight: 900, minHeight: 42, padding: "10px 8px" };
 const endBtn = { background: "#dc2626", border: "none", borderRadius: 16, color: "#fff", cursor: "pointer", fontSize: 19, fontWeight: 900, marginTop: 12, minHeight: 56, padding: 14, width: "100%" };
 const displayWrap = { background: "#fff", display: "grid", gridTemplateColumns: "1fr 1fr", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
 const displaySingleWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
@@ -763,8 +784,8 @@ const displayLogo = { height: "min(10dvh, 10vw)", maxHeight: "100%", objectFit: 
 const displaySingleLogo = { height: "min(11dvh, 12vw)", maxHeight: "100%", objectFit: "contain", width: "min(11dvh, 12vw)" };
 const displayTeam = { color: "#111827", fontSize: "min(4.4vw, 6.4dvh)", fontWeight: 900, lineHeight: 0.9, maxWidth: "34vw", overflowWrap: "anywhere", textAlign: "left" };
 const displaySingleTeam = { color: "#111827", fontSize: "min(6.8vw, 8dvh)", fontWeight: 900, lineHeight: 0.86, maxWidth: "72vw", overflowWrap: "anywhere", textAlign: "left" };
-const displayScore = { alignSelf: "center", color: "#111827", fontSize: "min(47vw, 68dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.64, maxWidth: "47vw", textAlign: "center" };
-const displaySingleScore = { alignSelf: "center", color: "#111827", fontSize: "min(88vw, 76dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.6, maxWidth: "96vw", textAlign: "center" };
+const displayScore = { alignSelf: "center", color: "#111827", fontSize: "min(38vw, 66dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.64, maxWidth: "47vw", textAlign: "center" };
+const displaySingleScore = { alignSelf: "center", color: "#111827", fontSize: "min(54vw, 74dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.6, maxWidth: "96vw", textAlign: "center" };
 const displayClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(9vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
 const displaySingleClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(13vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
 const displayEmpty = { alignItems: "center", color: "#111827", display: "flex", flexDirection: "column", fontSize: "clamp(44px, 7vw, 112px)", fontWeight: 900, gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", textAlign: "center" };
