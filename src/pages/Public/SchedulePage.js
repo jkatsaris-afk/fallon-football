@@ -44,13 +44,23 @@ export default function SchedulePage({ setPage }) {
   const [selectedType, setSelectedType] = useState(null);
 
   useEffect(() => {
+    const requestedDate = sessionStorage.getItem("publicScheduleDate");
+    const requestedType = sessionStorage.getItem("publicScheduleType");
+
+    if (requestedDate) setSelectedDate(requestedDate);
+    if (requestedType) setSelectedType(requestedType);
+
+    sessionStorage.removeItem("publicScheduleDate");
+    sessionStorage.removeItem("publicScheduleType");
     load();
   }, []);
 
   const load = async () => {
     const { data } = await supabase
-      .from("schedule_master")
-      .select("*");
+      .from("schedule_master_auto")
+      .select("*")
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true });
 
     if (!data) return;
     setGames(data);
@@ -72,6 +82,7 @@ export default function SchedulePage({ setPage }) {
   const dates = Object.keys(grouped).sort(
     (a, b) => new Date(a) - new Date(b)
   );
+  const selectedGames = grouped[selectedDate] || [];
 
   return (
     <div>
@@ -145,7 +156,13 @@ export default function SchedulePage({ setPage }) {
             <div className="sub">← Back</div>
           </div>
 
-          {grouped[selectedDate]
+          {selectedGames.length === 0 && (
+            <div className="inner-tile">
+              <div className="sub">No games found for this date.</div>
+            </div>
+          )}
+
+          {selectedGames
             .filter(g => g.clean_type.includes(selectedType))
             .sort((a, b) => toTime(a.event_time) - toTime(b.event_time))
             .map((item, i) => (

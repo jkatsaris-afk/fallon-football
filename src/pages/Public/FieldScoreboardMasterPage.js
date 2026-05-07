@@ -9,6 +9,7 @@ export default function FieldScoreboardMasterPage() {
   const [liveGames, setLiveGames] = useState([]);
   const [settings, setSettings] = useState({});
   const [deviceFlow, setDeviceFlow] = useState(null);
+  const [status, setStatus] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -77,13 +78,44 @@ export default function FieldScoreboardMasterPage() {
   );
 
   const updateSetting = async (field, value) => {
-    const { error } = await supabase.from("app_settings").update({ [field]: value }).eq("id", 1);
+    setStatus(null);
+    const { data, error } = await supabase
+      .from("app_settings")
+      .update({ [field]: value })
+      .eq("id", 1)
+      .select("id");
+
     if (error) {
       console.error("Master scoreboard setting update failed:", error);
+      setStatus({
+        type: "error",
+        message: "Could not update scoreboard settings. Run the live scoreboard SQL in Supabase, then try again.",
+      });
       return;
     }
 
+    if (!data?.length) {
+      const { error: insertError } = await supabase
+        .from("app_settings")
+        .insert({ id: 1, [field]: value });
+
+      if (insertError) {
+        console.error("Master scoreboard setting insert failed:", insertError);
+        setStatus({
+          type: "error",
+          message: "Could not create app settings. Run the live scoreboard SQL in Supabase, then try again.",
+        });
+        return;
+      }
+    }
+
     setSettings((current) => ({ ...current, [field]: value }));
+    setStatus({
+      type: "success",
+      message: field === "live_scoreboards_open"
+        ? `Live scoreboards turned ${value ? "on" : "off"}.`
+        : "Scoreboard setting saved.",
+    });
   };
 
   const origin = window.location.origin;
@@ -106,6 +138,12 @@ export default function FieldScoreboardMasterPage() {
       </header>
 
       <section style={settingsPanel}>
+        {status && (
+          <div style={{ ...statusBox, ...(status.type === "error" ? statusError : statusSuccess) }}>
+            {status.message}
+          </div>
+        )}
+
         <div style={settingsTop}>
           <div>
             <div style={panelTitle}>Scoreboard Settings</div>
@@ -313,6 +351,9 @@ const systemBadge = { border: "none", borderRadius: 999, color: "#fff", cursor: 
 const systemOn = { background: "#16a34a" };
 const systemOff = { background: "#dc2626" };
 const settingsPanel = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", marginBottom: 16, padding: 16 };
+const statusBox = { borderRadius: 12, fontSize: 14, fontWeight: 900, marginBottom: 14, padding: "11px 12px" };
+const statusSuccess = { background: "#dcfce7", color: "#166534" };
+const statusError = { background: "#fee2e2", color: "#991b1b" };
 const settingsTop = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 14 };
 const panelTitle = { color: "#0f172a", fontSize: 18, fontWeight: 900 };
 const panelHint = { color: "#64748b", fontSize: 13, fontWeight: 800, marginTop: 3 };

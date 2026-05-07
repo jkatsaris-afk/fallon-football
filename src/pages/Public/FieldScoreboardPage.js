@@ -32,6 +32,7 @@ const DEFAULT_SETTINGS = {
 };
 const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
 const FINAL_DISPLAY_SECONDS = 120;
+const SCOREBOARD_CLOSED_MESSAGE = "Live scoreboard is turned off.";
 
 export default function FieldScoreboardPage({ mode = "control" }) {
   const fieldId = getFieldIdFromPath();
@@ -239,7 +240,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
   const startGame = async (game) => {
     if (!scoreboardsOpen) {
-      setStatus({ type: "error", message: "Live scoreboards are turned off by the admin." });
+      setStatus({ type: "error", message: SCOREBOARD_CLOSED_MESSAGE });
       return;
     }
 
@@ -363,7 +364,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
   const startTestGame = async () => {
     if (!scoreboardsOpen) {
-      setStatus({ type: "error", message: "Live scoreboards are turned off by the admin." });
+      setStatus({ type: "error", message: SCOREBOARD_CLOSED_MESSAGE });
       return;
     }
 
@@ -500,7 +501,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
           <div style={pageSub}>
             {scoreboardsOpen
               ? "Choose which iPad view to open for this field."
-              : "Live scoreboards are currently turned off by the admin."}
+              : SCOREBOARD_CLOSED_MESSAGE}
           </div>
         </div>
 
@@ -527,7 +528,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
             </a>
           </div>
         ) : (
-          <div style={closedPanel}>Live scoreboard has not been activated.</div>
+          <div style={closedPanel}>{SCOREBOARD_CLOSED_MESSAGE}</div>
         )}
       </div>
     );
@@ -564,7 +565,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       )}
 
       {!scoreboardsOpen && (
-        <div style={closedPanel}>Live scoreboard has not been activated.</div>
+        <div style={closedPanel}>{SCOREBOARD_CLOSED_MESSAGE}</div>
       )}
 
       {!liveGame && scoreboardsOpen && (
@@ -719,7 +720,7 @@ function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpe
       {!scoreboardsOpen && (
         <div style={displayEmpty}>
           <div style={displayIdleTitle}>{field?.name || "Field"}</div>
-          <div style={displayIdleSub}>Live scoreboard has not been activated</div>
+          <div style={displayIdleSub}>{SCOREBOARD_CLOSED_MESSAGE}</div>
         </div>
       )}
 

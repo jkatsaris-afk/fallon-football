@@ -1,253 +1,238 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Calendar, ClipboardList, Radio, Trophy, UserPlus } from "lucide-react";
 import { supabase } from "../../supabase";
 
-// ===== LOGOS =====
-import sf from "../../resources/San Francisco 49ers.png";
-import bengals from "../../resources/Cincinnati Bengals.png";
-import bills from "../../resources/Buffalo Bills.png";
-import broncos from "../../resources/Denver Broncos.png";
-import chiefs from "../../resources/Kansas City Chiefs.png";
-import colts from "../../resources/Indianapolis Colts.png";
-import eagles from "../../resources/Philadelphia Eagles.png";
-import jets from "../../resources/New York Jets.png";
-import lions from "../../resources/Detroit Lions.png";
-import raiders from "../../resources/Las Vegas Raiders.png";
-import rams from "../../resources/Los Angeles Rams.png";
-import steelers from "../../resources/Pittsburgh Steelers.png";
-
-// ===== MAP =====
-const teamLogos = {
-  "49ers": sf,
-  "Bengals": bengals,
-  "Bills": bills,
-  "Broncos": broncos,
-  "Chiefs": chiefs,
-  "Colts": colts,
-  "Eagles": eagles,
-  "Jets": jets,
-  "Lions": lions,
-  "Raiders": raiders,
-  "Rams": rams,
-  "Steelers": steelers,
-};
-
-// ===== HELPER =====
-function getLogo(name) {
-  if (!name) return null;
-  return teamLogos[name.trim()] || null;
-}
+const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
 
 export default function HomePage({ setPage }) {
-  const [allGames, setAllGames] = useState([]);
+  const [games, setGames] = useState([]);
   const [liveGames, setLiveGames] = useState([]);
-  const [upcomingGames, setUpcomingGames] = useState([]);
-  const [now, setNow] = useState(new Date()); // 🔥 NEW
+  const [settings, setSettings] = useState(null);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    fetchGames();
+    loadHomeData();
+    const refresh = setInterval(loadHomeData, 30000);
+    return () => clearInterval(refresh);
   }, []);
 
-  // 🔥 LIVE UPDATE (every minute)
   useEffect(() => {
-    const interval = setInterval(() => {
-      processGames();
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [allGames]);
-
-  // 🔥 COUNTDOWN TIMER (every second)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
+    const tick = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(tick);
   }, []);
 
-  const fetchGames = async () => {
-    const { data } = await supabase
-      .from("schedule_master")
-      .select("*");
+  const loadHomeData = async () => {
+    const [{ data: scheduleData }, { data: liveData }, { data: settingsData }] = await Promise.all([
+      supabase
+        .from("schedule_master_auto")
+        .select("*")
+        .ilike("event_type", "%game%")
+        .order("event_date", { ascending: true })
+        .order("event_time", { ascending: true }),
+      supabase
+        .from("games_live")
+        .select("*")
+        .in("status", LIVE_GAME_STATUSES)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("app_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle(),
+    ]);
 
-    if (!data) return;
-
-    setAllGames(data);
-    processGames(data);
+    setGames(scheduleData || []);
+    setLiveGames(liveData || []);
+    setSettings(settingsData || {});
   };
 
-  const processGames = (source = allGames) => {
-    const now = new Date();
+  const upcomingGames = useMemo(() => (
+    games
+      .map((game) => ({ ...game, startsAt: getGameDate(game) }))
+      .filter((game) => game.startsAt && game.startsAt >= now)
+      .sort((a, b) => a.startsAt - b.startsAt)
+  ), [games, now]);
 
-    const processed = source
-      .map(g => ({
-        ...g,
-        clean_date: normalizeDate(g.event_date),
-        clean_type: (g.event_type || "").toLowerCase().trim()
-      }))
-      .filter(g => g.clean_type.includes("game"))
-      .map(game => {
-        const [y, m, d] = game.clean_date.split("-");
-        const time24 = convertTo24Hour(game.event_time);
-        const [hour, minute] = time24.split(":");
+  const nextGame = upcomingGames[0];
+  const nextGameCount = nextGame
+    ? upcomingGames.filter((game) => isSameWeek(game, nextGame)).length
+    : 0;
+  const scoreboardsOpen = settings?.live_scoreboards_open !== false;
 
-        const start = new Date(y, m - 1, d, hour, minute);
-        const end = new Date(start.getTime() + 15 * 60000);
+  const openUpcomingGames = () => {
+    if (nextGame?.event_date) {
+      sessionStorage.setItem("publicScheduleDate", nextGame.event_date);
+      sessionStorage.setItem("publicScheduleType", "game");
+    }
+    setPage("schedule");
+  };
 
-        return {
-          ...game,
-          start,
-          end
-        };
-      });
+  const openLiveScoreboard = () => {
+    sessionStorage.setItem("publicScoreboardView", "live");
+    setPage("scoreboard");
+  };
 
-    const live = processed.filter(g => g.start <= now && g.end > now);
-
-    const upcoming = processed
-      .filter(g => g.start > now)
-      .sort((a, b) => a.start - b.start);
-
-    setLiveGames(live);
-    setUpcomingGames(upcoming);
+  const openFullSchedule = () => {
+    sessionStorage.removeItem("publicScheduleDate");
+    sessionStorage.removeItem("publicScheduleType");
+    setPage("schedule");
   };
 
   return (
-    <div>
-
-      <div className="card">
-        <div className="title">Fallon Flag Football</div>
-        <div className="sub">2026 Season</div>
-      </div>
-
-      <div className="card">
-
-        <div className="title">
-          {liveGames.length > 0 ? "Live Games" : "Upcoming Games"}
+    <div style={wrap}>
+      <section style={hero}>
+        <div>
+          <div style={eyebrow}>Fallon Flag Football</div>
+          <h1 style={title}>2026 Season</h1>
+          <p style={heroText}>Schedules, scores, signups, and live game updates for families and fans.</p>
         </div>
+        <div style={seasonBadge}>Public Hub</div>
+      </section>
 
-        {liveGames.length > 0 &&
-          liveGames.map((g, i) => (
-            <GameRow key={g.id} game={g} index={i} live now={now} />
-          ))}
-
-        {liveGames.length === 0 &&
-          upcomingGames.slice(0, 3).map((g, i) => (
-            <GameRow key={g.id} game={g} index={i} now={now} />
-          ))}
-
-        {liveGames.length === 0 && upcomingGames.length === 0 && (
-          <div className="sub">No games found</div>
-        )}
-
-        <button className="button" onClick={() => setPage("schedule")}>
-          View Schedule
+      <section style={statusGrid}>
+        <button type="button" style={statusTile} onClick={openLiveScoreboard}>
+          <div style={statusIcon}><Radio size={20} /></div>
+          <div>
+            <div style={statusTitle}>Live Games</div>
+            <div style={statusSub}>
+              {liveGames.length} live now • {scoreboardsOpen ? "Scoreboard ready" : "Scoreboard off"}
+            </div>
+          </div>
         </button>
 
-      </div>
-
-    </div>
-  );
-}
-
-/* GAME ROW */
-function GameRow({ game, index, live, now }) {
-
-  const countdown = getCountdown(game.start, game.end, now);
-
-  return (
-    <div>
-      {index !== 0 && <div className="divider" />}
-
-      <div className="inner-tile">
-
-        {/* 🔥 COUNTDOWN */}
-        {countdown === "LIVE" ? (
-          <div className="sub live">● LIVE</div>
-        ) : (
-          <div className="sub countdown">
-            Starts in {countdown}
-          </div>
-        )}
-
-        <div className="game-row">
-          <div className="game-top">
-
-            <div className="team-row">
-              {getLogo(game.team) && (
-                <img src={getLogo(game.team)} style={logo} />
-              )}
-              <span>{game.team}</span>
+        <button type="button" style={statusTile} onClick={openUpcomingGames}>
+          <div style={statusIcon}><Calendar size={20} /></div>
+          <div>
+            <div style={statusTitle}>{nextGame ? formatShortDate(nextGame.event_date) : "Schedule"}</div>
+            <div style={statusSub}>
+              {nextGame ? `${nextGameCount} upcoming game${nextGameCount === 1 ? "" : "s"}` : "View season schedule"}
             </div>
-
-            <div className="game-time">{game.event_time}</div>
           </div>
+        </button>
+      </section>
 
-          <div className="vs">vs</div>
-
-          <div className="game-bottom">
-
-            <div className="team-row">
-              {getLogo(game.opponent) && (
-                <img src={getLogo(game.opponent)} style={logo} />
-              )}
-              <span>{game.opponent || "TBD"}</span>
+      {nextGame && (
+        <section style={nextPanel}>
+          <div style={nextTop}>
+            <div>
+              <div style={sectionLabel}>Next Game</div>
+              <div style={matchup}>{clean(nextGame.team)} vs {clean(nextGame.opponent)}</div>
             </div>
-
-            <div className="field-badge">
-              {game.division} • {game.field}
-            </div>
-
+            <div style={timeBadge}>{nextGame.event_time || nextGame.time || "TBD"}</div>
           </div>
+          <div style={nextMeta}>
+            {nextGame.division || "Division TBD"} • {nextGame.field || "Field TBD"} • {getCountdown(nextGame.startsAt, now)}
+          </div>
+        </section>
+      )}
+
+      <section style={quickGrid}>
+        <QuickTile icon={<Calendar size={22} />} title="Schedule" text="Find games by week, team, and field." onClick={openFullSchedule} />
+        <QuickTile icon={<Trophy size={22} />} title="Scores" text="Search finals and live games." onClick={() => setPage("scoreboard")} />
+        <QuickTile icon={<UserPlus size={22} />} title="Sign Up" text="Player, coach, and referee forms." onClick={() => window.location.href = "/signup"} />
+        <QuickTile icon={<ClipboardList size={22} />} title="Coach Rankings" text="Public player ranking form." onClick={() => window.location.href = "/coach-rankings"} />
+      </section>
+
+      <section style={infoPanel}>
+        <div style={sectionLabel}>Game Day</div>
+        <div style={infoList}>
+          <InfoRow label="Check scores" value="Open Scores for live and final results." />
+          <InfoRow label="Find your field" value="Open Schedule and filter by team or week." />
+          <InfoRow label="Need help" value="Use the Login menu for coach, parent, referee, or league access." />
         </div>
-
-      </div>
+      </section>
     </div>
   );
 }
 
-/* 🔥 COUNTDOWN FUNCTION */
-function getCountdown(start, end, now) {
-  if (!start) return "";
-
-  if (now >= start && now < end) return "LIVE";
-
-  const diff = start - now;
-  if (diff <= 0) return "";
-
-  const minutes = Math.floor(diff / 60000);
-  const seconds = Math.floor((diff % 60000) / 1000);
-
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  if (hours > 0) return `${hours}h ${mins}m`;
-
-  return `${mins}m ${seconds}s`;
+function QuickTile({ icon, title, text, onClick }) {
+  return (
+    <button type="button" style={quickTile} onClick={onClick}>
+      <div style={quickIcon}>{icon}</div>
+      <div style={quickTitle}>{title}</div>
+      <div style={quickText}>{text}</div>
+    </button>
+  );
 }
 
-/* HELPERS */
-function normalizeDate(dateStr) {
-  if (!dateStr) return null;
-  if (dateStr.includes("-")) return dateStr;
-
-  const [m, d, y] = dateStr.split("/");
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+function InfoRow({ label, value }) {
+  return (
+    <div style={infoRow}>
+      <div style={infoLabel}>{label}</div>
+      <div style={infoValue}>{value}</div>
+    </div>
+  );
 }
 
-function convertTo24Hour(timeStr) {
-  if (!timeStr) return "00:00";
-
-  const [time, mod] = timeStr.split(" ");
-  let [h, m] = time.split(":");
-
-  if (mod === "PM" && h !== "12") h = +h + 12;
-  if (mod === "AM" && h === "12") h = "00";
-
-  return `${h}:${m}`;
+function getGameDate(game) {
+  if (!game?.event_date) return null;
+  const [year, month, day] = String(game.event_date).split("-").map(Number);
+  const [hour, minute] = parseTime(game.event_time || game.time);
+  return new Date(year, Number(month || 1) - 1, day || 1, hour, minute);
 }
 
-const logo = {
-  width: 20,
-  height: 20,
-  marginRight: 6
-};
+function parseTime(value) {
+  const cleanValue = (value || "").toString().trim();
+  const match = cleanValue.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return [0, 0];
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+  return [hour, minute];
+}
+
+function isSameWeek(game, nextGame) {
+  return String(game.week || "") === String(nextGame.week || "") && game.event_date === nextGame.event_date;
+}
+
+function getCountdown(date, now) {
+  if (!date) return "Date TBD";
+  const diff = date - now;
+  if (diff <= 0) return "Starts soon";
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  if (days > 0) return `in ${days}d ${hours}h`;
+  if (hours > 0) return `in ${hours}h`;
+  return "today";
+}
+
+function formatShortDate(value) {
+  if (!value) return "TBD";
+  const [year, month, day] = String(value).split("-").map(Number);
+  const date = new Date(year, Number(month || 1) - 1, day || 1);
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function clean(value) {
+  return (value || "TBD").toString().replace(/\s+/g, " ").trim();
+}
+
+const wrap = { display: "flex", flexDirection: "column", gap: 12 };
+const hero = { alignItems: "flex-start", background: "#0f172a", borderRadius: 18, boxShadow: "0 10px 24px rgba(15,23,42,0.16)", color: "#fff", display: "flex", gap: 14, justifyContent: "space-between", padding: 20 };
+const eyebrow = { color: "#86efac", fontSize: 12, fontWeight: 900, letterSpacing: 0, textTransform: "uppercase" };
+const title = { fontSize: 32, fontWeight: 900, lineHeight: 1, margin: "6px 0 0" };
+const heroText = { color: "#d1d5db", fontSize: 14, fontWeight: 700, lineHeight: 1.35, margin: "10px 0 0" };
+const seasonBadge = { background: "#16a34a", borderRadius: 999, color: "#fff", flex: "0 0 auto", fontSize: 12, fontWeight: 900, padding: "7px 10px" };
+const statusGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" };
+const statusTile = { alignItems: "center", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, boxShadow: "0 6px 16px rgba(0,0,0,0.05)", color: "#111827", cursor: "pointer", display: "flex", gap: 10, minHeight: 78, padding: 12, textAlign: "left" };
+const statusIcon = { alignItems: "center", background: "#ecfdf5", borderRadius: 12, color: "#0f7a3b", display: "flex", flex: "0 0 40px", height: 40, justifyContent: "center" };
+const statusTitle = { fontSize: 15, fontWeight: 900, lineHeight: 1.1 };
+const statusSub = { color: "#64748b", fontSize: 12, fontWeight: 700, lineHeight: 1.2, marginTop: 3 };
+const nextPanel = { background: "#fff", border: "1px solid #e5e7eb", borderLeft: "4px solid #0f7a3b", borderRadius: 16, boxShadow: "0 6px 16px rgba(0,0,0,0.05)", padding: 14 };
+const nextTop = { alignItems: "flex-start", display: "flex", gap: 12, justifyContent: "space-between" };
+const sectionLabel = { color: "#0f7a3b", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
+const matchup = { color: "#111827", fontSize: 19, fontWeight: 900, lineHeight: 1.05, marginTop: 5 };
+const timeBadge = { background: "#f1f5f9", borderRadius: 999, color: "#0f172a", flex: "0 0 auto", fontSize: 12, fontWeight: 900, padding: "7px 10px" };
+const nextMeta = { color: "#64748b", fontSize: 13, fontWeight: 800, lineHeight: 1.25, marginTop: 10 };
+const quickGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" };
+const quickTile = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, boxShadow: "0 6px 16px rgba(0,0,0,0.05)", color: "#111827", cursor: "pointer", minHeight: 132, padding: 14, textAlign: "left" };
+const quickIcon = { alignItems: "center", background: "#f1f5f9", borderRadius: 12, color: "#0f7a3b", display: "flex", height: 40, justifyContent: "center", width: 40 };
+const quickTitle = { fontSize: 17, fontWeight: 900, marginTop: 12 };
+const quickText = { color: "#64748b", fontSize: 12, fontWeight: 700, lineHeight: 1.3, marginTop: 5 };
+const infoPanel = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, boxShadow: "0 6px 16px rgba(0,0,0,0.05)", padding: 14 };
+const infoList = { display: "grid", gap: 10, marginTop: 10 };
+const infoRow = { display: "grid", gap: 3 };
+const infoLabel = { color: "#111827", fontSize: 13, fontWeight: 900 };
+const infoValue = { color: "#64748b", fontSize: 12, fontWeight: 700, lineHeight: 1.35 };
