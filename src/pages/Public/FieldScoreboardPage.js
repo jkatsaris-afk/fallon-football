@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../supabase";
 
 import bills from "../../resources/Buffalo Bills.png";
@@ -29,6 +30,8 @@ const DEFAULT_SETTINGS = {
   scoreboard_extra_one_points: 1,
   scoreboard_extra_two_points: 2,
 };
+const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
+const FINAL_DISPLAY_SECONDS = 120;
 
 export default function FieldScoreboardPage({ mode = "control" }) {
   const fieldId = getFieldIdFromPath();
@@ -45,8 +48,11 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const [displayClockRunning, setDisplayClockRunning] = useState(false);
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null);
+  const [deviceFlow, setDeviceFlow] = useState(null);
   const lastServerClockRef = useRef(null);
+  const displaySyncKeyRef = useRef("");
   const displayClockAnchorRef = useRef({ seconds: DEFAULT_SETTINGS.scoreboard_game_minutes * 60, syncedAt: Date.now() });
+  const gameClockBeforeBreakRef = useRef(DEFAULT_SETTINGS.scoreboard_game_minutes * 60);
 
   useEffect(() => {
     loadData();
@@ -64,13 +70,21 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const interval = setInterval(() => {
       setClockSeconds((current) => {
         const next = Math.max(0, current - 1);
+        if (next === 0 && isBreakStatus(liveGame.status)) {
+          finishBreakClock();
+          return 0;
+        }
+        if (next === 0 && liveGame.status === "final_display") {
+          finishFinalDisplay();
+          return 0;
+        }
         updateLiveGame({ clock: formatClock(next) }, false);
         return next;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [running, liveGame?.id]);
+  }, [running, liveGame?.id, liveGame?.status]);
 
   useEffect(() => {
     if (!scoreOnly || !liveGame || !displayClockRunning) return undefined;
@@ -145,7 +159,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const { data, error } = await supabase
       .from("games_live")
       .select("*")
-      .eq("status", "live")
+      .in("status", LIVE_GAME_STATUSES)
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -157,6 +171,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const scheduleIds = [...new Set((data || []).map((row) => row.schedule_id).filter(Boolean))];
     if (!scheduleIds.length) {
       lastServerClockRef.current = null;
+      displaySyncKeyRef.current = "";
       displayClockAnchorRef.current = { seconds: 0, syncedAt: Date.now() };
       setDisplayClockRunning(false);
       setLiveGame(null);
@@ -181,6 +196,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const active = hydratedRows.find((row) => fieldIds.includes(row.schedule_master_auto?.field_id));
     if (!active) {
       lastServerClockRef.current = null;
+      displaySyncKeyRef.current = "";
       displayClockAnchorRef.current = { seconds: 0, syncedAt: Date.now() };
       setDisplayClockRunning(false);
       setLiveGame(null);
@@ -191,13 +207,23 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     if (scoreOnly) {
       const previousServerClock = lastServerClockRef.current;
       const serverClockMoving = previousServerClock !== null && serverClockSeconds < previousServerClock;
-      setDisplayClockRunning(serverClockMoving);
-      displayClockAnchorRef.current = { seconds: serverClockSeconds, syncedAt: Date.now() };
+      const breakClockRunning = isBreakStatus(active.status) && serverClockSeconds > 0;
+      setDisplayClockRunning(serverClockMoving || breakClockRunning);
+      const syncKey = `${active.id}-${active.status}`;
+      const { seconds, syncedAt } = displayClockAnchorRef.current;
+      const localEstimate = Math.max(0, seconds - Math.floor((Date.now() - syncedAt) / 1000));
+      const shouldHardSync = displaySyncKeyRef.current !== syncKey || Math.abs(localEstimate - serverClockSeconds) > 2 || (!serverClockMoving && !breakClockRunning);
+      if (shouldHardSync) {
+        displayClockAnchorRef.current = { seconds: serverClockSeconds, syncedAt: Date.now() };
+        displaySyncKeyRef.current = syncKey;
+        setClockSeconds(serverClockSeconds);
+      }
       lastServerClockRef.current = serverClockSeconds;
+    } else {
+      setClockSeconds(serverClockSeconds);
     }
 
     setLiveGame(active);
-    setClockSeconds(serverClockSeconds);
   };
 
   const weeks = useMemo(() => (
@@ -218,7 +244,22 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     }
 
     setStatus(null);
-    await supabase.from("games_live").update({ status: "closed" }).eq("schedule_id", game.id).eq("status", "live");
+    const existingScore = await supabase
+      .from("game_scores")
+      .select("id")
+      .eq("schedule_id", game.id)
+      .maybeSingle();
+
+    if (existingScore.data?.id) {
+      setStatus({ type: "error", message: "This game already has a saved final score." });
+      return;
+    }
+
+    await supabase
+      .from("games_live")
+      .update({ status: "closed" })
+      .in("status", LIVE_GAME_STATUSES)
+      .neq("schedule_id", game.id);
 
     const row = {
       schedule_id: game.id,
@@ -229,6 +270,34 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       quarter: 1,
       half: 1,
     };
+
+    const existingLive = await supabase
+      .from("games_live")
+      .select("*")
+      .eq("schedule_id", game.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingLive.data?.id) {
+      const { data, error } = await supabase
+        .from("games_live")
+        .update(row)
+        .eq("id", existingLive.data.id)
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error("Restart live game failed:", error);
+        setStatus({ type: "error", message: "Could not start this game." });
+        return;
+      }
+
+      setLiveGame({ ...data, schedule_master_auto: game });
+      setClockSeconds(clockToSeconds(row.clock));
+      setRunning(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("games_live")
@@ -245,6 +314,51 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     setLiveGame({ ...data, schedule_master_auto: game });
     setClockSeconds(clockToSeconds(row.clock));
     setRunning(false);
+  };
+
+  const startBreakClock = async (type, side = null) => {
+    if (!liveGame) return;
+    if (isBreakStatus(liveGame.status) || liveGame.status === "final_display") return;
+
+    const gameClock = clockSeconds;
+    const statusValue = type === "timeout" && side ? `timeout_${side}` : type;
+    const seconds = type === "halftime"
+      ? Number(settings.scoreboard_halftime_minutes || 5) * 60
+      : Number(settings.scoreboard_timeout_seconds || 60);
+
+    if (type === "timeout") {
+      gameClockBeforeBreakRef.current = gameClock;
+    }
+
+    setRunning(false);
+    setClockSeconds(seconds);
+    await updateLiveGame({ status: statusValue, clock: formatClock(seconds), quarter: type === "timeout" ? gameClock : liveGame.quarter });
+    setRunning(true);
+  };
+
+  const finishBreakClock = async () => {
+    if (!liveGame) return;
+    const nextClock = isTimeoutStatus(liveGame.status)
+      ? Number(liveGame.quarter || gameClockBeforeBreakRef.current || Number(settings.scoreboard_game_minutes || 24) * 60)
+      : Number(settings.scoreboard_game_minutes || 24) * 60;
+
+    setRunning(false);
+    setClockSeconds(nextClock);
+    await updateLiveGame({
+      status: "live",
+      clock: formatClock(nextClock),
+      half: liveGame.status === "halftime" ? 2 : liveGame.half,
+      quarter: liveGame.status === "halftime" ? 2 : 1,
+    });
+  };
+
+  const finishFinalDisplay = async () => {
+    if (!liveGame) return;
+
+    setRunning(false);
+    await supabase.from("games_live").update({ status: "final" }).eq("id", liveGame.id);
+    setLiveGame(null);
+    await loadData();
   };
 
   const startTestGame = async () => {
@@ -342,9 +456,12 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       return;
     }
 
-    await supabase.from("games_live").update({ status: "final" }).eq("id", liveGame.id);
-    setStatus({ type: "success", message: "Final score saved." });
-    setLiveGame(null);
+    const finalClock = formatClock(FINAL_DISPLAY_SECONDS);
+    await supabase.from("games_live").update({ status: "final_display", clock: finalClock }).eq("id", liveGame.id);
+    setClockSeconds(FINAL_DISPLAY_SECONDS);
+    setRunning(true);
+    setLiveGame((current) => current ? { ...current, status: "final_display", clock: finalClock } : current);
+    setStatus({ type: "success", message: "Final score saved. Showing final score for 2 minutes." });
   };
 
   const exitLiveGame = async (message = "Live game stopped. No score was saved.") => {
@@ -410,7 +527,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
             </a>
           </div>
         ) : (
-          <div style={closedPanel}>Turn on live scoreboards in the admin portal to activate this field link.</div>
+          <div style={closedPanel}>Live scoreboard has not been activated.</div>
         )}
       </div>
     );
@@ -424,17 +541,19 @@ export default function FieldScoreboardPage({ mode = "control" }) {
           <div style={pageSub}>Controller link for this field</div>
         </div>
         <div style={displayLinks}>
-          {liveGame && (
+          {liveGame && liveGame.status !== "final_display" && (
             <button style={topExitBtn} onClick={() => exitLiveGame()}>
               Exit Without Saving
             </button>
           )}
-          <a style={displayLink} href={`/field-scoreboard/${fieldId}/display/home`} target="_blank" rel="noreferrer">
-            Home Display
-          </a>
-          <a style={displayLink} href={`/field-scoreboard/${fieldId}/display/away`} target="_blank" rel="noreferrer">
-            Away Display
-          </a>
+          {liveGame && liveGame.status !== "final_display" && (
+            <button style={topEndBtn} onClick={endGame}>
+              {isTestGame(liveGame.schedule_master_auto) ? "End Test" : "End Game"}
+            </button>
+          )}
+          <button style={displayLink} onClick={() => setDeviceFlow({ type: null })}>
+            Add Displays
+          </button>
         </div>
       </div>
 
@@ -445,7 +564,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       )}
 
       {!scoreboardsOpen && (
-        <div style={closedPanel}>Live scoreboards are turned off. Turn them on in the admin portal before starting a game.</div>
+        <div style={closedPanel}>Live scoreboard has not been activated.</div>
       )}
 
       {!liveGame && scoreboardsOpen && (
@@ -475,60 +594,91 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
       {liveGame && (
         <div style={boardPanel}>
-          <div style={timer}>{formatClock(clockSeconds)}</div>
-          <div style={timerActions}>
-            <button style={primaryBtn} onClick={() => setRunning((current) => !current)}>
-              {running ? "Pause" : "Start Game"}
-            </button>
-            <button
-              style={secondaryBtn}
-              onClick={() => {
-                const seconds = Number(settings.scoreboard_game_minutes || 24) * 60;
-                setClockSeconds(seconds);
-                updateLiveGame({ clock: formatClock(seconds) });
-              }}
-            >
-              Reset Clock
-            </button>
-            <button
-              style={secondaryBtn}
-              onClick={() => {
-                const seconds = Number(settings.scoreboard_timeout_seconds || 60);
-                setClockSeconds(seconds);
-                updateLiveGame({ clock: formatClock(seconds) });
-              }}
-            >
-              Timeout
-            </button>
-          </div>
+          {liveGame.status === "final_display" ? (
+            <div style={controllerFinalPanel}>
+              <div style={controllerFinalLabel}>Final score saved</div>
+              <div style={controllerFinalScore}>
+                {liveGame.home_score || 0} - {liveGame.away_score || 0}
+              </div>
+              <div style={controllerFinalSub}>
+                Displays will return to the field schedule in {formatClock(clockSeconds)}.
+              </div>
+            </div>
+          ) : (
+            <>
+              {isBreakStatus(liveGame.status) && (
+                <div style={controllerBreakBanner}>
+                  {getBreakLabel(liveGame, "controller")} countdown running. Game clock is paused.
+                </div>
+              )}
+              <div style={timer}>{formatClock(clockSeconds)}</div>
+              <div style={timerActions}>
+                <button
+                  style={primaryBtn}
+                  disabled={isBreakStatus(liveGame.status)}
+                  onClick={() => setRunning((current) => !current)}
+                >
+                  {running ? "Pause" : getGameClockButtonLabel(liveGame, clockSeconds, settings)}
+                </button>
+                <button
+                  style={secondaryBtn}
+                  disabled={isBreakStatus(liveGame.status)}
+                  onClick={() => {
+                    const seconds = Number(settings.scoreboard_game_minutes || 24) * 60;
+                    setClockSeconds(seconds);
+                    updateLiveGame({ clock: formatClock(seconds) });
+                  }}
+                >
+                  Reset Clock
+                </button>
+                <button
+                  style={secondaryBtn}
+                  disabled={isBreakStatus(liveGame.status)}
+                  onClick={() => startBreakClock("halftime")}
+                >
+                  Halftime
+                </button>
+              </div>
 
-          <div style={scoreGrid}>
-            <TeamControls
-              team={liveGame.schedule_master_auto?.team}
-              score={liveGame.home_score}
-              onAdd={(points) => addPoints("home", points)}
-              onRemove={(points) => removePoints("home", points)}
-              settings={settings}
-            />
-            <TeamControls
-              team={liveGame.schedule_master_auto?.opponent}
-              score={liveGame.away_score}
-              onAdd={(points) => addPoints("away", points)}
-              onRemove={(points) => removePoints("away", points)}
-              settings={settings}
-            />
-          </div>
-
-          <button style={endBtn} onClick={endGame}>
-            {isTestGame(liveGame.schedule_master_auto) ? "End Test Game" : "End Game and Save Final"}
-          </button>
+              <div style={scoreGrid}>
+                <TeamControls
+                  team={liveGame.schedule_master_auto?.team}
+                  score={liveGame.home_score}
+                  onAdd={(points) => addPoints("home", points)}
+                  onRemove={(points) => removePoints("home", points)}
+                  onTimeout={() => startBreakClock("timeout", "home")}
+                  settings={settings}
+                  disabled={isBreakStatus(liveGame.status)}
+                />
+                <TeamControls
+                  team={liveGame.schedule_master_auto?.opponent}
+                  score={liveGame.away_score}
+                  onAdd={(points) => addPoints("away", points)}
+                  onRemove={(points) => removePoints("away", points)}
+                  onTimeout={() => startBreakClock("timeout", "away")}
+                  settings={settings}
+                  disabled={isBreakStatus(liveGame.status)}
+                />
+              </div>
+            </>
+          )}
         </div>
+      )}
+      {deviceFlow && (
+        <DeviceOverlay
+          field={field}
+          fieldId={fieldId}
+          type={deviceFlow.type}
+          onSelect={(type) => setDeviceFlow({ type })}
+          onBack={() => setDeviceFlow({ type: null })}
+          onClose={() => setDeviceFlow(null)}
+        />
       )}
     </div>
   );
 }
 
-function TeamControls({ team, score, onAdd, onRemove, settings }) {
+function TeamControls({ team, score, onAdd, onRemove, onTimeout, settings, disabled = false }) {
   const logo = getLogo(team);
 
   return (
@@ -539,15 +689,18 @@ function TeamControls({ team, score, onAdd, onRemove, settings }) {
       </div>
       <div style={scoreText}>{score || 0}</div>
       <div style={pointGrid}>
-        <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_touchdown_points)}>+ Touchdown</button>
-        <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_extra_one_points)}>+1 XP</button>
-        <button style={pointBtn} onClick={() => onAdd(settings.scoreboard_extra_two_points)}>+2 XP</button>
+        <button style={pointBtn} disabled={disabled} onClick={() => onAdd(settings.scoreboard_touchdown_points)}>+ Touchdown</button>
+        <button style={pointBtn} disabled={disabled} onClick={() => onAdd(settings.scoreboard_extra_one_points)}>+1 XP</button>
+        <button style={pointBtn} disabled={disabled} onClick={() => onAdd(settings.scoreboard_extra_two_points)}>+2 XP</button>
       </div>
       <div style={undoGrid}>
-        <button style={undoBtn} onClick={() => onRemove(settings.scoreboard_touchdown_points)}>- TD</button>
-        <button style={undoBtn} onClick={() => onRemove(settings.scoreboard_extra_one_points)}>-1</button>
-        <button style={undoBtn} onClick={() => onRemove(settings.scoreboard_extra_two_points)}>-2</button>
+        <button style={undoBtn} disabled={disabled} onClick={() => onRemove(settings.scoreboard_touchdown_points)}>- TD</button>
+        <button style={undoBtn} disabled={disabled} onClick={() => onRemove(settings.scoreboard_extra_one_points)}>-1</button>
+        <button style={undoBtn} disabled={disabled} onClick={() => onRemove(settings.scoreboard_extra_two_points)}>-2</button>
       </div>
+      <button style={timeoutTeamBtn} disabled={disabled} onClick={onTimeout}>
+        Timeout
+      </button>
     </div>
   );
 }
@@ -558,13 +711,15 @@ function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpe
   const singleSide = sideMode === "home" || sideMode === "away";
   const singleTeam = sideMode === "home" ? game?.team : game?.opponent;
   const singleScore = sideMode === "home" ? liveGame?.home_score : liveGame?.away_score;
+  const breakMode = isBreakStatus(liveGame?.status);
+  const finalMode = liveGame?.status === "final_display";
 
   return (
     <div style={singleSide ? displaySingleWrap : displayWrap}>
       {!scoreboardsOpen && (
         <div style={displayEmpty}>
           <div style={displayIdleTitle}>{field?.name || "Field"}</div>
-          <div style={displayIdleSub}>Live scoreboards are turned off</div>
+          <div style={displayIdleSub}>Live scoreboard has not been activated</div>
         </div>
       )}
 
@@ -588,16 +743,58 @@ function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpe
         </div>
       )}
 
+      {scoreboardsOpen && liveGame && breakMode && (
+        <BreakClockDisplay label={getBreakLabel(liveGame)} clock={liveClock || liveGame.clock} />
+      )}
+
+      {scoreboardsOpen && liveGame && finalMode && (
+        <FinalScoreDisplay game={game} liveGame={liveGame} clock={liveClock || liveGame.clock} />
+      )}
+
       {scoreboardsOpen && liveGame && singleSide && (
-        <ScoreOnlySide team={singleTeam} score={singleScore} clock={liveClock || liveGame.clock} single />
+        !breakMode && !finalMode && <ScoreOnlySide team={singleTeam} score={singleScore} clock={liveClock || liveGame.clock} single />
       )}
 
       {scoreboardsOpen && liveGame && !singleSide && (
-        <>
+        !breakMode && !finalMode && <>
           <ScoreOnlySide team={game?.team} score={liveGame.home_score} clock={liveClock || liveGame.clock} />
           <ScoreOnlySide team={game?.opponent} score={liveGame.away_score} clock={liveClock || liveGame.clock} />
         </>
       )}
+    </div>
+  );
+}
+
+function BreakClockDisplay({ label, clock }) {
+  return (
+    <div style={breakDisplay}>
+      <div style={breakLabel}>{label}</div>
+      <div style={breakClock}>{clock || "0:00"}</div>
+      <div style={breakSub}>Game clock paused</div>
+    </div>
+  );
+}
+
+function FinalScoreDisplay({ game, liveGame, clock }) {
+  const homeScore = Number(liveGame?.home_score || 0);
+  const awayScore = Number(liveGame?.away_score || 0);
+  const winner = homeScore === awayScore
+    ? "Tie Game"
+    : `${cleanTeamName(homeScore > awayScore ? game?.team : game?.opponent)} Wins`;
+
+  return (
+    <div style={finalDisplay}>
+      <div style={finalLabel}>Final</div>
+      <div style={finalWinner}>{winner}</div>
+      <div style={finalTeams}>
+        {cleanTeamName(game?.team)} vs {cleanTeamName(game?.opponent)}
+      </div>
+      <div style={finalScoreLine}>
+        <span>{homeScore}</span>
+        <span style={finalDash}>-</span>
+        <span>{awayScore}</span>
+      </div>
+      <div style={finalReturn}>Returning to schedule in {clock || "2:00"}</div>
     </div>
   );
 }
@@ -612,6 +809,47 @@ function ScoreOnlySide({ team, score, clock, single = false }) {
       </div>
       <div style={single ? displaySingleScore : displayScore}>{score || 0}</div>
       <div style={single ? displaySingleClock : displayClock}>{clock || "0:00"}</div>
+    </div>
+  );
+}
+
+function DeviceOverlay({ field, fieldId, type, onSelect, onBack, onClose }) {
+  const origin = window.location.origin;
+  const href = type ? `${origin}/field-scoreboard/${fieldId}/${type}` : "";
+  const label = type === "display/home" ? "Home Display iPad" : type === "display/away" ? "Away Display iPad" : "Add Displays";
+
+  return (
+    <div style={deviceOverlay}>
+      <div style={devicePanel}>
+        <div style={deviceHeader}>
+          <div>
+            <div style={deviceEyebrow}>{field?.name || "Field"}</div>
+            <div style={deviceTitle}>{label}</div>
+          </div>
+          <button style={deviceCloseBtn} onClick={onClose}>Close</button>
+        </div>
+
+        {!type ? (
+          <div style={deviceChoiceGrid}>
+            <button style={deviceChoiceBtn} onClick={() => onSelect("display/home")}>
+              <div style={deviceChoiceTitle}>Home Display</div>
+              <div style={deviceChoiceText}>Scan for the home-side scoreboard.</div>
+            </button>
+            <button style={deviceChoiceBtn} onClick={() => onSelect("display/away")}>
+              <div style={deviceChoiceTitle}>Away Display</div>
+              <div style={deviceChoiceText}>Scan for the away-side scoreboard.</div>
+            </button>
+          </div>
+        ) : (
+          <div style={deviceQrWrap}>
+            <div style={deviceQrFrame}>
+              <QRCodeSVG value={href} size={360} level="M" includeMargin />
+            </div>
+            <a href={href} target="_blank" rel="noreferrer" style={deviceOpenLink}>Open Link</a>
+            <button style={deviceBackBtn} onClick={onBack}>Choose Different Display</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -633,6 +871,31 @@ function getLogo(team) {
 
 function isTestGame(game) {
   return game?.source === "scoreboard-test" || game?.is_scoreboard_test;
+}
+
+function isTimeoutStatus(status) {
+  return status === "timeout" || status === "timeout_home" || status === "timeout_away";
+}
+
+function isBreakStatus(status) {
+  return status === "halftime" || isTimeoutStatus(status);
+}
+
+function getBreakLabel(liveGame, fallback = "display") {
+  if (liveGame?.status === "halftime") return "Halftime";
+
+  const game = liveGame?.schedule_master_auto;
+  if (liveGame?.status === "timeout_home") return `${cleanTeamName(game?.team) || "Home"} Timeout`;
+  if (liveGame?.status === "timeout_away") return `${cleanTeamName(game?.opponent) || "Away"} Timeout`;
+  return fallback === "controller" ? "Timeout" : "Timeout";
+}
+
+function getGameClockButtonLabel(liveGame, clockSeconds, settings) {
+  const fullGameClock = Number(settings.scoreboard_game_minutes || 24) * 60;
+  if (Number(liveGame?.half || 1) === 1 && Number(clockSeconds || 0) === fullGameClock) {
+    return "Start Game";
+  }
+  return "Resume Time";
 }
 
 function getPhysicalFieldKey(field) {
@@ -745,7 +1008,8 @@ const pageTitle = { color: "#0f172a", fontSize: 34, fontWeight: 900, lineHeight:
 const pageSub = { color: "#64748b", fontSize: 16, fontWeight: 800, marginTop: 4 };
 const displayLinks = { display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "flex-end" };
 const topExitBtn = { background: "#fee2e2", border: "none", borderRadius: 14, color: "#991b1b", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px" };
-const displayLink = { background: "#111827", borderRadius: 14, color: "#fff", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px", textDecoration: "none" };
+const topEndBtn = { background: "#dc2626", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px" };
+const displayLink = { background: "#111827", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px", textDecoration: "none" };
 const statusBox = { borderRadius: 12, fontSize: 16, fontWeight: 900, marginTop: 14, padding: 14 };
 const successBox = { background: "#dcfce7", color: "#166534" };
 const errorBox = { background: "#fee2e2", color: "#991b1b" };
@@ -759,6 +1023,11 @@ const gameTeams = { color: "#0f172a", fontSize: 23, fontWeight: 900, lineHeight:
 const gameMeta = { color: "#64748b", fontSize: 16, fontWeight: 800, marginTop: 8 };
 const startText = { color: "#16a34a", fontSize: 16, fontWeight: 900, marginTop: 14, textTransform: "uppercase" };
 const boardPanel = { background: "#fff", borderRadius: 20, boxSizing: "border-box", display: "flex", flexDirection: "column", height: "calc(100dvh - 142px)", marginTop: 14, overflow: "hidden", padding: 18 };
+const controllerBreakBanner = { background: "#dbeafe", borderRadius: 14, color: "#1d4ed8", fontSize: "min(18px, 3dvh)", fontWeight: 900, marginBottom: 10, padding: "10px 14px", textAlign: "center" };
+const controllerFinalPanel = { alignItems: "center", display: "flex", flex: 1, flexDirection: "column", justifyContent: "center", textAlign: "center" };
+const controllerFinalLabel = { color: "#16a34a", fontSize: "min(44px, 7dvh)", fontWeight: 900, textTransform: "uppercase" };
+const controllerFinalScore = { color: "#0f172a", fontSize: "min(140px, 24dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.85, marginTop: 14 };
+const controllerFinalSub = { color: "#64748b", fontSize: "min(24px, 4dvh)", fontWeight: 900, marginTop: 18 };
 const timer = { color: "#0f172a", fontSize: "min(86px, 12dvh)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
 const timerActions = { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 10 };
 const primaryBtn = { background: "#16a34a", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 17, fontWeight: 900, minHeight: 50, padding: "13px 18px" };
@@ -773,7 +1042,7 @@ const pointGrid = { display: "grid", gap: 10 };
 const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: "min(18px, 2.6dvh)", fontWeight: 900, minHeight: 50, padding: "13px 10px" };
 const undoGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 10 };
 const undoBtn = { background: "#fee2e2", border: "none", borderRadius: 12, color: "#991b1b", cursor: "pointer", fontSize: "min(16px, 2.3dvh)", fontWeight: 900, minHeight: 42, padding: "10px 8px" };
-const endBtn = { background: "#dc2626", border: "none", borderRadius: 16, color: "#fff", cursor: "pointer", fontSize: 19, fontWeight: 900, marginTop: 12, minHeight: 56, padding: 14, width: "100%" };
+const timeoutTeamBtn = { background: "#fef3c7", border: "none", borderRadius: 14, color: "#92400e", cursor: "pointer", fontSize: "min(17px, 2.5dvh)", fontWeight: 900, marginTop: 10, minHeight: 48, padding: "12px 10px" };
 const displayWrap = { background: "#fff", display: "grid", gridTemplateColumns: "1fr 1fr", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
 const displaySingleWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
 const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 18dvh) minmax(0, 66dvh) minmax(0, 12dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.4dvh 1.5vw" };
@@ -800,3 +1069,28 @@ const displayGameTime = { color: "#111827", fontSize: "min(4.8vw, 7dvh)", fontWe
 const displayGameTeams = { color: "#111827", fontSize: "min(5.2vw, 7.4dvh)", fontWeight: 900, lineHeight: 0.95, overflowWrap: "anywhere" };
 const displayGameDivision = { color: "#475569", fontSize: "min(3.6vw, 5.2dvh)", fontWeight: 900, lineHeight: 1, textAlign: "right" };
 const displayNoGames = { color: "#64748b", fontSize: "clamp(44px, 7vw, 108px)", fontWeight: 900, textAlign: "center" };
+const breakDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", width: "100vw" };
+const breakLabel = { color: "#2563eb", fontSize: "min(12vw, 16dvh)", fontWeight: 900, lineHeight: 0.9, textTransform: "uppercase" };
+const breakClock = { color: "#111827", fontSize: "min(42vw, 48dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.8, marginTop: "4dvh" };
+const breakSub = { color: "#64748b", fontSize: "min(5vw, 6dvh)", fontWeight: 900, marginTop: "3dvh", textTransform: "uppercase" };
+const finalDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", overflow: "hidden", padding: "3dvh 4vw", textAlign: "center", width: "100vw" };
+const finalLabel = { color: "#16a34a", fontSize: "min(12vw, 15dvh)", fontWeight: 900, lineHeight: 0.86, textTransform: "uppercase" };
+const finalWinner = { color: "#111827", fontSize: "min(9vw, 11dvh)", fontWeight: 900, lineHeight: 0.9, marginTop: "2dvh", overflowWrap: "anywhere" };
+const finalTeams = { color: "#64748b", fontSize: "min(4.4vw, 5.4dvh)", fontWeight: 900, lineHeight: 1, marginTop: "1.6dvh", overflowWrap: "anywhere" };
+const finalScoreLine = { alignItems: "center", color: "#111827", display: "flex", fontSize: "min(30vw, 36dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, gap: "3vw", lineHeight: 0.72, marginTop: "2.5dvh" };
+const finalDash = { color: "#94a3b8", fontSize: "min(12vw, 14dvh)" };
+const finalReturn = { color: "#2563eb", fontSize: "min(4vw, 5dvh)", fontWeight: 900, marginTop: "2dvh" };
+const deviceOverlay = { alignItems: "center", background: "rgba(15,23,42,0.88)", boxSizing: "border-box", display: "flex", inset: 0, justifyContent: "center", padding: 18, position: "fixed", zIndex: 2000 };
+const devicePanel = { background: "#fff", borderRadius: 20, boxShadow: "0 24px 80px rgba(0,0,0,0.35)", maxWidth: 760, padding: 20, width: "100%" };
+const deviceHeader = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 14 };
+const deviceEyebrow = { color: "#2563eb", fontSize: 13, fontWeight: 900, textTransform: "uppercase" };
+const deviceTitle = { color: "#0f172a", fontSize: 32, fontWeight: 900, marginTop: 2 };
+const deviceCloseBtn = { background: "#e5e7eb", border: "none", borderRadius: 12, color: "#111827", cursor: "pointer", fontWeight: 900, padding: "10px 12px" };
+const deviceChoiceGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 18 };
+const deviceChoiceBtn = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, cursor: "pointer", padding: 18, textAlign: "left" };
+const deviceChoiceTitle = { color: "#0f172a", fontSize: 22, fontWeight: 900 };
+const deviceChoiceText = { color: "#64748b", fontSize: 14, fontWeight: 800, lineHeight: 1.4, marginTop: 8 };
+const deviceQrWrap = { alignItems: "center", display: "flex", flexDirection: "column", gap: 14, marginTop: 18 };
+const deviceQrFrame = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, display: "flex", padding: 14 };
+const deviceOpenLink = { background: "#2563eb", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 900, padding: "12px 16px", textDecoration: "none" };
+const deviceBackBtn = { background: "#f1f5f9", border: "none", borderRadius: 12, color: "#334155", cursor: "pointer", fontWeight: 900, padding: "12px 16px" };

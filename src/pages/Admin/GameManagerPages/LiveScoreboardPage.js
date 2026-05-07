@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../../supabase";
 
+const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
+
 export default function LiveScoreboardPage() {
   const [fields, setFields] = useState([]);
   const [liveGames, setLiveGames] = useState([]);
@@ -35,7 +37,7 @@ export default function LiveScoreboardPage() {
     const { data, error } = await supabase
       .from("games_live")
       .select("*")
-      .eq("status", "live")
+      .in("status", LIVE_GAME_STATUSES)
       .order("created_at", { ascending: false });
 
     if (error) {

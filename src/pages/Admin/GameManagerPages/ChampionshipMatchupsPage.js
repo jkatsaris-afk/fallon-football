@@ -5,6 +5,9 @@ import { supabase } from "../../../supabase";
 export default function ChampionshipMatchupsPage() {
   const [scores, setScores] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [nflTeams, setNflTeams] = useState([]);
+  const [players, setPlayers] = useState([]);
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [eliminationType, setEliminationType] = useState("single");
   const [matchupDrafts, setMatchupDrafts] = useState({});
@@ -19,9 +22,21 @@ export default function ChampionshipMatchupsPage() {
     const { data: scheduleData } = await supabase
       .from("schedule_master_auto")
       .select("id, division, event_type");
+    const { data: teamData } = await supabase
+      .from("teams")
+      .select("id, division, nfl_team_id");
+    const { data: nflTeamData } = await supabase
+      .from("nfl_teams")
+      .select("id, short_name, full_name");
+    const { data: playerData } = await supabase
+      .from("players")
+      .select("id, team_id, rating, rank_score");
 
     setScores(scoreData || []);
     setSchedule(scheduleData || []);
+    setTeams(teamData || []);
+    setNflTeams(nflTeamData || []);
+    setPlayers(playerData || []);
   };
 
   const scheduleById = useMemo(() => {
@@ -147,6 +162,10 @@ export default function ChampionshipMatchupsPage() {
 
     return map;
   }, [standings, selectedDivision]);
+
+  const teamRankings = useMemo(() => (
+    buildTeamRankings(teams, nflTeams, players)
+  ), [teams, nflTeams, players]);
 
   const plannerUnlocked = regularGameStatus.ready || manualOverride;
 
@@ -292,22 +311,11 @@ export default function ChampionshipMatchupsPage() {
 
             <div style={seedGrid}>
               {rows.map((row) => (
-                <div key={row.team} style={seedCard}>
-                  <div style={seedBadge}>Seed {row.seed}</div>
-                  <div style={teamName}>{row.team}</div>
-                  <div style={record}>{row.wins}-{row.losses}{row.ties ? `-${row.ties}` : ""}</div>
-                  <div style={metricRow}>
-                    <span>PF {row.pf}</span>
-                    <span>PA {row.pa}</span>
-                    <span>DIFF {row.pf - row.pa}</span>
-                    <span
-                      style={infoIcon}
-                      title="PF = points scored. PA = points allowed. DIFF = PF minus PA, used as a seeding tiebreaker after wins."
-                    >
-                      <Info size={13} />
-                    </span>
-                  </div>
-                </div>
+                <SeedCard
+                  key={row.team}
+                  row={row}
+                  ranking={getTeamRanking(teamRankings, row.team, row.division)}
+                />
               ))}
             </div>
 
@@ -433,6 +441,39 @@ const participantCell = { flex: "1 1 180px", minWidth: 0 };
 const winnerCell = { display: "flex", flex: "1 1 190px", flexDirection: "column", gap: 4, minWidth: 0 };
 const winnerLabel = { color: "#64748b", fontSize: 11, fontWeight: 800 };
 const resolvedText = { color: "#166534", flex: "1 0 100%", fontSize: 12, fontWeight: 800, marginTop: 2 };
+const rankingRow = { alignItems: "center", display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" };
+const rankingPill = { background: "#eef2ff", borderRadius: 999, color: "#3730a3", fontSize: 11, fontWeight: 900, padding: "5px 8px" };
+const rankingMuted = { color: "#94a3b8", fontSize: 11, fontWeight: 800, marginTop: 8 };
+
+function SeedCard({ row, ranking }) {
+  return (
+    <div style={seedCard}>
+      <div style={seedBadge}>Seed {row.seed}</div>
+      <div style={teamName}>{row.team}</div>
+      <div style={record}>{row.wins}-{row.losses}{row.ties ? `-${row.ties}` : ""}</div>
+      <div style={metricRow}>
+        <span>PF {row.pf}</span>
+        <span>PA {row.pa}</span>
+        <span>DIFF {row.pf - row.pa}</span>
+        <span
+          style={infoIcon}
+          title="PF = points scored. PA = points allowed. DIFF = PF minus PA, used as a seeding tiebreaker after wins."
+        >
+          <Info size={13} />
+        </span>
+      </div>
+      {ranking ? (
+        <div style={rankingRow}>
+          <span style={rankingPill}>Team Rank {ranking.total}</span>
+          <span style={rankingPill}>Avg {ranking.average}</span>
+          <span style={rankingPill}>{ranking.count} Players</span>
+        </div>
+      ) : (
+        <div style={rankingMuted}>No player rankings found</div>
+      )}
+    </div>
+  );
+}
 
 function MatchupPlannerRow({
   index,
@@ -594,4 +635,58 @@ function sortDivisions(a, b) {
   }
 
   return a.localeCompare(b);
+}
+
+function buildTeamRankings(teams, nflTeams, players) {
+  const nflById = {};
+  nflTeams.forEach((team) => {
+    nflById[team.id] = team;
+  });
+
+  const playersByTeamId = {};
+  players.forEach((player) => {
+    if (!player.team_id) return;
+    if (!playersByTeamId[player.team_id]) playersByTeamId[player.team_id] = [];
+    playersByTeamId[player.team_id].push(player);
+  });
+
+  const map = {};
+
+  teams.forEach((team) => {
+    const nflTeam = nflById[team.nfl_team_id] || {};
+    const teamPlayers = playersByTeamId[team.id] || [];
+    const count = teamPlayers.length;
+    const total = teamPlayers.reduce((sum, player) => sum + getPlayerRating(player), 0);
+    const ranking = {
+      count,
+      total,
+      average: count ? (total / count).toFixed(1) : "0.0",
+    };
+
+    [nflTeam.short_name, nflTeam.full_name].filter(Boolean).forEach((name) => {
+      const key = getRankingKey(name, team.division);
+      map[key] = ranking;
+      const fallbackKey = getRankingKey(name, "");
+      if (!map[fallbackKey]) map[fallbackKey] = ranking;
+    });
+  });
+
+  return map;
+}
+
+function getTeamRanking(rankings, teamName, division) {
+  const ranking = rankings[getRankingKey(teamName, division)] || rankings[getRankingKey(teamName, "")] || null;
+  return ranking?.count ? ranking : null;
+}
+
+function getRankingKey(teamName, division) {
+  return `${normalizeName(teamName)}|${normalizeDivision(division)}`;
+}
+
+function normalizeName(value) {
+  return (value || "").toString().toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function getPlayerRating(player) {
+  return Number(player.rating || player.rank_score || 3);
 }

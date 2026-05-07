@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../supabase";
 
+const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
+
 export default function FieldScoreboardMasterPage() {
   const [fields, setFields] = useState([]);
   const [liveGames, setLiveGames] = useState([]);
@@ -37,7 +39,7 @@ export default function FieldScoreboardMasterPage() {
     const { data, error } = await supabase
       .from("games_live")
       .select("*")
-      .eq("status", "live")
+      .in("status", LIVE_GAME_STATUSES)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -94,9 +96,13 @@ export default function FieldScoreboardMasterPage() {
           <div style={eyebrow}>Live Scoreboard Master</div>
           <h1 style={title}>All Fields</h1>
         </div>
-        <div style={{ ...systemBadge, ...(scoreboardsOpen ? systemOn : systemOff) }}>
+        <button
+          type="button"
+          style={{ ...systemBadge, ...(scoreboardsOpen ? systemOn : systemOff) }}
+          onClick={() => updateSetting("live_scoreboards_open", !scoreboardsOpen)}
+        >
           {scoreboardsOpen ? "Scoreboards On" : "Scoreboards Off"}
-        </div>
+        </button>
       </header>
 
       <section style={settingsPanel}>
@@ -153,6 +159,9 @@ export default function FieldScoreboardMasterPage() {
                       <span>{liveGame.away_score || 0}</span>
                     </div>
                     <div style={clock}>{liveGame.clock || "0:00"}</div>
+                    {liveGame.status !== "live" && (
+                      <div style={modeBadge}>{getLiveModeLabel(liveGame.status)}</div>
+                    )}
                   </div>
                 ) : (
                   <div style={idleCopy}>No live game on this field.</div>
@@ -285,6 +294,13 @@ function cleanTeamName(value) {
   return (value || "").toString().replace(/\s+/g, " ").trim();
 }
 
+function getLiveModeLabel(status) {
+  if (status === "halftime") return "Halftime";
+  if (status === "timeout" || status === "timeout_home" || status === "timeout_away") return "Timeout";
+  if (status === "final_display") return "Final";
+  return status || "Live";
+}
+
 function cleanKey(value) {
   return (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -293,7 +309,7 @@ const wrap = { background: "#f8fafc", boxSizing: "border-box", minHeight: "100vh
 const header = { alignItems: "center", color: "#0f172a", display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 18 };
 const eyebrow = { color: "#2563eb", fontSize: 13, fontWeight: 900, textTransform: "uppercase" };
 const title = { fontSize: 36, fontWeight: 900, lineHeight: 1, margin: "4px 0 0" };
-const systemBadge = { borderRadius: 999, color: "#fff", fontSize: 14, fontWeight: 900, padding: "10px 14px", whiteSpace: "nowrap" };
+const systemBadge = { border: "none", borderRadius: 999, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 900, padding: "10px 14px", whiteSpace: "nowrap" };
 const systemOn = { background: "#16a34a" };
 const systemOff = { background: "#dc2626" };
 const settingsPanel = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", marginBottom: 16, padding: 16 };
@@ -323,6 +339,7 @@ const teams = { color: "#334155", fontSize: 16, fontWeight: 900, minHeight: 22 }
 const scoreLine = { alignItems: "center", color: "#0f172a", display: "flex", fontSize: 74, fontVariantNumeric: "tabular-nums", fontWeight: 900, justifyContent: "center", lineHeight: 0.95, marginTop: 8 };
 const dash = { color: "#64748b", padding: "0 12px" };
 const clock = { color: "#2563eb", fontSize: 26, fontWeight: 900, marginTop: 4 };
+const modeBadge = { background: "#dbeafe", borderRadius: 999, color: "#1d4ed8", display: "inline-block", fontSize: 12, fontWeight: 900, marginTop: 8, padding: "5px 9px", textTransform: "uppercase" };
 const idleCopy = { color: "#475569", fontSize: 18, fontWeight: 900, marginTop: 22 };
 const addDeviceBtn = { background: "#111827", border: "none", borderRadius: 12, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 900, marginTop: 16, padding: "12px 14px", width: "100%" };
 const overlay = { alignItems: "center", background: "rgba(15,23,42,0.88)", boxSizing: "border-box", display: "flex", inset: 0, justifyContent: "center", padding: 18, position: "fixed", zIndex: 1000 };
