@@ -2,7 +2,9 @@
   "name": "Fallon Football",
   "short_name": "Football",
   "start_url": "/",
-  "display": "standalone",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#16a34a",
   "icons": [

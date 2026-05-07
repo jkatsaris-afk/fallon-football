@@ -14,6 +14,7 @@ import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 import CoachRankingsPage from "./pages/Public/CoachRankingsPage";
 import FieldScoreboardPage from "./pages/Public/FieldScoreboardPage";
+import FieldScoreboardMasterPage from "./pages/Public/FieldScoreboardMasterPage";
 
 // LOGIN
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
@@ -63,6 +64,9 @@ export default function App() {
       else if (path === "/coach-signup") setPage("coachSignup");
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/coach-rankings") setPage("coachRankings");
+      else if (path === "/scoreboard-master") setPage("scoreboardMaster");
+      else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display/home")) setPage("fieldScoreDisplayHome");
+      else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display/away")) setPage("fieldScoreDisplayAway");
       else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display")) setPage("fieldScoreDisplay");
       else if (path.startsWith("/field-scoreboard/") && path.endsWith("/control")) setPage("fieldScoreControl");
       else if (path.startsWith("/field-scoreboard/")) setPage("fieldScoreboard");
@@ -168,6 +172,7 @@ export default function App() {
     if (page === "coachSignup") window.history.pushState({}, "", "/coach-signup");
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
     if (page === "coachRankings") window.history.pushState({}, "", "/coach-rankings");
+    if (page === "scoreboardMaster") window.history.pushState({}, "", "/scoreboard-master");
     if (page === "loginSelect") window.history.pushState({}, "", "/login");
 
     if (page === "refLogin") window.history.pushState({}, "", "/ref-login");
@@ -241,6 +246,9 @@ export default function App() {
       {page === "fieldScoreboard" && <FieldScoreboardPage mode="master" />}
       {page === "fieldScoreControl" && <FieldScoreboardPage mode="control" />}
       {page === "fieldScoreDisplay" && <FieldScoreboardPage mode="display" />}
+      {page === "fieldScoreDisplayHome" && <FieldScoreboardPage mode="displayHome" />}
+      {page === "fieldScoreDisplayAway" && <FieldScoreboardPage mode="displayAway" />}
+      {page === "scoreboardMaster" && <FieldScoreboardMasterPage />}
 
       {page !== "dashboard" &&
         page !== "adminLogin" &&
@@ -252,6 +260,9 @@ export default function App() {
         page !== "fieldScoreboard" &&
         page !== "fieldScoreControl" &&
         page !== "fieldScoreDisplay" &&
+        page !== "fieldScoreDisplayHome" &&
+        page !== "fieldScoreDisplayAway" &&
+        page !== "scoreboardMaster" &&
         (!page.startsWith("ref") ||
           page === "refSignup") && (
           <PublicLayout page={page} setPage={setPage}>

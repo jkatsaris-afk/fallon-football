@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../../supabase";
 
 export default function LiveScoreboardPage() {
@@ -88,6 +89,7 @@ export default function LiveScoreboardPage() {
 
   const origin = window.location.origin;
   const scoreboardsOpen = settings?.live_scoreboards_open !== false;
+  const masterIpadLink = `${origin}/scoreboard-master`;
 
   return (
     <div style={wrap}>
@@ -95,6 +97,19 @@ export default function LiveScoreboardPage() {
         <h2 style={title}>Live Scoreboard Links</h2>
         <div style={subtitle}>
           Each active field has one iPad controller link. The controller can open the score-only display when needed.
+        </div>
+      </div>
+
+      <div style={masterPanel}>
+        <div>
+          <div style={settingsTitle}>Master iPad</div>
+          <div style={settingsHint}>Scan this first to monitor every field and add controller/display iPads from one screen.</div>
+          <a href={masterIpadLink} target="_blank" rel="noreferrer" style={masterLink}>
+            Open Master Scoreboard
+          </a>
+        </div>
+        <div style={masterQrFrame}>
+          <QRCodeSVG value={masterIpadLink} size={150} level="M" includeMargin />
         </div>
       </div>
 
@@ -130,6 +145,9 @@ export default function LiveScoreboardPage() {
         {fields.map((field) => {
           const liveGame = getFieldLiveGame(field);
           const masterLink = `${origin}/field-scoreboard/${field.id}`;
+          const controllerLink = `${origin}/field-scoreboard/${field.id}/control`;
+          const homeDisplayLink = `${origin}/field-scoreboard/${field.id}/display/home`;
+          const awayDisplayLink = `${origin}/field-scoreboard/${field.id}/display/away`;
           const hasChampionship = field.scoreboard_phases.includes("championship");
           const hasRegular = field.scoreboard_phases.includes("regular");
 
@@ -163,6 +181,12 @@ export default function LiveScoreboardPage() {
                 </div>
               )}
 
+              <div style={qrGrid}>
+                <QrBox label="Controller iPad" href={controllerLink} />
+                <QrBox label="Home Display" href={homeDisplayLink} />
+                <QrBox label="Away Display" href={awayDisplayLink} />
+              </div>
+
               <LinkBox label="Field Master Link" href={masterLink} />
             </div>
           );
@@ -186,6 +210,20 @@ function SettingInput({ label, suffix, value, onChange }) {
         <span style={settingSuffix}>{suffix}</span>
       </div>
     </label>
+  );
+}
+
+function QrBox({ label, href }) {
+  return (
+    <div style={qrBox}>
+      <div style={qrTitle}>{label}</div>
+      <div style={qrFrame}>
+        <QRCodeSVG value={href} size={132} level="M" includeMargin />
+      </div>
+      <a href={href} target="_blank" rel="noreferrer" style={qrLink}>
+        Open Link
+      </a>
+    </div>
   );
 }
 
@@ -245,6 +283,9 @@ function cleanKey(value) {
 const wrap = { display: "flex", flexDirection: "column", gap: 18 };
 const title = { color: "#0f172a", fontSize: 24, fontWeight: 900, margin: 0 };
 const subtitle = { color: "#64748b", fontSize: 14, marginTop: 4 };
+const masterPanel = { alignItems: "center", background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", display: "flex", justifyContent: "space-between", gap: 16, padding: 16 };
+const masterLink = { color: "#2563eb", display: "inline-block", fontSize: 13, fontWeight: 900, marginTop: 10, textDecoration: "none" };
+const masterQrFrame = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, display: "flex", flex: "0 0 auto", padding: 8 };
 const settingsPanel = { background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", padding: 16 };
 const settingsTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900 };
 const settingsHint = { color: "#64748b", fontSize: 13, marginTop: 4 };
@@ -274,6 +315,11 @@ const liveBox = { background: "#f8fafc", borderRadius: 12, marginTop: 12, paddin
 const liveTitle = { color: "#0f172a", fontWeight: 900 };
 const liveScore = { color: "#64748b", fontSize: 13, marginTop: 4 };
 const closeBtn = { background: "#dc2626", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 900, marginTop: 10, padding: "8px 10px" };
+const qrGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", marginTop: 14 };
+const qrBox = { alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, display: "flex", flexDirection: "column", gap: 8, padding: 10, textAlign: "center" };
+const qrTitle = { color: "#0f172a", fontSize: 12, fontWeight: 900 };
+const qrFrame = { background: "#fff", borderRadius: 8, display: "flex", padding: 6 };
+const qrLink = { color: "#2563eb", fontSize: 12, fontWeight: 900, textDecoration: "none" };
 const linkBox = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, marginTop: 12, padding: 10 };
 const linkLabel = { color: "#475569", fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
 const linkText = { color: "#2563eb", display: "block", fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere", textDecoration: "none" };

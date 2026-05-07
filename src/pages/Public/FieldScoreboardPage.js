@@ -33,7 +33,8 @@ const DEFAULT_SETTINGS = {
 export default function FieldScoreboardPage({ mode = "control" }) {
   const fieldId = getFieldIdFromPath();
   const masterPage = mode === "master";
-  const scoreOnly = mode === "display";
+  const scoreOnly = mode === "display" || mode === "displayHome" || mode === "displayAway";
+  const displaySideMode = mode === "displayHome" ? "home" : mode === "displayAway" ? "away" : "both";
   const [field, setField] = useState(null);
   const [scoreboardFieldIds, setScoreboardFieldIds] = useState([fieldId]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -174,6 +175,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       .map(String)
   ), [games]);
 
+  const weekLabels = useMemo(() => getWeekLabels(games), [games]);
   const weekGames = games.filter((game) => String(game.week || "") === String(selectedWeek));
   const displayWeekGames = useMemo(() => getDisplayWeekGames(games), [games]);
   const scoreboardsOpen = settings.live_scoreboards_open !== false;
@@ -331,6 +333,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         liveGame={scoreboardsOpen ? liveGame : null}
         games={displayWeekGames}
         scoreboardsOpen={scoreboardsOpen}
+        sideMode={displaySideMode}
       />
     );
   }
@@ -355,8 +358,18 @@ export default function FieldScoreboardPage({ mode = "control" }) {
             </a>
 
             <a href={`/field-scoreboard/${fieldId}/display`} style={masterTile}>
-              <div style={masterTileTitle}>Scoreboard View iPad</div>
-              <div style={masterTileSub}>Large score-only board for the crowd or sideline display.</div>
+              <div style={masterTileTitle}>Full Display iPad</div>
+              <div style={masterTileSub}>Two-team score view on one screen.</div>
+            </a>
+
+            <a href={`/field-scoreboard/${fieldId}/display/home`} style={masterTile}>
+              <div style={masterTileTitle}>Home Display iPad</div>
+              <div style={masterTileSub}>Home side score view for one side of the field.</div>
+            </a>
+
+            <a href={`/field-scoreboard/${fieldId}/display/away`} style={masterTile}>
+              <div style={masterTileTitle}>Away Display iPad</div>
+              <div style={masterTileSub}>Away side score view for the other side of the field.</div>
             </a>
           </div>
         ) : (
@@ -373,9 +386,14 @@ export default function FieldScoreboardPage({ mode = "control" }) {
           <div style={pageTitle}>{field?.name || "Field Scoreboard"}</div>
           <div style={pageSub}>Controller link for this field</div>
         </div>
-        <a style={displayLink} href={`/field-scoreboard/${fieldId}/display`} target="_blank" rel="noreferrer">
-          Score Only Board
-        </a>
+        <div style={displayLinks}>
+          <a style={displayLink} href={`/field-scoreboard/${fieldId}/display/home`} target="_blank" rel="noreferrer">
+            Home Display
+          </a>
+          <a style={displayLink} href={`/field-scoreboard/${fieldId}/display/away`} target="_blank" rel="noreferrer">
+            Away Display
+          </a>
+        </div>
       </div>
 
       {status && (
@@ -392,7 +410,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         <div style={setupPanel}>
           <h2 style={panelTitle}>Select Game</h2>
           <select value={selectedWeek} onChange={(e) => setSelectedWeek(e.target.value)} style={select}>
-            {weeks.map((week) => <option key={week} value={week}>Week {week}</option>)}
+            {weeks.map((week) => <option key={week} value={week}>{weekLabels[week] || `Week ${week}`}</option>)}
           </select>
 
           <div style={gameGrid}>
@@ -486,12 +504,15 @@ function TeamControls({ team, score, onAdd, settings }) {
   );
 }
 
-function ScoreOnlyBoard({ field, liveGame, games = [], scoreboardsOpen = true }) {
+function ScoreOnlyBoard({ field, liveGame, games = [], scoreboardsOpen = true, sideMode = "both" }) {
   const game = liveGame?.schedule_master_auto;
   const weekLabel = games[0]?.week ? `Week ${games[0].week}` : "Scheduled Games";
+  const singleSide = sideMode === "home" || sideMode === "away";
+  const singleTeam = sideMode === "home" ? game?.team : game?.opponent;
+  const singleScore = sideMode === "home" ? liveGame?.home_score : liveGame?.away_score;
 
   return (
-    <div style={displayWrap}>
+    <div style={singleSide ? displaySingleWrap : displayWrap}>
       {!scoreboardsOpen && (
         <div style={displayEmpty}>
           <div style={displayIdleTitle}>{field?.name || "Field"}</div>
@@ -519,7 +540,11 @@ function ScoreOnlyBoard({ field, liveGame, games = [], scoreboardsOpen = true })
         </div>
       )}
 
-      {scoreboardsOpen && liveGame && (
+      {scoreboardsOpen && liveGame && singleSide && (
+        <ScoreOnlySide team={singleTeam} score={singleScore} single />
+      )}
+
+      {scoreboardsOpen && liveGame && !singleSide && (
         <>
           <ScoreOnlySide team={game?.team} score={liveGame.home_score} />
           <ScoreOnlySide team={game?.opponent} score={liveGame.away_score} />
@@ -529,13 +554,13 @@ function ScoreOnlyBoard({ field, liveGame, games = [], scoreboardsOpen = true })
   );
 }
 
-function ScoreOnlySide({ team, score }) {
+function ScoreOnlySide({ team, score, single = false }) {
   const logo = getLogo(team);
   return (
-    <div style={displaySide}>
-      {logo && <img src={logo} alt="" style={displayLogo} />}
-      <div style={displayTeam}>{cleanTeamName(team)}</div>
-      <div style={displayScore}>{score || 0}</div>
+    <div style={single ? displaySingleSide : displaySide}>
+      {logo && <img src={logo} alt="" style={single ? displaySingleLogo : displayLogo} />}
+      <div style={single ? displaySingleTeam : displayTeam}>{cleanTeamName(team)}</div>
+      <div style={single ? displaySingleScore : displayScore}>{score || 0}</div>
     </div>
   );
 }
@@ -602,6 +627,36 @@ function getDisplayWeekGames(games) {
     : sortedGames;
 }
 
+function getWeekLabels(games) {
+  return games.reduce((labels, game) => {
+    const week = String(game.week || "");
+    if (!week || labels[week]) return labels;
+
+    const weekGames = games
+      .filter((candidate) => String(candidate.week || "") === week && candidate.event_date)
+      .sort(sortGames);
+
+    if (!weekGames.length) {
+      labels[week] = `Week ${week}`;
+      return labels;
+    }
+
+    const dates = [...new Set(weekGames.map((candidate) => candidate.event_date))];
+    labels[week] = dates.length === 1
+      ? `Week ${week} - ${formatShortDate(dates[0])}`
+      : `Week ${week} - ${formatShortDate(dates[0])} to ${formatShortDate(dates[dates.length - 1])}`;
+
+    return labels;
+  }, {});
+}
+
+function formatShortDate(value) {
+  if (!value) return "";
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, Number(month || 1) - 1, day || 1);
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function sortGames(a, b) {
   const dateCompare = String(a.event_date || "").localeCompare(String(b.event_date || ""));
   if (dateCompare) return dateCompare;
@@ -637,6 +692,7 @@ const closedPanel = { background: "#fff7ed", border: "1px solid #fed7aa", border
 const topBar = { alignItems: "center", background: "#fff", borderRadius: 16, display: "flex", justifyContent: "space-between", padding: 16, gap: 12 };
 const pageTitle = { color: "#0f172a", fontSize: 24, fontWeight: 900 };
 const pageSub = { color: "#64748b", fontSize: 13 };
+const displayLinks = { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" };
 const displayLink = { background: "#111827", borderRadius: 12, color: "#fff", fontWeight: 900, padding: "10px 12px", textDecoration: "none" };
 const statusBox = { borderRadius: 10, fontSize: 13, fontWeight: 800, marginTop: 12, padding: 10 };
 const successBox = { background: "#dcfce7", color: "#166534" };
@@ -665,10 +721,15 @@ const pointGrid = { display: "grid", gap: 8 };
 const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 12, color: "#fff", cursor: "pointer", fontWeight: 900, padding: "13px 10px" };
 const endBtn = { background: "#dc2626", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 900, marginTop: 16, padding: 14, width: "100%" };
 const displayWrap = { background: "#fff", display: "grid", gridTemplateColumns: "1fr 1fr", height: "100vh", minHeight: "100vh", overflow: "hidden", width: "100vw" };
+const displaySingleWrap = { background: "#fff", display: "grid", height: "100vh", minHeight: "100vh", overflow: "hidden", width: "100vw" };
 const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: "100vh", overflow: "hidden", padding: "1.5vh 1.5vw 1vh" };
+const displaySingleSide = { alignItems: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", height: "100vh", justifyContent: "center", overflow: "hidden", padding: "2vh 2vw" };
 const displayLogo = { height: "min(15vh, 16vw)", objectFit: "contain", width: "min(15vh, 16vw)" };
+const displaySingleLogo = { height: "min(18vh, 18vw)", objectFit: "contain", width: "min(18vh, 18vw)" };
 const displayTeam = { color: "#111827", fontSize: "clamp(38px, 5.8vw, 96px)", fontWeight: 900, lineHeight: 0.95, marginTop: "1vh", maxWidth: "46vw", overflowWrap: "anywhere", textAlign: "center" };
+const displaySingleTeam = { color: "#111827", fontSize: "clamp(58px, 9vw, 150px)", fontWeight: 900, lineHeight: 0.9, marginTop: "2vh", maxWidth: "96vw", overflowWrap: "anywhere", textAlign: "center" };
 const displayScore = { color: "#111827", fontSize: "clamp(210px, 39vw, 700px)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.78, marginTop: "2vh", maxWidth: "47vw", textAlign: "center" };
+const displaySingleScore = { color: "#111827", fontSize: "clamp(360px, 72vw, 980px)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.72, marginTop: "2vh", maxWidth: "96vw", textAlign: "center" };
 const displayEmpty = { alignItems: "center", color: "#111827", display: "flex", flexDirection: "column", fontSize: "clamp(44px, 7vw, 112px)", fontWeight: 900, gridColumn: "1 / -1", height: "100vh", justifyContent: "center", padding: "4vh 4vw", textAlign: "center" };
 const displayIdleTitle = { fontSize: "clamp(72px, 12vw, 180px)", fontWeight: 900, lineHeight: 0.95 };
 const displayIdleSub = { color: "#64748b", fontSize: "clamp(34px, 5vw, 78px)", marginTop: "3vh" };
