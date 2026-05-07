@@ -13,6 +13,7 @@ import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 import CoachRankingsPage from "./pages/Public/CoachRankingsPage";
+import FieldScoreboardPage from "./pages/Public/FieldScoreboardPage";
 
 // LOGIN
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
@@ -62,6 +63,9 @@ export default function App() {
       else if (path === "/coach-signup") setPage("coachSignup");
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/coach-rankings") setPage("coachRankings");
+      else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display")) setPage("fieldScoreDisplay");
+      else if (path.startsWith("/field-scoreboard/") && path.endsWith("/control")) setPage("fieldScoreControl");
+      else if (path.startsWith("/field-scoreboard/")) setPage("fieldScoreboard");
       else if (path === "/login") setPage("loginSelect");
 
       else if (path === "/ref-login") setPage("refLogin");
@@ -234,6 +238,10 @@ export default function App() {
           </RefLayout>
         )}
 
+      {page === "fieldScoreboard" && <FieldScoreboardPage mode="master" />}
+      {page === "fieldScoreControl" && <FieldScoreboardPage mode="control" />}
+      {page === "fieldScoreDisplay" && <FieldScoreboardPage mode="display" />}
+
       {page !== "dashboard" &&
         page !== "adminLogin" &&
         page !== "refLogin" &&
@@ -241,6 +249,9 @@ export default function App() {
         page !== "parentLogin" &&
         page !== "resetPassword" &&
         page !== "coachManager" &&
+        page !== "fieldScoreboard" &&
+        page !== "fieldScoreControl" &&
+        page !== "fieldScoreDisplay" &&
         (!page.startsWith("ref") ||
           page === "refSignup") && (
           <PublicLayout page={page} setPage={setPage}>

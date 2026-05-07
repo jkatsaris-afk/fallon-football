@@ -126,6 +126,40 @@ export default function AdminSettings() {
             />
           </Tile>
 
+          {/* SCOREBOARD */}
+          <Tile title="Live Scoreboard">
+            <InputRow
+              label="Game Time (minutes)"
+              value={settings.scoreboard_game_minutes || 24}
+              onChange={(val) => update("scoreboard_game_minutes", Number(val))}
+            />
+            <InputRow
+              label="Halftime (minutes)"
+              value={settings.scoreboard_halftime_minutes || 5}
+              onChange={(val) => update("scoreboard_halftime_minutes", Number(val))}
+            />
+            <InputRow
+              label="Timeout (seconds)"
+              value={settings.scoreboard_timeout_seconds || 60}
+              onChange={(val) => update("scoreboard_timeout_seconds", Number(val))}
+            />
+            <InputRow
+              label="Touchdown Points"
+              value={settings.scoreboard_touchdown_points || 6}
+              onChange={(val) => update("scoreboard_touchdown_points", Number(val))}
+            />
+            <InputRow
+              label="1 Point Extra"
+              value={settings.scoreboard_extra_one_points || 1}
+              onChange={(val) => update("scoreboard_extra_one_points", Number(val))}
+            />
+            <InputRow
+              label="2 Point Extra"
+              value={settings.scoreboard_extra_two_points || 2}
+              onChange={(val) => update("scoreboard_extra_two_points", Number(val))}
+            />
+          </Tile>
+
         </div>
       )}
 

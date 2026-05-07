@@ -2,178 +2,278 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../../supabase";
 
 export default function LiveScoreboardPage() {
-  const [games, setGames] = useState([]);
-  const [activeGame, setActiveGame] = useState(null);
+  const [fields, setFields] = useState([]);
+  const [liveGames, setLiveGames] = useState([]);
+  const [settings, setSettings] = useState(null);
 
   useEffect(() => {
-    loadGames();
+    loadData();
+    const interval = setInterval(loadLiveGames, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  const loadGames = async () => {
-    const { data } = await supabase
+  const loadData = async () => {
+    const { data: fieldData } = await supabase
+      .from("fields")
+      .select("*")
+      .eq("is_active", true)
+      .order("field_number", { ascending: true });
+
+    setFields(groupPhysicalFields(fieldData || []));
+    const { data: settingsData } = await supabase
+      .from("app_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+
+    setSettings(settingsData || {});
+    await loadLiveGames();
+  };
+
+  const loadLiveGames = async () => {
+    const { data, error } = await supabase
       .from("games_live")
       .select("*")
-      .eq("status", "live");
+      .eq("status", "live")
+      .order("created_at", { ascending: false });
 
-    setGames(data || []);
+    if (error) {
+      console.error("Live games load failed:", error);
+      setLiveGames([]);
+      return;
+    }
+
+    const scheduleIds = [...new Set((data || []).map((game) => game.schedule_id).filter(Boolean))];
+    if (!scheduleIds.length) {
+      setLiveGames(data || []);
+      return;
+    }
+
+    const { data: scheduleRows } = await supabase
+      .from("schedule_master_auto")
+      .select("*")
+      .in("id", scheduleIds);
+
+    const scheduleById = {};
+    (scheduleRows || []).forEach((game) => {
+      scheduleById[game.id] = game;
+    });
+
+    setLiveGames((data || []).map((game) => ({
+      ...game,
+      schedule_master_auto: scheduleById[game.schedule_id],
+    })));
   };
 
-  const updateGame = async (updates) => {
-    await supabase
-      .from("games_live")
-      .update(updates)
-      .eq("id", activeGame.id);
+  const updateSetting = async (field, value) => {
+    const { error } = await supabase.from("app_settings").update({ [field]: value }).eq("id", 1);
+    if (error) {
+      console.error("Live scoreboard setting update failed:", error);
+      return;
+    }
 
-    setActiveGame({ ...activeGame, ...updates });
+    setSettings((current) => ({ ...current, [field]: value }));
   };
 
-  /* ================= GAME SELECT ================= */
+  const closeGame = async (game) => {
+    await supabase.from("games_live").update({ status: "closed" }).eq("id", game.id);
+    loadLiveGames();
+  };
 
-  if (!activeGame) {
-    return (
+  const getFieldLiveGame = (field) => (
+    liveGames.find((game) => (
+      (field.scoreboard_field_ids || [field.id]).includes(game.schedule_master_auto?.field_id)
+    ))
+  );
+
+  const origin = window.location.origin;
+  const scoreboardsOpen = settings?.live_scoreboards_open !== false;
+
+  return (
+    <div style={wrap}>
       <div>
-
-        <h2 style={title}>Live Scoreboard</h2>
-
-        <div style={grid}>
-          {games.map(g => (
-            <div
-              key={g.id}
-              style={card}
-              onClick={() => setActiveGame(g)}
-            >
-              <div style={matchup}>
-                {g.home_team} vs {g.away_team}
-              </div>
-
-              <div style={sub}>
-                {g.home_score} - {g.away_score}
-              </div>
-            </div>
-          ))}
+        <h2 style={title}>Live Scoreboard Links</h2>
+        <div style={subtitle}>
+          Each active field has one iPad controller link. The controller can open the score-only display when needed.
         </div>
-
-      </div>
-    );
-  }
-
-  /* ================= SCOREBOARD ================= */
-
-  return (
-    <div>
-
-      <button style={backBtn} onClick={() => setActiveGame(null)}>
-        ← Back
-      </button>
-
-      <h2 style={title}>
-        {activeGame.home_team} vs {activeGame.away_team}
-      </h2>
-
-      {/* SCORE DISPLAY */}
-      <div style={scoreBoard}>
-        <TeamScore
-          name={activeGame.home_team}
-          score={activeGame.home_score}
-          onAdd={() => updateGame({ home_score: activeGame.home_score + 1 })}
-          onSub={() => updateGame({ home_score: Math.max(0, activeGame.home_score - 1) })}
-        />
-
-        <div style={divider}>VS</div>
-
-        <TeamScore
-          name={activeGame.away_team}
-          score={activeGame.away_score}
-          onAdd={() => updateGame({ away_score: activeGame.away_score + 1 })}
-          onSub={() => updateGame({ away_score: Math.max(0, activeGame.away_score - 1) })}
-        />
       </div>
 
-      {/* GAME CONTROL */}
-      <div style={controls}>
-
-        <div>
-          <div style={label}>Quarter</div>
-          <select
-            value={activeGame.quarter || 1}
-            onChange={(e) => updateGame({ quarter: e.target.value })}
+      <div style={settingsPanel}>
+        <div style={toggleRow}>
+          <div>
+            <div style={settingsTitle}>Live Scoreboards</div>
+            <div style={settingsHint}>One switch controls every field master, controller, and display link.</div>
+          </div>
+          <button
+            type="button"
+            style={{ ...toggleButton, ...(scoreboardsOpen ? toggleOn : toggleOff) }}
+            onClick={() => updateSetting("live_scoreboards_open", !scoreboardsOpen)}
           >
-            <option value={1}>1st</option>
-            <option value={2}>2nd</option>
-            <option value={3}>3rd</option>
-            <option value={4}>4th</option>
-          </select>
+            {scoreboardsOpen ? "On" : "Off"}
+          </button>
         </div>
 
-        <div>
-          <div style={label}>Clock</div>
-          <input
-            value={activeGame.clock || "10:00"}
-            onChange={(e) => updateGame({ clock: e.target.value })}
-          />
+        <div style={settingsDivider} />
+
+        <div style={settingsTitle}>Live Scoreboard Defaults</div>
+        <div style={settingsGrid}>
+          <SettingInput label="Game Time" suffix="min" value={settings?.scoreboard_game_minutes || 24} onChange={(value) => updateSetting("scoreboard_game_minutes", value)} />
+          <SettingInput label="Halftime" suffix="min" value={settings?.scoreboard_halftime_minutes || 5} onChange={(value) => updateSetting("scoreboard_halftime_minutes", value)} />
+          <SettingInput label="Timeout" suffix="sec" value={settings?.scoreboard_timeout_seconds || 60} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
+          <SettingInput label="Touchdown" suffix="pts" value={settings?.scoreboard_touchdown_points || 6} onChange={(value) => updateSetting("scoreboard_touchdown_points", value)} />
+          <SettingInput label="Extra 1" suffix="pt" value={settings?.scoreboard_extra_one_points || 1} onChange={(value) => updateSetting("scoreboard_extra_one_points", value)} />
+          <SettingInput label="Extra 2" suffix="pts" value={settings?.scoreboard_extra_two_points || 2} onChange={(value) => updateSetting("scoreboard_extra_two_points", value)} />
         </div>
-
-        <button
-          style={endBtn}
-          onClick={async () => {
-            await supabase.from("game_scores").insert({
-              home_team: activeGame.home_team,
-              away_team: activeGame.away_team,
-              home_score: activeGame.home_score,
-              away_score: activeGame.away_score
-            });
-
-            await supabase
-              .from("games_live")
-              .update({ status: "final" })
-              .eq("id", activeGame.id);
-
-            setActiveGame(null);
-            loadGames();
-          }}
-        >
-          End Game
-        </button>
-
       </div>
 
+      <div style={fieldGrid}>
+        {fields.map((field) => {
+          const liveGame = getFieldLiveGame(field);
+          const masterLink = `${origin}/field-scoreboard/${field.id}`;
+          const hasChampionship = field.scoreboard_phases.includes("championship");
+          const hasRegular = field.scoreboard_phases.includes("regular");
+
+          return (
+            <div key={field.id} style={fieldCard}>
+              <div style={fieldHeader}>
+                <div>
+                  <div style={fieldName}>{field.name}</div>
+                  <div style={fieldMeta}>Field {field.field_number || "—"} • {field.type}</div>
+                  <div style={phaseRow}>
+                    {hasRegular && <span style={regularPill}>Regular Season</span>}
+                    {hasChampionship && <span style={champPill}>Championship Setup</span>}
+                  </div>
+                </div>
+                <div style={{ ...statusBadge, ...(liveGame ? liveBadge : idleBadge) }}>
+                  {!scoreboardsOpen ? "Off" : liveGame ? "Live" : "Idle"}
+                </div>
+              </div>
+
+              {liveGame && (
+                <div style={liveBox}>
+                  <div style={liveTitle}>
+                    {liveGame.schedule_master_auto?.team} vs {liveGame.schedule_master_auto?.opponent}
+                  </div>
+                  <div style={liveScore}>
+                    {liveGame.home_score} - {liveGame.away_score} • {liveGame.clock}
+                  </div>
+                  <button style={closeBtn} onClick={() => closeGame(liveGame)}>
+                    Close Live Game
+                  </button>
+                </div>
+              )}
+
+              <LinkBox label="Field Master Link" href={masterLink} />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-/* TEAM SCORE */
-function TeamScore({ name, score, onAdd, onSub }) {
+function SettingInput({ label, suffix, value, onChange }) {
   return (
-    <div style={teamBox}>
-      <div style={teamName}>{name}</div>
-      <div style={score}>{score}</div>
-
-      <div style={btnRow}>
-        <button onClick={onAdd}>+1</button>
-        <button onClick={onSub}>-1</button>
+    <label style={settingField}>
+      <span style={settingLabel}>{label}</span>
+      <div style={settingInputWrap}>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={settingInput}
+        />
+        <span style={settingSuffix}>{suffix}</span>
       </div>
+    </label>
+  );
+}
+
+function LinkBox({ label, href }) {
+  return (
+    <div style={linkBox}>
+      <div style={linkLabel}>{label}</div>
+      <a href={href} target="_blank" rel="noreferrer" style={linkText}>
+        {href}
+      </a>
     </div>
   );
 }
 
-/* STYLES */
-const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px,1fr))", gap:16 };
-const card = { padding:16, borderRadius:16, background:"#f8fafc", cursor:"pointer" };
-const matchup = { fontWeight:700 };
-const sub = { fontSize:12, color:"#64748b" };
+function groupPhysicalFields(fields) {
+  const grouped = new Map();
 
-const scoreBoard = { display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:20 };
-const teamBox = { textAlign:"center" };
-const teamName = { fontWeight:700 };
-const score = { fontSize:32, margin:"10px 0" };
+  fields.forEach((field) => {
+    const phase = field.season_phase || "regular";
+    const key = [
+      cleanKey(field.name),
+      field.field_number || "",
+      cleanKey(field.type),
+    ].join("|");
 
-const btnRow = { display:"flex", gap:6, justifyContent:"center" };
-const divider = { fontWeight:700 };
+    const existing = grouped.get(key);
+    if (!existing) {
+      grouped.set(key, {
+        ...field,
+        scoreboard_field_ids: [field.id],
+        scoreboard_phases: [phase],
+      });
+      return;
+    }
 
-const controls = { display:"flex", gap:20, marginTop:20, alignItems:"center" };
-const label = { fontSize:12, color:"#64748b" };
+    existing.scoreboard_field_ids.push(field.id);
+    if (!existing.scoreboard_phases.includes(phase)) {
+      existing.scoreboard_phases.push(phase);
+    }
 
-const endBtn = { background:"#ef4444", color:"#fff", padding:"10px 14px", borderRadius:10 };
+    if ((existing.season_phase || "regular") !== "regular" && phase === "regular") {
+      grouped.set(key, {
+        ...field,
+        scoreboard_field_ids: existing.scoreboard_field_ids,
+        scoreboard_phases: existing.scoreboard_phases,
+      });
+    }
+  });
 
-const backBtn = { marginBottom:10 };
-const title = { fontSize:22, fontWeight:700 };
+  return [...grouped.values()].sort((a, b) => Number(a.field_number || 0) - Number(b.field_number || 0));
+}
+
+function cleanKey(value) {
+  return (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+const wrap = { display: "flex", flexDirection: "column", gap: 18 };
+const title = { color: "#0f172a", fontSize: 24, fontWeight: 900, margin: 0 };
+const subtitle = { color: "#64748b", fontSize: 14, marginTop: 4 };
+const settingsPanel = { background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", padding: 16 };
+const settingsTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900 };
+const settingsHint = { color: "#64748b", fontSize: 13, marginTop: 4 };
+const toggleRow = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 16 };
+const toggleButton = { border: "none", borderRadius: 999, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 900, minWidth: 84, padding: "10px 16px" };
+const toggleOn = { background: "#16a34a" };
+const toggleOff = { background: "#dc2626" };
+const settingsDivider = { background: "#e2e8f0", height: 1, margin: "16px 0" };
+const settingsGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" };
+const settingField = { display: "flex", flexDirection: "column", gap: 5 };
+const settingLabel = { color: "#475569", fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
+const settingInputWrap = { alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, display: "flex", overflow: "hidden" };
+const settingInput = { background: "transparent", border: "none", flex: 1, fontWeight: 800, minWidth: 0, padding: 10, width: "100%" };
+const settingSuffix = { color: "#64748b", fontSize: 12, fontWeight: 800, paddingRight: 10 };
+const fieldGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" };
+const fieldCard = { background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", padding: 16 };
+const fieldHeader = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 10 };
+const fieldName = { color: "#0f172a", fontSize: 18, fontWeight: 900 };
+const fieldMeta = { color: "#64748b", fontSize: 12, marginTop: 2 };
+const phaseRow = { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 };
+const regularPill = { background: "#e0f2fe", borderRadius: 999, color: "#075985", fontSize: 11, fontWeight: 900, padding: "4px 8px" };
+const champPill = { background: "#fef3c7", borderRadius: 999, color: "#92400e", fontSize: 11, fontWeight: 900, padding: "4px 8px" };
+const statusBadge = { borderRadius: 999, fontSize: 12, fontWeight: 900, padding: "5px 9px" };
+const liveBadge = { background: "#dcfce7", color: "#166534" };
+const idleBadge = { background: "#e5e7eb", color: "#475569" };
+const liveBox = { background: "#f8fafc", borderRadius: 12, marginTop: 12, padding: 12 };
+const liveTitle = { color: "#0f172a", fontWeight: 900 };
+const liveScore = { color: "#64748b", fontSize: 13, marginTop: 4 };
+const closeBtn = { background: "#dc2626", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 900, marginTop: 10, padding: "8px 10px" };
+const linkBox = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, marginTop: 12, padding: 10 };
+const linkLabel = { color: "#475569", fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
+const linkText = { color: "#2563eb", display: "block", fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere", textDecoration: "none" };

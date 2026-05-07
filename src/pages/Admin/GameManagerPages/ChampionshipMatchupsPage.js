@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Info } from "lucide-react";
 import { supabase } from "../../../supabase";
 
 export default function ChampionshipMatchupsPage() {
@@ -299,6 +300,12 @@ export default function ChampionshipMatchupsPage() {
                     <span>PF {row.pf}</span>
                     <span>PA {row.pa}</span>
                     <span>DIFF {row.pf - row.pa}</span>
+                    <span
+                      style={infoIcon}
+                      title="PF = points scored. PA = points allowed. DIFF = PF minus PA, used as a seeding tiebreaker after wins."
+                    >
+                      <Info size={13} />
+                    </span>
                   </div>
                 </div>
               ))}
@@ -397,6 +404,7 @@ const seedBadge = { color: "#166534", fontSize: 12, fontWeight: 800 };
 const teamName = { fontWeight: 800, marginTop: 4 };
 const record = { fontSize: 18, fontWeight: 800, marginTop: 4 };
 const metricRow = { color: "#64748b", display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11, marginTop: 6 };
+const infoIcon = { alignItems: "center", color: "#2563eb", cursor: "help", display: "inline-flex" };
 const statusPanel = { alignItems: "center", background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(0,0,0,0.08)", display: "flex", gap: 14, justifyContent: "space-between", padding: 16, flexWrap: "wrap" };
 const statusTitle = { fontSize: 16, fontWeight: 800 };
 const statusText = { color: "#64748b", fontSize: 13, marginTop: 4 };

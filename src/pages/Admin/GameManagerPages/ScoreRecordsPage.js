@@ -55,7 +55,11 @@ const normalizeDivision = (d) => {
 export default function TeamStatsPage() {
   const [games, setGames] = useState([]);
   const [scheduleMap, setScheduleMap] = useState({});
+  const [scheduleDetails, setScheduleDetails] = useState({});
   const [selectedDivision, setSelectedDivision] = useState("all");
+  const [editingScoreId, setEditingScoreId] = useState(null);
+  const [editScores, setEditScores] = useState({ home: "", away: "" });
+  const [status, setStatus] = useState(null);
 
   useEffect(() => {
     load();
@@ -68,15 +72,62 @@ export default function TeamStatsPage() {
 
     const { data: schedule } = await supabase
       .from("schedule_master_auto")
-      .select("id, division");
+      .select("id, division, week, time, event_time, field");
 
     const map = {};
+    const details = {};
     (schedule || []).forEach(s => {
       map[s.id] = s.division;
+      details[s.id] = s;
     });
 
     setScheduleMap(map);
+    setScheduleDetails(details);
     setGames(scores || []);
+  };
+
+  const startEdit = (game) => {
+    setEditingScoreId(game.id);
+    setEditScores({
+      home: game.home_score ?? "",
+      away: game.away_score ?? "",
+    });
+    setStatus(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingScoreId(null);
+    setEditScores({ home: "", away: "" });
+  };
+
+  const saveScoreEdit = async (game) => {
+    const home = Number(editScores.home);
+    const away = Number(editScores.away);
+
+    if (Number.isNaN(home) || Number.isNaN(away)) {
+      setStatus({ type: "error", message: "Enter valid scores before saving." });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("game_scores")
+      .update({
+        home_score: home,
+        away_score: away,
+        home_team: cleanTeamName(game.home_team),
+        away_team: cleanTeamName(game.away_team),
+      })
+      .eq("id", game.id);
+
+    if (error) {
+      console.error("Score update failed:", error);
+      setStatus({ type: "error", message: "Could not update score." });
+      return;
+    }
+
+    setStatus({ type: "success", message: "Score updated." });
+    cancelEdit();
+    load();
   };
 
   /* 🔥 ORDERED DIVISIONS */
@@ -139,9 +190,6 @@ export default function TeamStatsPage() {
     });
   }, [filteredTeams]);
 
-  /* 🔥 TOP 4 FOR BRACKET */
-  const bracketTeams = rankedTeams.slice(0, 4);
-
   return (
     <div style={wrap}>
 
@@ -193,44 +241,71 @@ export default function TeamStatsPage() {
         })}
       </div>
 
-      {/* 🔥 BRACKET */}
-      {selectedDivision !== "all" && bracketTeams.length >= 4 && (
-        <div style={bracketWrap}>
+      <div style={resultsPanel}>
+        <div style={sectionTitle}>Game Results</div>
 
-          <h3 style={{ textAlign: "center" }}>
-            {selectedDivision} Playoffs
-          </h3>
-
-          <div style={bracketGrid}>
-
-            {/* SEMI 1 */}
-            <Match t1={bracketTeams[0]} t2={bracketTeams[3]} />
-
-            {/* SEMI 2 */}
-            <Match t1={bracketTeams[1]} t2={bracketTeams[2]} />
-
+        {status && (
+          <div style={{
+            ...statusBox,
+            ...(status.type === "error" ? errorBox : successBox),
+          }}>
+            {status.message}
           </div>
+        )}
 
-          <div style={finalBox}>
-            Championship Game
-          </div>
+        <div style={resultsList}>
+          {games.map((game) => {
+            const schedule = scheduleDetails[game.schedule_id] || {};
+            const isEditing = editingScoreId === game.id;
+            const division = normalizeDivision(schedule.division);
 
+            return (
+              <div key={game.id} style={resultRow}>
+                <div style={resultMeta}>
+                  <div style={resultTitle}>
+                    {cleanTeamName(game.home_team)} vs {cleanTeamName(game.away_team)}
+                  </div>
+                  <div style={resultSub}>
+                    {division} • Week {schedule.week || "—"} • {schedule.time || schedule.event_time || "Time"} • {schedule.field || "Field"}
+                  </div>
+                </div>
+
+                {isEditing ? (
+                  <div style={editRow}>
+                    <input
+                      type="number"
+                      value={editScores.home}
+                      onChange={(e) => setEditScores((current) => ({ ...current, home: e.target.value }))}
+                      style={scoreInput}
+                    />
+                    <span style={scoreDash}>-</span>
+                    <input
+                      type="number"
+                      value={editScores.away}
+                      onChange={(e) => setEditScores((current) => ({ ...current, away: e.target.value }))}
+                      style={scoreInput}
+                    />
+                    <button style={saveBtn} onClick={() => saveScoreEdit(game)}>Save</button>
+                    <button style={cancelBtn} onClick={cancelEdit}>Cancel</button>
+                  </div>
+                ) : (
+                  <div style={scoreActions}>
+                    <div style={scorePill}>{game.home_score} - {game.away_score}</div>
+                    <button style={editBtn} onClick={() => startEdit(game)}>Edit</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
     </div>
   );
 }
 
-/* 🔥 MATCH COMPONENT */
-function Match({ t1, t2 }) {
-  return (
-    <div style={matchCard}>
-      <div>{t1?.team}</div>
-      <div style={{ fontSize: 12 }}>vs</div>
-      <div>{t2?.team}</div>
-    </div>
-  );
+function cleanTeamName(value) {
+  return (value || "").toString().replace(/\s+/g, " ").trim();
 }
 
 /* STYLES */
@@ -293,29 +368,130 @@ const divisionBadge = {
   fontSize: 12
 };
 
-/* 🔥 BRACKET */
-const bracketWrap = {
-  marginTop: 30,
-  padding: 20,
+const resultsPanel = {
   background: "#fff",
-  borderRadius: 18
+  borderRadius: 18,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  padding: 18
 };
 
-const bracketGrid = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 20
+const sectionTitle = {
+  color: "#0f172a",
+  fontSize: 20,
+  fontWeight: 800,
+  marginBottom: 12
 };
 
-const matchCard = {
-  padding: 12,
+const resultsList = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10
+};
+
+const resultRow = {
+  alignItems: "center",
   background: "#f8fafc",
+  border: "1px solid #e2e8f0",
   borderRadius: 12,
-  textAlign: "center"
+  display: "flex",
+  gap: 12,
+  justifyContent: "space-between",
+  padding: 12,
+  flexWrap: "wrap"
 };
 
-const finalBox = {
-  marginTop: 20,
+const resultMeta = {
+  minWidth: 220
+};
+
+const resultTitle = {
+  color: "#0f172a",
+  fontWeight: 800
+};
+
+const resultSub = {
+  color: "#64748b",
+  fontSize: 12,
+  marginTop: 3
+};
+
+const scoreActions = {
+  alignItems: "center",
+  display: "flex",
+  gap: 8
+};
+
+const scorePill = {
+  background: "#e0f2fe",
+  borderRadius: 999,
+  color: "#0369a1",
+  fontWeight: 900,
+  padding: "7px 12px"
+};
+
+const editBtn = {
+  background: "#fff",
+  border: "1px solid #cbd5e1",
+  borderRadius: 10,
+  cursor: "pointer",
+  fontWeight: 800,
+  padding: "8px 10px"
+};
+
+const editRow = {
+  alignItems: "center",
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap"
+};
+
+const scoreInput = {
+  border: "1px solid #cbd5e1",
+  borderRadius: 10,
+  padding: 8,
   textAlign: "center",
-  fontWeight: 700
+  width: 70
+};
+
+const scoreDash = {
+  color: "#64748b",
+  fontWeight: 900
+};
+
+const saveBtn = {
+  background: "#16a34a",
+  border: "none",
+  borderRadius: 10,
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 900,
+  padding: "8px 10px"
+};
+
+const cancelBtn = {
+  background: "#e5e7eb",
+  border: "none",
+  borderRadius: 10,
+  color: "#111827",
+  cursor: "pointer",
+  fontWeight: 800,
+  padding: "8px 10px"
+};
+
+const statusBox = {
+  borderRadius: 10,
+  fontSize: 13,
+  fontWeight: 800,
+  marginBottom: 12,
+  padding: 10
+};
+
+const successBox = {
+  background: "#dcfce7",
+  color: "#166534"
+};
+
+const errorBox = {
+  background: "#fee2e2",
+  color: "#991b1b"
 };
