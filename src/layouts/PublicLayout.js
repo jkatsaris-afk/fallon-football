@@ -109,7 +109,7 @@ export default function PublicLayout({ children }) {
       )}
 
       {/* NAV */}
-      <div className="nav-wrap">
+      <div className="nav-wrap public-nav-wrap">
 
         <NavItem
           icon={<Home size={22} />}
@@ -128,7 +128,7 @@ export default function PublicLayout({ children }) {
         <NavItem
           icon={<Trophy size={22} />}
           label="Scores"
-          active={currentPath === "/scoreboard"}
+          active={currentPath === "/scoreboard" || currentPath === "/scoreboard/live"}
           onClick={() => goTo("/scoreboard")}
         />
 

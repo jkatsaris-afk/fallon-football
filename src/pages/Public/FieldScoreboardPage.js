@@ -629,6 +629,9 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     setRunning(false);
     await supabase.from("games_live").update({ status: "final" }).eq("id", liveGame.id);
+    if (isTestGame(liveGame.schedule_master_auto)) {
+      await supabase.from("schedule_master_auto").delete().eq("id", liveGame.schedule_id);
+    }
     setLiveGame(null);
     await loadData();
   };
@@ -800,7 +803,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     const game = liveGame.schedule_master_auto;
     if (isTestGame(game)) {
-      await exitLiveGame("Test game closed. No season score was saved.");
+      await showFinalDisplay("Test final showing for 2 minutes. No season score was saved.");
       return;
     }
 
@@ -828,12 +831,16 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       return;
     }
 
+    await showFinalDisplay("Final score saved. Showing final score for 2 minutes.");
+  };
+
+  const showFinalDisplay = async (message) => {
     const finalClock = formatClock(FINAL_DISPLAY_SECONDS);
     await supabase.from("games_live").update({ status: "final_display", clock: finalClock }).eq("id", liveGame.id);
     setClockSeconds(FINAL_DISPLAY_SECONDS);
     setRunning(true);
     setLiveGame((current) => current ? { ...current, status: "final_display", clock: finalClock } : current);
-    setStatus({ type: "success", message: "Final score saved. Showing final score for 2 minutes." });
+    setStatus({ type: "success", message });
   };
 
   const exitLiveGame = async (message = "Live game stopped. No score was saved.") => {
@@ -980,13 +987,16 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         <div style={liveGame ? liveBoardPanel : boardPanel}>
           {liveGame.status === "final_display" ? (
             <div style={controllerFinalPanel}>
-              <div style={controllerFinalLabel}>Final score saved</div>
+              <div style={controllerFinalLabel}>Final</div>
               <div style={controllerFinalScore}>
                 {liveGame.home_score || 0} - {liveGame.away_score || 0}
               </div>
               <div style={controllerFinalSub}>
                 Displays will return to the field schedule in {formatClock(clockSeconds)}.
               </div>
+              <button type="button" style={controllerFinalCloseBtn} onClick={finishFinalDisplay}>
+                Close Final Screen
+              </button>
             </div>
           ) : (
             <>
@@ -1285,7 +1295,7 @@ function ScoreOnlyBoard({
       )}
 
       {scoreboardsOpen && liveGame && finalMode && (
-        <FinalScoreDisplay game={game} liveGame={liveGame} clock={liveClock || liveGame.clock} />
+        <FinalScoreDisplay game={game} liveGame={liveGame} />
       )}
 
       {scoreboardsOpen && liveGame && singleSide && (
@@ -1390,7 +1400,7 @@ function BreakScoreTeam({ team, right = false }) {
   );
 }
 
-function FinalScoreDisplay({ game, liveGame, clock }) {
+function FinalScoreDisplay({ game, liveGame }) {
   const homeScore = Number(liveGame?.home_score || 0);
   const awayScore = Number(liveGame?.away_score || 0);
   const winner = homeScore === awayScore
@@ -1409,7 +1419,6 @@ function FinalScoreDisplay({ game, liveGame, clock }) {
         <span style={finalDash}>-</span>
         <span>{awayScore}</span>
       </div>
-      <div style={finalReturn}>Returning to schedule in {clock || "2:00"}</div>
     </div>
   );
 }
@@ -1786,6 +1795,7 @@ const controllerFinalPanel = { alignItems: "center", display: "flex", flex: 1, f
 const controllerFinalLabel = { color: "#16a34a", fontSize: "min(44px, 7dvh)", fontWeight: 900, textTransform: "uppercase" };
 const controllerFinalScore = { color: "#0f172a", fontSize: "min(140px, 24dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.85, marginTop: 14 };
 const controllerFinalSub = { color: "#64748b", fontSize: "min(24px, 4dvh)", fontWeight: 900, marginTop: 18 };
+const controllerFinalCloseBtn = { background: "#0f172a", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: "min(18px, 3dvh)", fontWeight: 900, marginTop: 24, padding: "14px 22px" };
 const timer = { color: "#0f172a", fontSize: "min(86px, 12dvh)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
 const timerActions = { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 10 };
 const primaryBtn = { background: "#16a34a", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 17, fontWeight: 900, minHeight: 50, padding: "13px 18px" };
@@ -1871,7 +1881,6 @@ const finalWinner = { color: "#111827", fontSize: "min(9vw, 11dvh)", fontWeight:
 const finalTeams = { color: "#64748b", fontSize: "min(4.4vw, 5.4dvh)", fontWeight: 900, lineHeight: 1, marginTop: "1.6dvh", overflowWrap: "anywhere" };
 const finalScoreLine = { alignItems: "center", color: "#111827", display: "flex", fontSize: "min(30vw, 36dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, gap: "3vw", lineHeight: 0.72, marginTop: "2.5dvh" };
 const finalDash = { color: "#94a3b8", fontSize: "min(12vw, 14dvh)" };
-const finalReturn = { color: "#2563eb", fontSize: "min(4vw, 5dvh)", fontWeight: 900, marginTop: "2dvh" };
 const deviceOverlay = { alignItems: "center", background: "rgba(15,23,42,0.88)", boxSizing: "border-box", display: "flex", inset: 0, justifyContent: "center", padding: 18, position: "fixed", zIndex: 2000 };
 const devicePanel = { background: "#fff", borderRadius: 20, boxShadow: "0 24px 80px rgba(0,0,0,0.35)", maxWidth: 760, padding: 20, width: "100%" };
 const deviceHeader = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 14 };

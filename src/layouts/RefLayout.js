@@ -21,7 +21,7 @@ export default function RefLayout({ page, setPage, children }) {
         {children}
       </div>
 
-      <div className="nav-wrap">
+      <div className="nav-wrap ref-nav-wrap">
 
         <NavItem
           icon={<Home size={22} />}
