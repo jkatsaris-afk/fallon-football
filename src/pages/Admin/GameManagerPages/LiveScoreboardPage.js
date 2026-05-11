@@ -8,6 +8,7 @@ export default function LiveScoreboardPage() {
   const [fields, setFields] = useState([]);
   const [liveGames, setLiveGames] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [showParentSign, setShowParentSign] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -92,6 +93,12 @@ export default function LiveScoreboardPage() {
   const origin = window.location.origin;
   const scoreboardsOpen = settings?.live_scoreboards_open !== false;
   const masterIpadLink = `${origin}/scoreboard-master`;
+  const publicScoreboardLink = `${origin}/scoreboard`;
+
+  const printParentSign = () => {
+    setShowParentSign(true);
+    setTimeout(() => window.print(), 100);
+  };
 
   return (
     <div style={wrap}>
@@ -102,6 +109,7 @@ export default function LiveScoreboardPage() {
         </div>
       </div>
 
+      <div style={topQrGrid}>
       <div style={masterPanel}>
         <div>
           <div style={settingsTitle}>Master iPad</div>
@@ -113,6 +121,23 @@ export default function LiveScoreboardPage() {
         <div style={masterQrFrame}>
           <QRCodeSVG value={masterIpadLink} size={150} level="M" includeMargin />
         </div>
+      </div>
+
+      <div style={masterPanel}>
+        <div>
+          <div style={settingsTitle}>Parent Live Scores</div>
+          <div style={settingsHint}>Print this sign for tents so parents can scan and open the public live scoreboard.</div>
+          <a href={publicScoreboardLink} target="_blank" rel="noreferrer" style={masterLink}>
+            Open Public Scoreboard
+          </a>
+          <button type="button" style={printSignBtn} onClick={printParentSign}>
+            Print / Save PDF Sign
+          </button>
+        </div>
+        <div style={masterQrFrame}>
+          <QRCodeSVG value={publicScoreboardLink} size={150} level="M" includeMargin />
+        </div>
+      </div>
       </div>
 
       <div style={settingsPanel}>
@@ -140,7 +165,7 @@ export default function LiveScoreboardPage() {
         <div style={settingsGrid}>
           <SettingInput label={getPeriodLengthLabel(settings)} suffix="min" value={settings?.scoreboard_game_minutes || 24} onChange={(value) => updateSetting("scoreboard_game_minutes", value)} />
           <SettingInput label="Halftime" suffix="min" value={settings?.scoreboard_halftime_minutes || 5} onChange={(value) => updateSetting("scoreboard_halftime_minutes", value)} />
-          <SettingInput label="Timeout" suffix="sec" value={settings?.scoreboard_timeout_seconds || 60} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
+          <SettingInput label="Timeout" suffix="sec" value={getTimeoutSettingValue(settings)} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
           <SettingInput label="Timeouts" suffix="/half" value={settings?.scoreboard_timeouts_per_half || 3} onChange={(value) => updateSetting("scoreboard_timeouts_per_half", value)} />
           <SettingInput label="Touchdown" suffix="pts" value={settings?.scoreboard_touchdown_points || 6} onChange={(value) => updateSetting("scoreboard_touchdown_points", value)} />
           <SettingInput label="Extra 1" suffix="pt" value={settings?.scoreboard_extra_one_points || 1} onChange={(value) => updateSetting("scoreboard_extra_one_points", value)} />
@@ -153,6 +178,7 @@ export default function LiveScoreboardPage() {
           const liveGame = getFieldLiveGame(field);
           const masterLink = `${origin}/field-scoreboard/${field.id}`;
           const controllerLink = `${origin}/field-scoreboard/${field.id}/control`;
+          const combinedDisplayLink = `${origin}/field-scoreboard/${field.id}/display`;
           const homeDisplayLink = `${origin}/field-scoreboard/${field.id}/display/home`;
           const awayDisplayLink = `${origin}/field-scoreboard/${field.id}/display/away`;
           const hasChampionship = field.scoreboard_phases.includes("championship");
@@ -190,6 +216,7 @@ export default function LiveScoreboardPage() {
 
               <div style={qrGrid}>
                 <QrBox label="Controller iPad" href={controllerLink} />
+                <QrBox label="Combined Display" href={combinedDisplayLink} />
                 <QrBox label="Home Display" href={homeDisplayLink} />
                 <QrBox label="Away Display" href={awayDisplayLink} />
               </div>
@@ -198,6 +225,45 @@ export default function LiveScoreboardPage() {
             </div>
           );
         })}
+      </div>
+
+      <style>
+        {`
+          @media print {
+            body * { visibility: hidden !important; }
+            #parent-scoreboard-sign, #parent-scoreboard-sign * { visibility: visible !important; }
+            #parent-scoreboard-sign { position: fixed !important; inset: 0 !important; }
+            .no-print { display: none !important; }
+          }
+        `}
+      </style>
+
+      {showParentSign && (
+        <ParentScoreboardSign
+          href={publicScoreboardLink}
+          onClose={() => setShowParentSign(false)}
+          onPrint={() => window.print()}
+        />
+      )}
+    </div>
+  );
+}
+
+function ParentScoreboardSign({ href, onClose, onPrint }) {
+  return (
+    <div id="parent-scoreboard-sign" style={signOverlay}>
+      <div style={signPage}>
+        <div className="no-print" style={signActions}>
+          <button type="button" style={signActionBtn} onClick={onPrint}>Print / Save PDF</button>
+          <button type="button" style={signCloseBtn} onClick={onClose}>Close</button>
+        </div>
+        <div style={signEyebrow}>Fallon Football</div>
+        <div style={signTitle}>Live Scores</div>
+        <div style={signSubtitle}>Scan to follow live games, current scores, and final results.</div>
+        <div style={signQrFrame}>
+          <QRCodeSVG value={href} size={330} level="H" includeMargin />
+        </div>
+        <div style={signUrl}>{href}</div>
       </div>
     </div>
   );
@@ -271,6 +337,11 @@ function getPeriodLengthLabel(settings) {
   return settings?.scoreboard_period_format === "quarter" ? "Quarter Length" : "Half Length";
 }
 
+function getTimeoutSettingValue(settings) {
+  const rawValue = Number(settings?.scoreboard_timeout_seconds || 60);
+  return rawValue > 300 ? Math.round(rawValue / 60) : rawValue;
+}
+
 function QrBox({ label, href }) {
   return (
     <div style={qrBox}>
@@ -341,8 +412,10 @@ function cleanKey(value) {
 const wrap = { display: "flex", flexDirection: "column", gap: 18 };
 const title = { color: "#0f172a", fontSize: 24, fontWeight: 900, margin: 0 };
 const subtitle = { color: "#64748b", fontSize: 14, marginTop: 4 };
+const topQrGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" };
 const masterPanel = { alignItems: "center", background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", display: "flex", justifyContent: "space-between", gap: 16, padding: 16 };
 const masterLink = { color: "#2563eb", display: "inline-block", fontSize: 13, fontWeight: 900, marginTop: 10, textDecoration: "none" };
+const printSignBtn = { background: "#16a34a", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", display: "block", fontSize: 13, fontWeight: 900, marginTop: 10, padding: "9px 11px" };
 const masterQrFrame = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, display: "flex", flex: "0 0 auto", padding: 8 };
 const settingsPanel = { background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", padding: 16 };
 const settingsTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900 };
@@ -385,3 +458,13 @@ const qrLink = { color: "#2563eb", fontSize: 12, fontWeight: 900, textDecoration
 const linkBox = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, marginTop: 12, padding: 10 };
 const linkLabel = { color: "#475569", fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
 const linkText = { color: "#2563eb", display: "block", fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere", textDecoration: "none" };
+const signOverlay = { alignItems: "center", background: "rgba(15,23,42,0.72)", display: "flex", inset: 0, justifyContent: "center", padding: 20, position: "fixed", zIndex: 3000 };
+const signPage = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", minHeight: "min(94vh, 980px)", maxWidth: 760, padding: "42px 46px", position: "relative", textAlign: "center", width: "min(94vw, 760px)" };
+const signActions = { display: "flex", gap: 10, position: "absolute", right: 18, top: 18 };
+const signActionBtn = { background: "#16a34a", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 900, padding: "10px 12px" };
+const signCloseBtn = { background: "#e5e7eb", border: "none", borderRadius: 10, color: "#111827", cursor: "pointer", fontWeight: 900, padding: "10px 12px" };
+const signEyebrow = { color: "#2563eb", fontSize: 18, fontWeight: 900, marginTop: 36, textTransform: "uppercase" };
+const signTitle = { color: "#0f172a", fontSize: 82, fontWeight: 900, lineHeight: 0.9, marginTop: 16 };
+const signSubtitle = { color: "#475569", fontSize: 26, fontWeight: 800, lineHeight: 1.2, marginTop: 18, maxWidth: 600 };
+const signQrFrame = { border: "8px solid #0f172a", borderRadius: 24, display: "flex", marginTop: 38, padding: 18 };
+const signUrl = { color: "#0f172a", fontSize: 20, fontWeight: 900, marginTop: 24, overflowWrap: "anywhere" };

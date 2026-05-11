@@ -166,7 +166,7 @@ export default function FieldScoreboardMasterPage() {
         <div style={settingsGrid}>
           <SettingInput label={getPeriodLengthLabel(settings)} suffix="min" value={settings?.scoreboard_game_minutes || 24} onChange={(value) => updateSetting("scoreboard_game_minutes", value)} />
           <SettingInput label="Halftime" suffix="min" value={settings?.scoreboard_halftime_minutes || 5} onChange={(value) => updateSetting("scoreboard_halftime_minutes", value)} />
-          <SettingInput label="Timeout" suffix="sec" value={settings?.scoreboard_timeout_seconds || 60} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
+          <SettingInput label="Timeout" suffix="sec" value={getTimeoutSettingValue(settings)} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
           <SettingInput label="Timeouts" suffix="/half" value={settings?.scoreboard_timeouts_per_half || 3} onChange={(value) => updateSetting("scoreboard_timeouts_per_half", value)} />
           <SettingInput label="TD" suffix="pts" value={settings?.scoreboard_touchdown_points || 6} onChange={(value) => updateSetting("scoreboard_touchdown_points", value)} />
           <SettingInput label="XP 1" suffix="pt" value={settings?.scoreboard_extra_one_points || 1} onChange={(value) => updateSetting("scoreboard_extra_one_points", value)} />
@@ -306,6 +306,11 @@ function getPeriodLengthLabel(settings) {
   return settings?.scoreboard_period_format === "quarter" ? "Quarter Length" : "Half Length";
 }
 
+function getTimeoutSettingValue(settings) {
+  const rawValue = Number(settings?.scoreboard_timeout_seconds || 60);
+  return rawValue > 300 ? Math.round(rawValue / 60) : rawValue;
+}
+
 function DeviceOverlay({ field, type, origin, onSelect, onBack, onClose }) {
   const deviceLabel = getDeviceLabel(type);
   const href = type ? `${origin}/field-scoreboard/${field.id}/${type}` : "";
@@ -326,6 +331,10 @@ function DeviceOverlay({ field, type, origin, onSelect, onBack, onClose }) {
             <button type="button" style={choiceBtn} onClick={() => onSelect("control")}>
               <div style={choiceTitle}>Controller iPad</div>
               <div style={choiceText}>Runs the clock, starts games, adds scores, and saves finals.</div>
+            </button>
+            <button type="button" style={choiceBtn} onClick={() => onSelect("display")}>
+              <div style={choiceTitle}>Combined Display</div>
+              <div style={choiceText}>Full scoreboard view for a TV or big screen.</div>
             </button>
             <button type="button" style={choiceBtn} onClick={() => onSelect("display/home")}>
               <div style={choiceTitle}>Home Display iPad</div>
@@ -352,6 +361,7 @@ function DeviceOverlay({ field, type, origin, onSelect, onBack, onClose }) {
 
 function getDeviceLabel(type) {
   if (type === "control") return "Controller iPad";
+  if (type === "display") return "Combined Display";
   if (type === "display/home") return "Home Display iPad";
   if (type === "display/away") return "Away Display iPad";
   return "Display iPad";

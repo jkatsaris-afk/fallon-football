@@ -85,7 +85,7 @@ export default function SchedulePage({ setPage }) {
   const selectedGames = grouped[selectedDate] || [];
 
   return (
-    <div>
+    <div style={scheduleWrap}>
 
       {/* TOP LEVEL */}
       {!selectedDate && (
@@ -255,6 +255,10 @@ function toTime(timeStr) {
 
   return parseInt(h) * 60 + parseInt(m);
 }
+
+const scheduleWrap = {
+  paddingBottom: 80
+};
 
 const logo = {
   width: 20,

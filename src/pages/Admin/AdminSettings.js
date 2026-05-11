@@ -149,7 +149,7 @@ export default function AdminSettings() {
             />
             <InputRow
               label="Timeout (seconds)"
-              value={settings.scoreboard_timeout_seconds || 60}
+              value={getTimeoutSettingValue(settings)}
               onChange={(val) => update("scoreboard_timeout_seconds", Number(val))}
             />
             <InputRow
@@ -323,4 +323,9 @@ function SegmentedRow({ label, value, options, onChange }) {
 
 function getPeriodName(settings) {
   return settings?.scoreboard_period_format === "quarter" ? "Quarter" : "Half";
+}
+
+function getTimeoutSettingValue(settings) {
+  const rawValue = Number(settings?.scoreboard_timeout_seconds || 60);
+  return rawValue > 300 ? Math.round(rawValue / 60) : rawValue;
 }

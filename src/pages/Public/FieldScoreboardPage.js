@@ -506,7 +506,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const statusValue = type === "timeout" && side ? `timeout_${side}` : type;
     const seconds = type === "halftime"
       ? Number(settings.scoreboard_halftime_minutes || 5) * 60
-      : Number(settings.scoreboard_timeout_seconds || 60);
+      : getTimeoutSeconds(settings);
     let timeoutStateUpdate = null;
 
     if (type === "timeout") {
@@ -1195,9 +1195,11 @@ function ScoreOnlyBoard({
 
   return (
     <div style={singleSide ? displaySingleWrap : displayWrap}>
-      <button type="button" style={displayHornButton} onClick={onEnableHorn}>
-        {hornReady ? "Horn" : "Enable Horn"}
-      </button>
+      {!hornReady && (
+        <button type="button" style={displayHornButton} onClick={onEnableHorn}>
+          Enable Horn
+        </button>
+      )}
 
       {!scoreboardsOpen && (
         <div style={displayEmpty}>
@@ -1265,43 +1267,90 @@ function ScoreOnlyBoard({
       )}
 
       {scoreboardsOpen && liveGame && !singleSide && (
-        !breakMode && !finalMode && <>
-          <ScoreOnlySide
-            team={game?.team}
-            score={liveGame.home_score}
+        !breakMode && !finalMode && (
+          <CombinedScoreboardDisplay
+            game={game}
+            liveGame={liveGame}
             clock={liveClock || liveGame.clock}
-            timeoutUsage={homeTimeouts}
-            opponentName={game?.opponent}
-            opponentScore={liveGame.away_score}
+            homeTimeouts={homeTimeouts}
+            awayTimeouts={awayTimeouts}
           />
-          <ScoreOnlySide
-            team={game?.opponent}
-            score={liveGame.away_score}
-            clock={liveClock || liveGame.clock}
-            timeoutUsage={awayTimeouts}
-            opponentName={game?.team}
-            opponentScore={liveGame.home_score}
-          />
-        </>
+        )
       )}
     </div>
   );
 }
 
+function CombinedScoreboardDisplay({ game, liveGame, clock, homeTimeouts, awayTimeouts }) {
+  return (
+    <div style={combinedDisplay}>
+      <div style={combinedClock}>{clock || "0:00"}</div>
+      <div style={combinedTeams}>
+        <CombinedTeamPanel
+          team={game?.team}
+          score={liveGame?.home_score}
+          timeoutUsage={homeTimeouts}
+        />
+        <CombinedTeamPanel
+          team={game?.opponent}
+          score={liveGame?.away_score}
+          timeoutUsage={awayTimeouts}
+          divider
+        />
+      </div>
+    </div>
+  );
+}
+
+function CombinedTeamPanel({ team, score, timeoutUsage, divider = false }) {
+  const logo = getLogo(team);
+
+  return (
+    <div style={{ ...combinedTeamPanel, ...(divider ? combinedTeamDivider : {}) }}>
+      <div style={combinedTeamHeader}>
+        {logo && <img src={logo} alt="" style={combinedLogo} />}
+        <div style={combinedTeamName}>{cleanTeamName(team)}</div>
+      </div>
+      <div style={combinedScore}>{Number(score || 0)}</div>
+      <TimeoutDots total={timeoutUsage?.total} used={timeoutUsage?.used} display />
+    </div>
+  );
+}
+
 function BreakClockDisplay({ label, clock, game, liveGame, settings }) {
+  const timeoutTeam = liveGame?.status === "timeout_home"
+    ? game?.team
+    : liveGame?.status === "timeout_away"
+      ? game?.opponent
+      : null;
+  const timeoutLogo = getLogo(timeoutTeam);
+
   return (
     <div style={breakDisplay}>
-      <div style={breakLabel}>{label}</div>
+      <div style={breakLabel}>
+        {timeoutLogo && <img src={timeoutLogo} alt="" style={breakHeaderLogo} />}
+        <span>{label}</span>
+      </div>
       <div style={breakClock}>{clock || "0:00"}</div>
       <div style={breakScoreLine}>
-        <span>{cleanTeamName(game?.team)}</span>
+        <BreakScoreTeam team={game?.team} />
         <strong>{Number(liveGame?.home_score || 0)}</strong>
         <span style={breakScoreDash}>-</span>
         <strong>{Number(liveGame?.away_score || 0)}</strong>
-        <span>{cleanTeamName(game?.opponent)}</span>
+        <BreakScoreTeam team={game?.opponent} right />
       </div>
-      <div style={breakSub}>{getPeriodName(settings)} clock paused</div>
     </div>
+  );
+}
+
+function BreakScoreTeam({ team, right = false }) {
+  const logo = getLogo(team);
+
+  return (
+    <span style={{ ...breakScoreTeam, ...(right ? breakScoreTeamRight : {}) }}>
+      {logo && <img src={logo} alt="" style={breakScoreLogo} />}
+      <span>{cleanTeamName(team)}</span>
+    </span>
   );
 }
 
@@ -1371,7 +1420,7 @@ function TimeoutDots({ total = 3, used = 0, display = false }) {
 function DeviceOverlay({ field, fieldId, type, onSelect, onBack, onClose }) {
   const origin = window.location.origin;
   const href = type ? `${origin}/field-scoreboard/${fieldId}/${type}` : "";
-  const label = type === "display/home" ? "Home Display iPad" : type === "display/away" ? "Away Display iPad" : "Add Displays";
+  const label = type === "display" ? "Combined Display" : type === "display/home" ? "Home Display iPad" : type === "display/away" ? "Away Display iPad" : "Add Displays";
 
   return (
     <div style={deviceOverlay}>
@@ -1386,6 +1435,10 @@ function DeviceOverlay({ field, fieldId, type, onSelect, onBack, onClose }) {
 
         {!type ? (
           <div style={deviceChoiceGrid}>
+            <button style={deviceChoiceBtn} onClick={() => onSelect("display")}>
+              <div style={deviceChoiceTitle}>Combined Display</div>
+              <div style={deviceChoiceText}>Full scoreboard view for a TV or big screen.</div>
+            </button>
             <button style={deviceChoiceBtn} onClick={() => onSelect("display/home")}>
               <div style={deviceChoiceTitle}>Home Display</div>
               <div style={deviceChoiceText}>Scan for the home-side scoreboard.</div>
@@ -1578,6 +1631,12 @@ function clockToSeconds(value) {
   return (Number(minutes || 0) * 60) + Number(seconds || 0);
 }
 
+function getTimeoutSeconds(settings) {
+  const rawValue = Number(settings?.scoreboard_timeout_seconds || 60);
+  const seconds = rawValue > 300 ? Math.round(rawValue / 60) : rawValue;
+  return Math.min(300, Math.max(1, seconds));
+}
+
 function getDisplayWeekGames(games) {
   if (!games.length) return [];
 
@@ -1703,14 +1762,14 @@ const teamHeader = { alignItems: "center", display: "flex", gap: 12, justifyCont
 const logoStyle = { flex: "0 0 auto", height: "min(58px, 7.5dvh)", objectFit: "contain", width: "min(58px, 7.5dvh)" };
 const teamName = { color: "#0f172a", fontSize: "min(30px, 3.8dvh)", fontWeight: 900, lineHeight: 0.95, overflowWrap: "anywhere", textAlign: "left" };
 const timeoutDots = { alignItems: "center", display: "flex", gap: 8, justifyContent: "center", marginBottom: "min(8px, 1dvh)", marginTop: "min(10px, 1.3dvh)", minHeight: 14 };
-const timeoutDot = { background: "#cbd5e1", borderRadius: 999, display: "inline-block", height: 13, width: 13 };
-const timeoutDotUsed = { background: "#ef4444", boxShadow: "0 0 0 2px rgba(239,68,68,0.16)" };
+const timeoutDot = { background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 999, display: "inline-block", height: 10, width: 34 };
+const timeoutDotUsed = { background: "#111827", borderColor: "#111827" };
 const scoreText = { alignSelf: "center", color: "#0f172a", fontSize: "min(132px, 22dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.72 };
 const pointGrid = { display: "grid", gap: 8 };
 const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: "min(18px, 2.4dvh)", fontWeight: 900, minHeight: "min(52px, 7dvh)", padding: "12px 10px" };
 const undoGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 8 };
 const undoBtn = { background: "#fee2e2", border: "none", borderRadius: 12, color: "#991b1b", cursor: "pointer", fontSize: "min(16px, 2.1dvh)", fontWeight: 900, minHeight: "min(44px, 6dvh)", padding: "9px 8px" };
-const displayWrap = { background: "#fff", display: "grid", gridTemplateColumns: "1fr 1fr", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
+const displayWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
 const displaySingleWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
 const displayHornButton = { background: "rgba(15,23,42,0.82)", border: "none", borderRadius: 999, color: "#fff", cursor: "pointer", fontSize: "min(2.8vw, 2.8dvh)", fontWeight: 900, padding: "0.9dvh 1.4vw", position: "fixed", right: "1.5vw", top: "1.5dvh", zIndex: 1200 };
 const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 16dvh) minmax(0, 5dvh) minmax(0, 64dvh) minmax(0, 12dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.4dvh 1.5vw" };
@@ -1723,23 +1782,32 @@ const displayTeam = { color: "#111827", fontSize: "min(4.4vw, 6.4dvh)", fontWeig
 const displaySingleTeam = { color: "#111827", fontSize: "min(6.8vw, 8dvh)", fontWeight: 900, lineHeight: 0.86, maxWidth: "72vw", overflowWrap: "anywhere", textAlign: "left" };
 const displayScore = { alignSelf: "center", color: "#111827", fontSize: "min(38vw, 66dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.64, maxWidth: "47vw", textAlign: "center" };
 const displaySingleScore = { alignSelf: "center", color: "#111827", fontSize: "min(54vw, 74dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.6, maxWidth: "96vw", textAlign: "center" };
-const displayTimeoutDots = { alignItems: "center", alignSelf: "center", display: "flex", gap: "1vw", justifyContent: "center", minHeight: "4dvh" };
-const displayTimeoutDot = { background: "#cbd5e1", borderRadius: 999, display: "inline-block", height: "min(2.8vw, 3.7dvh)", width: "min(2.8vw, 3.7dvh)" };
-const displayTimeoutDotUsed = { background: "#ef4444", boxShadow: "0 0 0 0.35vw rgba(239,68,68,0.16)" };
+const displayTimeoutDots = { alignItems: "center", alignSelf: "center", display: "flex", gap: "0.75vw", justifyContent: "center", minHeight: "4dvh" };
+const displayTimeoutDot = { background: "#e2e8f0", border: "0.16vw solid #cbd5e1", borderRadius: 999, display: "inline-block", height: "min(1.4vw, 2dvh)", width: "min(5.8vw, 8dvh)" };
+const displayTimeoutDotUsed = { background: "#111827", borderColor: "#111827" };
 const displayClockLine = { alignItems: "baseline", alignSelf: "end", display: "flex", gap: "2vw", justifyContent: "center", maxWidth: "47vw", minWidth: 0 };
 const displaySingleClockLine = { alignItems: "baseline", alignSelf: "end", display: "flex", gap: "3vw", justifyContent: "center", maxWidth: "96vw", minWidth: 0 };
 const displayClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(9vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
 const displaySingleClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(13vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
 const displayOpponentScore = { color: "#64748b", fontSize: "min(7vw, 9dvh)", fontWeight: 900, lineHeight: 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const displaySingleOpponentScore = { color: "#64748b", fontSize: "min(10vw, 10dvh)", fontWeight: 900, lineHeight: 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const combinedDisplay = { alignItems: "stretch", background: "#fff", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 20dvh) minmax(0, 1fr)", height: "100dvh", overflow: "hidden", padding: "2dvh 2.2vw", width: "100vw" };
+const combinedClock = { alignSelf: "center", color: "#111827", fontSize: "min(18vw, 20dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.8, textAlign: "center" };
+const combinedTeams = { alignItems: "stretch", display: "grid", gap: 0, gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", height: "100%", minHeight: 0 };
+const combinedTeamPanel = { alignItems: "center", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 15dvh) minmax(0, 1fr) minmax(0, 7dvh)", justifyItems: "center", minHeight: 0, overflow: "hidden", padding: "1.8dvh 2vw" };
+const combinedTeamDivider = { borderLeft: "0.22vw solid #e2e8f0" };
+const combinedTeamHeader = { alignItems: "center", display: "flex", flexWrap: "nowrap", gap: "1.2vw", justifyContent: "center", maxWidth: "100%", minWidth: 0 };
+const combinedLogo = { flex: "0 0 auto", height: "min(11dvh, 9vw)", objectFit: "contain", width: "min(11dvh, 9vw)" };
+const combinedTeamName = { color: "#111827", fontSize: "min(5.6vw, 7.4dvh)", fontWeight: 900, lineHeight: 0.9, overflowWrap: "anywhere", textAlign: "center" };
+const combinedScore = { alignSelf: "center", color: "#111827", fontSize: "min(34vw, 56dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.66, textAlign: "center" };
 const displayEmpty = { alignItems: "center", color: "#111827", display: "flex", flexDirection: "column", fontSize: "clamp(44px, 7vw, 112px)", fontWeight: 900, gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", textAlign: "center" };
 const displayIdleTitle = { fontSize: "clamp(72px, 12vw, 180px)", fontWeight: 900, lineHeight: 0.95 };
 const displayIdleSub = { color: "#64748b", fontSize: "clamp(34px, 5vw, 78px)", marginTop: "3vh" };
-const displaySchedule = { alignItems: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", overflow: "hidden", padding: "3dvh 3vw" };
-const displayFieldName = { color: "#111827", fontSize: "min(12vw, 15dvh)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
-const displayWeekLabel = { color: "#2f6ea6", fontSize: "min(5.6vw, 7dvh)", fontWeight: 900, marginTop: "2dvh", textTransform: "uppercase" };
-const displayGameList = { display: "grid", gap: "1.4dvh", marginTop: "2.4dvh", maxWidth: "94vw", width: "100%" };
-const displayGameRow = { alignItems: "center", border: "0.45vw solid #111827", borderRadius: "1.5vw", boxSizing: "border-box", display: "grid", gap: "2vw", gridTemplateColumns: "16vw 1fr 26vw", minHeight: "10.5dvh", padding: "1.1dvh 2vw" };
+const displaySchedule = { alignItems: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "flex-start", overflow: "hidden", padding: "2dvh 3vw" };
+const displayFieldName = { color: "#111827", fontSize: "min(10vw, 12dvh)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
+const displayWeekLabel = { color: "#2f6ea6", fontSize: "min(4.8vw, 6dvh)", fontWeight: 900, marginTop: "1dvh", textTransform: "uppercase" };
+const displayGameList = { display: "grid", gap: "1dvh", marginTop: "1.6dvh", maxHeight: "72dvh", maxWidth: "94vw", overflow: "hidden", width: "100%" };
+const displayGameRow = { alignItems: "center", border: "0.35vw solid #111827", borderRadius: "1.2vw", boxSizing: "border-box", display: "grid", gap: "1.5vw", gridTemplateColumns: "14vw 1fr 24vw", minHeight: "8.8dvh", padding: "0.85dvh 1.5vw" };
 const displayGameTime = { color: "#111827", fontSize: "min(4.8vw, 7dvh)", fontWeight: 900, lineHeight: 0.95 };
 const displayGameMain = { display: "grid", gap: "0.7dvh", minWidth: 0 };
 const displayGameTeamsRow = { alignItems: "center", color: "#111827", display: "grid", fontSize: "min(3.8vw, 5.3dvh)", fontWeight: 900, gap: "0.9vw", gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)", lineHeight: 0.95, minWidth: 0 };
@@ -1752,11 +1820,14 @@ const displayGameDivision = { color: "#111827", fontSize: "min(3.4vw, 4.8dvh)", 
 const displayGameField = { color: "#475569", fontSize: "min(2.8vw, 3.8dvh)", fontWeight: 900, lineHeight: 1 };
 const displayNoGames = { color: "#64748b", fontSize: "clamp(44px, 7vw, 108px)", fontWeight: 900, textAlign: "center" };
 const breakDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", width: "100vw" };
-const breakLabel = { color: "#2563eb", fontSize: "min(12vw, 16dvh)", fontWeight: 900, lineHeight: 0.9, textTransform: "uppercase" };
+const breakHeaderLogo = { flex: "0 0 auto", height: "0.85em", objectFit: "contain", width: "0.85em" };
+const breakLabel = { alignItems: "center", color: "#111827", display: "flex", fontSize: "clamp(34px, min(10vw, 13dvh), 150px)", fontWeight: 900, gap: "1.4vw", justifyContent: "center", lineHeight: 0.9, maxWidth: "96vw", overflow: "hidden", textAlign: "center", textOverflow: "ellipsis", textTransform: "uppercase", whiteSpace: "nowrap" };
 const breakClock = { color: "#111827", fontSize: "min(42vw, 48dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.8, marginTop: "4dvh" };
-const breakScoreLine = { alignItems: "center", color: "#111827", display: "flex", flexWrap: "wrap", fontSize: "min(4.6vw, 5.6dvh)", fontWeight: 900, gap: "1.4vw", justifyContent: "center", lineHeight: 1, marginTop: "3dvh", textAlign: "center" };
+const breakScoreLine = { alignItems: "center", color: "#111827", display: "flex", flexWrap: "wrap", fontSize: "min(7vw, 8dvh)", fontWeight: 900, gap: "1.8vw", justifyContent: "center", lineHeight: 0.9, marginTop: "4dvh", textAlign: "center" };
+const breakScoreTeam = { alignItems: "center", display: "inline-flex", gap: "1vw", whiteSpace: "nowrap" };
+const breakScoreTeamRight = { flexDirection: "row-reverse" };
+const breakScoreLogo = { height: "min(8dvh, 7vw)", objectFit: "contain", width: "min(8dvh, 7vw)" };
 const breakScoreDash = { color: "#94a3b8" };
-const breakSub = { color: "#64748b", fontSize: "min(5vw, 6dvh)", fontWeight: 900, marginTop: "3dvh", textTransform: "uppercase" };
 const finalDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", overflow: "hidden", padding: "3dvh 4vw", textAlign: "center", width: "100vw" };
 const finalLabel = { color: "#16a34a", fontSize: "min(12vw, 15dvh)", fontWeight: 900, lineHeight: 0.86, textTransform: "uppercase" };
 const finalWinner = { color: "#111827", fontSize: "min(9vw, 11dvh)", fontWeight: 900, lineHeight: 0.9, marginTop: "2dvh", overflowWrap: "anywhere" };
@@ -1779,12 +1850,12 @@ const deviceQrFrame = { background: "#fff", border: "1px solid #e2e8f0", borderR
 const deviceOpenLink = { background: "#2563eb", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 900, padding: "12px 16px", textDecoration: "none" };
 const deviceBackBtn = { background: "#f1f5f9", border: "none", borderRadius: 12, color: "#334155", cursor: "pointer", fontWeight: 900, padding: "12px 16px" };
 const clockEditorOverlay = { alignItems: "center", background: "rgba(15,23,42,0.82)", boxSizing: "border-box", display: "flex", inset: 0, justifyContent: "center", padding: 18, position: "fixed", zIndex: 2100 };
-const clockEditorPanel = { background: "#fff", borderRadius: 22, boxShadow: "0 24px 80px rgba(0,0,0,0.35)", maxWidth: 640, padding: 22, width: "100%" };
+const clockEditorPanel = { background: "#fff", borderRadius: 22, boxSizing: "border-box", boxShadow: "0 24px 80px rgba(0,0,0,0.35)", maxWidth: 620, padding: "min(22px, 3vw)", width: "min(620px, 94vw)" };
 const clockEditorHeader = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 16 };
 const clockEditorTitle = { color: "#0f172a", fontSize: 34, fontWeight: 900, marginTop: 2 };
-const clockEditorTime = { alignItems: "end", display: "grid", gap: 12, gridTemplateColumns: "1fr auto 1fr", marginTop: 22 };
-const clockEditorField = { display: "grid", gap: 8 };
+const clockEditorTime = { alignItems: "end", display: "grid", gap: "min(12px, 2vw)", gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)", marginTop: 22 };
+const clockEditorField = { display: "grid", gap: 8, minWidth: 0 };
 const clockEditorLabel = { color: "#64748b", fontSize: 14, fontWeight: 900, textTransform: "uppercase" };
-const clockEditorInput = { background: "#f8fafc", border: "2px solid #cbd5e1", borderRadius: 16, color: "#0f172a", fontSize: 58, fontVariantNumeric: "tabular-nums", fontWeight: 900, minWidth: 0, padding: "14px 12px", textAlign: "center", width: "100%" };
-const clockEditorColon = { color: "#0f172a", fontSize: 58, fontWeight: 900, lineHeight: 1, paddingBottom: 12 };
+const clockEditorInput = { background: "#f8fafc", border: "2px solid #cbd5e1", borderRadius: 16, boxSizing: "border-box", color: "#0f172a", fontSize: "clamp(38px, 9vw, 58px)", fontVariantNumeric: "tabular-nums", fontWeight: 900, minWidth: 0, padding: "12px 8px", textAlign: "center", width: "100%" };
+const clockEditorColon = { color: "#0f172a", fontSize: "clamp(38px, 9vw, 58px)", fontWeight: 900, lineHeight: 1, paddingBottom: 12 };
 const clockEditorSaveBtn = { background: "#16a34a", border: "none", borderRadius: 16, color: "#fff", cursor: "pointer", fontSize: 22, fontWeight: 900, marginTop: 18, minHeight: 58, width: "100%" };
