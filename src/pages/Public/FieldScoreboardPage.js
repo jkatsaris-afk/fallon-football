@@ -23,9 +23,11 @@ const TEAM_LOGOS = {
 
 const DEFAULT_SETTINGS = {
   live_scoreboards_open: true,
+  scoreboard_period_format: "half",
   scoreboard_game_minutes: 24,
   scoreboard_halftime_minutes: 5,
   scoreboard_timeout_seconds: 60,
+  scoreboard_timeouts_per_half: 3,
   scoreboard_touchdown_points: 6,
   scoreboard_extra_one_points: 1,
   scoreboard_extra_two_points: 2,
@@ -50,10 +52,16 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null);
   const [deviceFlow, setDeviceFlow] = useState(null);
+  const [clockEditorOpen, setClockEditorOpen] = useState(false);
+  const [hornReady, setHornReady] = useState(false);
+  const [timeouts, setTimeouts] = useState(createTimeoutState(DEFAULT_SETTINGS.scoreboard_timeouts_per_half));
   const lastServerClockRef = useRef(null);
   const displaySyncKeyRef = useRef("");
   const displayClockAnchorRef = useRef({ seconds: DEFAULT_SETTINGS.scoreboard_game_minutes * 60, syncedAt: Date.now() });
   const gameClockBeforeBreakRef = useRef(DEFAULT_SETTINGS.scoreboard_game_minutes * 60);
+  const audioContextRef = useRef(null);
+  const previousDisplayClockRef = useRef(null);
+  const lastDisplayHornKeyRef = useRef("");
 
   useEffect(() => {
     loadData();
@@ -71,12 +79,20 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const interval = setInterval(() => {
       setClockSeconds((current) => {
         const next = Math.max(0, current - 1);
+        if (current > 0 && next === 0) {
+          playClockTone();
+        }
         if (next === 0 && isBreakStatus(liveGame.status)) {
           finishBreakClock();
           return 0;
         }
         if (next === 0 && liveGame.status === "final_display") {
           finishFinalDisplay();
+          return 0;
+        }
+        if (next === 0) {
+          setRunning(false);
+          updateLiveGame({ clock: formatClock(next) }, false);
           return 0;
         }
         updateLiveGame({ clock: formatClock(next) }, false);
@@ -99,6 +115,59 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     return () => clearInterval(interval);
   }, [scoreOnly, liveGame?.id, displayClockRunning]);
 
+  useEffect(() => {
+    if (!scoreOnly || !liveGame?.horn_signal) return;
+
+    const hornKey = `${liveGame.id}-${liveGame.horn_signal}`;
+    if (lastDisplayHornKeyRef.current === hornKey) return;
+    lastDisplayHornKeyRef.current = hornKey;
+    playClockTone();
+  }, [scoreOnly, liveGame?.id, liveGame?.horn_signal]);
+
+  useEffect(() => {
+    previousDisplayClockRef.current = null;
+    lastDisplayHornKeyRef.current = "";
+  }, [liveGame?.id]);
+
+  useEffect(() => {
+    if (!liveGame?.id || scoreOnly) return;
+
+    const count = Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+    setTimeouts(loadTimeoutState(liveGame.id, count, liveGame.timeout_state));
+  }, [liveGame?.id, liveGame?.timeout_state, settings.scoreboard_timeouts_per_half, scoreOnly]);
+
+  const getTimeoutUsage = (side, sourceGame = liveGame) => {
+    const total = Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+    const halfKey = getHalfKey(sourceGame);
+    const sourceTimeouts = sourceGame?.id === liveGame?.id && !scoreOnly
+      ? timeouts
+      : normalizeTimeoutState(sourceGame?.timeout_state, total);
+    const remaining = Number(sourceTimeouts?.[side]?.[halfKey] ?? total);
+
+    return {
+      total,
+      remaining,
+      used: Math.max(0, total - remaining),
+    };
+  };
+
+  useEffect(() => {
+    if (!scoreOnly || !liveGame) return;
+
+    const previousClock = previousDisplayClockRef.current;
+    const hornKey = `${liveGame.id}-${liveGame.status}-zero`;
+    if (
+      previousClock > 0 &&
+      clockSeconds === 0 &&
+      liveGame.status !== "final_display" &&
+      lastDisplayHornKeyRef.current !== hornKey
+    ) {
+      lastDisplayHornKeyRef.current = hornKey;
+      playClockTone();
+    }
+    previousDisplayClockRef.current = clockSeconds;
+  }, [scoreOnly, liveGame?.id, liveGame?.status, clockSeconds]);
+
   const loadData = async () => {
     const { data: fieldData } = await supabase
       .from("fields")
@@ -119,13 +188,56 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       .order("week", { ascending: true })
       .order("event_time", { ascending: true });
 
-    setGames(gameData || []);
+    const gamesWithRefs = await attachRefAssignments(gameData || []);
+    setGames(gamesWithRefs);
 
-    if (!selectedWeek && gameData?.length) {
-      setSelectedWeek(String(gameData[0].week || ""));
+    if (!selectedWeek && gamesWithRefs?.length) {
+      setSelectedWeek(String(gamesWithRefs[0].week || ""));
     }
 
     await loadLiveGame(relatedIds);
+  };
+
+  const attachRefAssignments = async (gameRows) => {
+    const gameIds = gameRows.map((game) => game.id).filter(Boolean);
+    if (!gameIds.length) return gameRows;
+
+    const { data: assignments, error } = await supabase
+      .from("ref_assignments")
+      .select(`
+        game_id,
+        role,
+        referee_id,
+        referees (
+          first_name,
+          last_name
+        )
+      `)
+      .in("game_id", gameIds);
+
+    if (error) {
+      console.error("Display ref assignment load failed:", error);
+      return gameRows;
+    }
+
+    const assignmentsByGame = {};
+    (assignments || []).forEach((assignment) => {
+      if (!assignment.game_id) return;
+      if (!assignmentsByGame[assignment.game_id]) assignmentsByGame[assignment.game_id] = [];
+      assignmentsByGame[assignment.game_id].push(assignment);
+    });
+
+    return gameRows.map((game) => ({
+      ...game,
+      assigned_refs: (assignmentsByGame[game.id] || [])
+        .filter((assignment) => assignment.referee_id)
+        .sort((a, b) => String(a.role || "").localeCompare(String(b.role || "")))
+        .map((assignment) => ({
+          role: assignment.role,
+          name: `${assignment.referees?.first_name || ""} ${assignment.referees?.last_name || ""}`.trim(),
+        }))
+        .filter((assignment) => assignment.name),
+    }));
   };
 
   const loadRelatedFieldIds = async (fieldData) => {
@@ -162,7 +274,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       .select("*")
       .in("status", LIVE_GAME_STATUSES)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(100);
 
     if (error) {
       console.error("Live game load failed:", error);
@@ -191,11 +303,18 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     const hydratedRows = (data || []).map((row) => ({
       ...row,
-      schedule_master_auto: scheduleById[row.schedule_id],
+      schedule_master_auto: normalizeScoreboardGame(scheduleById[row.schedule_id]),
     }));
 
     const active = hydratedRows.find((row) => fieldIds.includes(row.schedule_master_auto?.field_id));
     if (!active) {
+      if (scoreOnly && liveGame && isBreakStatus(liveGame.status) && Number(previousDisplayClockRef.current || 0) <= 2) {
+        const hornKey = `${liveGame.id}-${liveGame.status}-closed`;
+        if (lastDisplayHornKeyRef.current !== hornKey) {
+          lastDisplayHornKeyRef.current = hornKey;
+          playClockTone();
+        }
+      }
       lastServerClockRef.current = null;
       displaySyncKeyRef.current = "";
       displayClockAnchorRef.current = { seconds: 0, syncedAt: Date.now() };
@@ -205,6 +324,20 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     }
 
     const serverClockSeconds = clockToSeconds(active.clock || formatClock(settings.scoreboard_game_minutes * 60));
+    if (
+      scoreOnly &&
+      liveGame?.id === active.id &&
+      liveGame?.status !== active.status &&
+      isBreakStatus(liveGame.status) &&
+      Number(previousDisplayClockRef.current || clockSeconds || 0) <= 2
+    ) {
+      const hornKey = `${active.id}-${liveGame.status}-transition`;
+      if (lastDisplayHornKeyRef.current !== hornKey) {
+        lastDisplayHornKeyRef.current = hornKey;
+        playClockTone();
+      }
+    }
+
     if (scoreOnly) {
       const previousServerClock = lastServerClockRef.current;
       const serverClockMoving = previousServerClock !== null && serverClockSeconds < previousServerClock;
@@ -239,6 +372,8 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const scoreboardsOpen = settings.live_scoreboards_open !== false;
 
   const startGame = async (game) => {
+    primeClockTone();
+
     if (!scoreboardsOpen) {
       setStatus({ type: "error", message: SCOREBOARD_CLOSED_MESSAGE });
       return;
@@ -256,11 +391,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       return;
     }
 
-    await supabase
-      .from("games_live")
-      .update({ status: "closed" })
-      .in("status", LIVE_GAME_STATUSES)
-      .neq("schedule_id", game.id);
+    await closeLiveGamesForCurrentField(game.id);
 
     const row = {
       schedule_id: game.id,
@@ -294,8 +425,9 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         return;
       }
 
-      setLiveGame({ ...data, schedule_master_auto: game });
+      setLiveGame({ ...data, schedule_master_auto: normalizeScoreboardGame(game) });
       setClockSeconds(clockToSeconds(row.clock));
+      await resetTimeoutsForLiveGame(data.id);
       setRunning(false);
       return;
     }
@@ -312,12 +444,61 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       return;
     }
 
-    setLiveGame({ ...data, schedule_master_auto: game });
+    setLiveGame({ ...data, schedule_master_auto: normalizeScoreboardGame(game) });
     setClockSeconds(clockToSeconds(row.clock));
+    await resetTimeoutsForLiveGame(data.id);
     setRunning(false);
   };
 
+  const closeLiveGamesForCurrentField = async (currentScheduleId) => {
+    const { data: activeLiveGames, error } = await supabase
+      .from("games_live")
+      .select("id, schedule_id")
+      .in("status", LIVE_GAME_STATUSES);
+
+    if (error) {
+      console.error("Live game field cleanup failed:", error);
+      return;
+    }
+
+    const scheduleIds = [...new Set((activeLiveGames || []).map((row) => row.schedule_id).filter(Boolean))];
+    if (!scheduleIds.length) return;
+
+    const { data: scheduleRows, error: scheduleError } = await supabase
+      .from("schedule_master_auto")
+      .select("id, field_id")
+      .in("id", scheduleIds);
+
+    if (scheduleError) {
+      console.error("Live game schedule cleanup failed:", scheduleError);
+      return;
+    }
+
+    const fieldByScheduleId = {};
+    (scheduleRows || []).forEach((row) => {
+      fieldByScheduleId[row.id] = row.field_id;
+    });
+
+    const liveIdsToClose = (activeLiveGames || [])
+      .filter((row) => row.schedule_id !== currentScheduleId)
+      .filter((row) => scoreboardFieldIds.includes(fieldByScheduleId[row.schedule_id]))
+      .map((row) => row.id);
+
+    if (!liveIdsToClose.length) return;
+
+    const { error: closeError } = await supabase
+      .from("games_live")
+      .update({ status: "closed" })
+      .in("id", liveIdsToClose);
+
+    if (closeError) {
+      console.error("Close same-field live games failed:", closeError);
+    }
+  };
+
   const startBreakClock = async (type, side = null) => {
+    primeClockTone();
+
     if (!liveGame) return;
     if (isBreakStatus(liveGame.status) || liveGame.status === "final_display") return;
 
@@ -326,15 +507,51 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const seconds = type === "halftime"
       ? Number(settings.scoreboard_halftime_minutes || 5) * 60
       : Number(settings.scoreboard_timeout_seconds || 60);
+    let timeoutStateUpdate = null;
 
     if (type === "timeout") {
+      const halfKey = getHalfKey(liveGame);
+      const remaining = getTimeoutsRemaining(side);
+      if (remaining <= 0) {
+        const teamLabel = side === "home" ? cleanTeamName(liveGame.schedule_master_auto?.team) || "Home" : cleanTeamName(liveGame.schedule_master_auto?.opponent) || "Away";
+        setStatus({ type: "error", message: `${teamLabel} has no timeouts left in this half.` });
+        return;
+      }
+
+      const nextTimeouts = {
+        ...timeouts,
+        [side]: {
+          ...(timeouts[side] || {}),
+          [halfKey]: remaining - 1,
+        },
+      };
+      setTimeouts(nextTimeouts);
+      saveTimeoutState(liveGame.id, nextTimeouts);
+      timeoutStateUpdate = nextTimeouts;
       gameClockBeforeBreakRef.current = gameClock;
     }
 
     setRunning(false);
     setClockSeconds(seconds);
-    await updateLiveGame({ status: statusValue, clock: formatClock(seconds), quarter: type === "timeout" ? gameClock : liveGame.quarter });
+    await updateLiveGame({
+      status: statusValue,
+      clock: formatClock(seconds),
+      quarter: type === "timeout" ? gameClock : liveGame.quarter,
+      ...(timeoutStateUpdate ? { timeout_state: timeoutStateUpdate } : {}),
+    });
     setRunning(true);
+  };
+
+  const resetTimeoutsForLiveGame = async (liveGameId) => {
+    const count = Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+    const nextTimeouts = createTimeoutState(count);
+    setTimeouts(nextTimeouts);
+    saveTimeoutState(liveGameId, nextTimeouts);
+    await supabase.from("games_live").update({ timeout_state: nextTimeouts }).eq("id", liveGameId);
+  };
+
+  const getTimeoutsRemaining = (side) => {
+    return getTimeoutUsage(side).remaining;
   };
 
   const finishBreakClock = async () => {
@@ -342,6 +559,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const nextClock = isTimeoutStatus(liveGame.status)
       ? Number(liveGame.quarter || gameClockBeforeBreakRef.current || Number(settings.scoreboard_game_minutes || 24) * 60)
       : Number(settings.scoreboard_game_minutes || 24) * 60;
+    const hornSignal = String(Date.now());
 
     setRunning(false);
     setClockSeconds(nextClock);
@@ -350,7 +568,28 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       clock: formatClock(nextClock),
       half: liveGame.status === "halftime" ? 2 : liveGame.half,
       quarter: liveGame.status === "halftime" ? 2 : 1,
+      horn_signal: hornSignal,
     });
+  };
+
+  const openClockEditor = () => {
+    setRunning(false);
+    setClockEditorOpen(true);
+  };
+
+  const saveEditedClock = async (seconds) => {
+    const safeSeconds = Math.max(0, Number(seconds || 0));
+    setRunning(false);
+    setClockSeconds(safeSeconds);
+    await updateLiveGame({ clock: formatClock(safeSeconds) });
+    setClockEditorOpen(false);
+    setStatus({ type: "success", message: `Clock updated to ${formatClock(safeSeconds)}.` });
+  };
+
+  const getTimeoutButtonLabel = (side) => {
+    const team = side === "home" ? liveGame?.schedule_master_auto?.team : liveGame?.schedule_master_auto?.opponent;
+    const usage = getTimeoutUsage(side);
+    return `${cleanTeamName(team) || (side === "home" ? "Home" : "Away")} Timeout (${usage.remaining})`;
   };
 
   const finishFinalDisplay = async () => {
@@ -374,8 +613,8 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       field: field?.name || "Test Field",
       event_type: "scoreboard test",
       source: "scoreboard-test",
-      team: "Home",
-      opponent: "Away",
+      team: "Ravens",
+      opponent: "Chiefs",
       event_date: getLocalDateString(new Date()),
       event_time: "Test",
       time: "Test",
@@ -400,10 +639,22 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const updateLiveGame = async (updates, refresh = true) => {
     if (!liveGame) return;
 
-    const { error } = await supabase
+    let nextUpdates = updates;
+    let { error } = await supabase
       .from("games_live")
-      .update(updates)
+      .update(nextUpdates)
       .eq("id", liveGame.id);
+
+    if (error && (nextUpdates.timeout_state || nextUpdates.horn_signal)) {
+      console.warn("Live game optional scoreboard field update failed, retrying without it:", error);
+      const { timeout_state, horn_signal, ...fallbackUpdates } = nextUpdates;
+      nextUpdates = fallbackUpdates;
+      const fallbackResult = await supabase
+        .from("games_live")
+        .update(nextUpdates)
+        .eq("id", liveGame.id);
+      error = fallbackResult.error;
+    }
 
     if (error) {
       console.error("Live game update failed:", error);
@@ -412,6 +663,94 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     if (refresh) setLiveGame((current) => ({ ...current, ...updates }));
   };
+
+  function primeClockTone() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return false;
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume();
+      }
+      setHornReady(true);
+      return true;
+    } catch (error) {
+      console.warn("Clock tone could not be prepared:", error);
+      return false;
+    }
+  }
+
+  function playClockTone() {
+    try {
+      primeClockTone();
+      const context = audioContextRef.current;
+      if (!context) return;
+
+      const now = context.currentTime;
+      const duration = 2.15;
+      const masterGain = context.createGain();
+      const filter = context.createBiquadFilter();
+      const compressor = context.createDynamicsCompressor();
+
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(520, now);
+      filter.Q.setValueAtTime(1.4, now);
+
+      compressor.threshold.setValueAtTime(-24, now);
+      compressor.knee.setValueAtTime(10, now);
+      compressor.ratio.setValueAtTime(16, now);
+      compressor.attack.setValueAtTime(0.002, now);
+      compressor.release.setValueAtTime(0.18, now);
+
+      masterGain.gain.setValueAtTime(0.0001, now);
+      masterGain.gain.exponentialRampToValueAtTime(0.95, now + 0.018);
+      masterGain.gain.setValueAtTime(0.95, now + 1.85);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      filter.connect(compressor);
+      compressor.connect(masterGain);
+      masterGain.connect(context.destination);
+
+      [440, 554, 659, 880, 1108].forEach((frequency, index) => {
+        const oscillator = context.createOscillator();
+        oscillator.type = index < 3 ? "sawtooth" : "square";
+        oscillator.frequency.setValueAtTime(frequency, now);
+
+        const voiceGain = context.createGain();
+        voiceGain.gain.setValueAtTime(index < 2 ? 0.32 : 0.14, now);
+
+        oscillator.connect(voiceGain);
+        voiceGain.connect(filter);
+        oscillator.start(now);
+        oscillator.stop(now + duration);
+      });
+
+      const noiseBuffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
+      const noiseData = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseData.length; i += 1) {
+        noiseData[i] = (Math.random() * 2 - 1) * 0.18;
+      }
+      const noise = context.createBufferSource();
+      const noiseGain = context.createGain();
+      const noiseFilter = context.createBiquadFilter();
+      noise.buffer = noiseBuffer;
+      noiseFilter.type = "lowpass";
+      noiseFilter.frequency.setValueAtTime(1400, now);
+      noiseGain.gain.setValueAtTime(0.0001, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.18, now + 0.025);
+      noiseGain.gain.setValueAtTime(0.16, now + 1.75);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(compressor);
+      noise.start(now);
+      noise.stop(now + duration);
+    } catch (error) {
+      console.warn("Clock tone could not play:", error);
+    }
+  }
 
   const addPoints = (side, points) => {
     const fieldName = side === "home" ? "home_score" : "away_score";
@@ -489,6 +828,13 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         games={displayWeekGames}
         scoreboardsOpen={scoreboardsOpen}
         sideMode={displaySideMode}
+        settings={settings}
+        hornReady={hornReady}
+        onEnableHorn={() => {
+          primeClockTone();
+          setHornReady(true);
+          playClockTone();
+        }}
       />
     );
   }
@@ -535,8 +881,8 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   }
 
   return (
-    <div style={controlWrap}>
-      <div style={topBar}>
+    <div style={liveGame ? liveControlWrap : controlWrap}>
+      <div style={liveGame ? liveTopBar : topBar}>
         <div>
           <div style={pageTitle}>{field?.name || "Field Scoreboard"}</div>
           <div style={pageSub}>Controller link for this field</div>
@@ -578,7 +924,12 @@ export default function FieldScoreboardPage({ mode = "control" }) {
           <div style={gameGrid}>
             <button style={{ ...gameTile, ...testGameTile }} onClick={startTestGame}>
               <div style={gameTeams}>Scoreboard Test Game</div>
-              <div style={gameMeta}>Home vs Away • does not save to season scores</div>
+              <div style={testLogoRow}>
+                <TestTileTeam team="Ravens" />
+                <span style={testVs}>vs</span>
+                <TestTileTeam team="Chiefs" />
+              </div>
+              <div style={gameMeta}>Ravens vs Chiefs • does not save to season scores</div>
               <div style={startText}>Start Test</div>
             </button>
 
@@ -594,7 +945,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       )}
 
       {liveGame && (
-        <div style={boardPanel}>
+        <div style={liveGame ? liveBoardPanel : boardPanel}>
           {liveGame.status === "final_display" ? (
             <div style={controllerFinalPanel}>
               <div style={controllerFinalLabel}>Final score saved</div>
@@ -609,54 +960,80 @@ export default function FieldScoreboardPage({ mode = "control" }) {
             <>
               {isBreakStatus(liveGame.status) && (
                 <div style={controllerBreakBanner}>
-                  {getBreakLabel(liveGame, "controller")} countdown running. Game clock is paused.
+                  {getBreakLabel(liveGame, "controller")} countdown running. {getPeriodName(settings)} clock is paused.
                 </div>
               )}
               <div style={timer}>{formatClock(clockSeconds)}</div>
               <div style={timerActions}>
-                <button
-                  style={primaryBtn}
-                  disabled={isBreakStatus(liveGame.status)}
-                  onClick={() => setRunning((current) => !current)}
-                >
-                  {running ? "Pause" : getGameClockButtonLabel(liveGame, clockSeconds, settings)}
-                </button>
-                <button
-                  style={secondaryBtn}
-                  disabled={isBreakStatus(liveGame.status)}
-                  onClick={() => {
-                    const seconds = Number(settings.scoreboard_game_minutes || 24) * 60;
-                    setClockSeconds(seconds);
-                    updateLiveGame({ clock: formatClock(seconds) });
-                  }}
-                >
-                  Reset Clock
-                </button>
-                <button
-                  style={secondaryBtn}
-                  disabled={isBreakStatus(liveGame.status)}
-                  onClick={() => startBreakClock("halftime")}
-                >
-                  Halftime
-                </button>
+                {isBreakStatus(liveGame.status) ? (
+                  <button style={primaryBtn} onClick={finishBreakClock}>
+                    End {liveGame.status === "halftime" ? "Halftime" : "Timeout"}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      style={timeoutControlBtn}
+                      disabled={getTimeoutsRemaining("home") <= 0}
+                      onClick={() => startBreakClock("timeout", "home")}
+                    >
+                      {getTimeoutButtonLabel("home")}
+                    </button>
+                    <button
+                      style={primaryBtn}
+                      onClick={() => {
+                        primeClockTone();
+                        setRunning((current) => !current);
+                      }}
+                    >
+                      {running ? "Pause" : getGameClockButtonLabel(liveGame, clockSeconds, settings)}
+                    </button>
+                    <button
+                      style={secondaryBtn}
+                      onClick={openClockEditor}
+                    >
+                      Edit Clock
+                    </button>
+                    <button
+                      style={secondaryBtn}
+                      onClick={() => startBreakClock("halftime")}
+                    >
+                      Halftime
+                    </button>
+                    <button
+                      style={hornBtn}
+                      onClick={playClockTone}
+                    >
+                      Horn
+                    </button>
+                    <button
+                      style={timeoutControlBtn}
+                      disabled={getTimeoutsRemaining("away") <= 0}
+                      onClick={() => startBreakClock("timeout", "away")}
+                    >
+                      {getTimeoutButtonLabel("away")}
+                    </button>
+                  </>
+                )}
               </div>
 
               <div style={scoreGrid}>
                 <TeamControls
                   team={liveGame.schedule_master_auto?.team}
                   score={liveGame.home_score}
+                  half={getHalfKey(liveGame)}
+                  timeoutUsage={getTimeoutUsage("home")}
                   onAdd={(points) => addPoints("home", points)}
                   onRemove={(points) => removePoints("home", points)}
-                  onTimeout={() => startBreakClock("timeout", "home")}
                   settings={settings}
                   disabled={isBreakStatus(liveGame.status)}
                 />
                 <TeamControls
                   team={liveGame.schedule_master_auto?.opponent}
                   score={liveGame.away_score}
+                  half={getHalfKey(liveGame)}
+                  timeoutUsage={getTimeoutUsage("away")}
                   onAdd={(points) => addPoints("away", points)}
                   onRemove={(points) => removePoints("away", points)}
-                  onTimeout={() => startBreakClock("timeout", "away")}
                   settings={settings}
                   disabled={isBreakStatus(liveGame.status)}
                 />
@@ -675,11 +1052,78 @@ export default function FieldScoreboardPage({ mode = "control" }) {
           onClose={() => setDeviceFlow(null)}
         />
       )}
+      {clockEditorOpen && (
+        <ClockEditor
+          currentSeconds={clockSeconds}
+          maxMinutes={Math.max(Number(settings.scoreboard_game_minutes || 24), Math.ceil(clockSeconds / 60), 1)}
+          onSave={saveEditedClock}
+          onClose={() => setClockEditorOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
-function TeamControls({ team, score, onAdd, onRemove, onTimeout, settings, disabled = false }) {
+function ClockEditor({ currentSeconds, maxMinutes, onSave, onClose }) {
+  const [minutes, setMinutes] = useState(String(Math.floor(Number(currentSeconds || 0) / 60)));
+  const [seconds, setSeconds] = useState(String(Number(currentSeconds || 0) % 60).padStart(2, "0"));
+
+  const commit = () => {
+    const minuteValue = Math.max(0, Number(minutes || 0));
+    const secondValue = Math.min(59, Math.max(0, Number(seconds || 0)));
+    onSave((minuteValue * 60) + secondValue);
+  };
+
+  return (
+    <div style={clockEditorOverlay}>
+      <div style={clockEditorPanel}>
+        <div style={clockEditorHeader}>
+          <div>
+            <div style={deviceEyebrow}>Clock Correction</div>
+            <div style={clockEditorTitle}>Set Game Clock</div>
+          </div>
+          <button type="button" style={deviceCloseBtn} onClick={onClose}>Close</button>
+        </div>
+        <div style={clockEditorTime}>
+          <label style={clockEditorField}>
+            <span style={clockEditorLabel}>Minutes</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              max={String(Math.max(maxMinutes, 99))}
+              value={minutes}
+              onChange={(event) => setMinutes(event.target.value)}
+              style={clockEditorInput}
+            />
+          </label>
+          <div style={clockEditorColon}>:</div>
+          <label style={clockEditorField}>
+            <span style={clockEditorLabel}>Seconds</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              max="59"
+              value={seconds}
+              onChange={(event) => setSeconds(event.target.value)}
+              onBlur={() => {
+                const safeSeconds = Math.min(59, Math.max(0, Number(seconds || 0)));
+                setSeconds(String(safeSeconds).padStart(2, "0"));
+              }}
+              style={clockEditorInput}
+            />
+          </label>
+        </div>
+        <button type="button" style={clockEditorSaveBtn} onClick={commit}>
+          Set Clock
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TeamControls({ team, score, timeoutUsage, onAdd, onRemove, settings, disabled = false }) {
   const logo = getLogo(team);
 
   return (
@@ -688,6 +1132,7 @@ function TeamControls({ team, score, onAdd, onRemove, onTimeout, settings, disab
         {logo && <img src={logo} alt="" style={logoStyle} />}
         <div style={teamName}>{cleanTeamName(team)}</div>
       </div>
+      <TimeoutDots total={timeoutUsage?.total} used={timeoutUsage?.used} />
       <div style={scoreText}>{score || 0}</div>
       <div style={pointGrid}>
         <button style={pointBtn} disabled={disabled} onClick={() => onAdd(settings.scoreboard_touchdown_points)}>+ Touchdown</button>
@@ -699,24 +1144,61 @@ function TeamControls({ team, score, onAdd, onRemove, onTimeout, settings, disab
         <button style={undoBtn} disabled={disabled} onClick={() => onRemove(settings.scoreboard_extra_one_points)}>-1</button>
         <button style={undoBtn} disabled={disabled} onClick={() => onRemove(settings.scoreboard_extra_two_points)}>-2</button>
       </div>
-      <button style={timeoutTeamBtn} disabled={disabled} onClick={onTimeout}>
-        Timeout
-      </button>
     </div>
   );
 }
 
-function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpen = true, sideMode = "both" }) {
+function DisplayScheduleTeam({ team }) {
+  const logo = getLogo(team);
+
+  return (
+    <span style={displayScheduleTeam}>
+      {logo && <img src={logo} alt="" style={displayScheduleLogo} />}
+      <span>{cleanTeamName(team)}</span>
+    </span>
+  );
+}
+
+function TestTileTeam({ team }) {
+  const logo = getLogo(team);
+
+  return (
+    <span style={testTileTeam}>
+      {logo && <img src={logo} alt="" style={testTileLogo} />}
+      <span>{cleanTeamName(team)}</span>
+    </span>
+  );
+}
+
+function ScoreOnlyBoard({
+  field,
+  liveGame,
+  liveClock,
+  games = [],
+  scoreboardsOpen = true,
+  sideMode = "both",
+  settings = DEFAULT_SETTINGS,
+  hornReady = false,
+  onEnableHorn,
+}) {
   const game = liveGame?.schedule_master_auto;
   const weekLabel = games[0]?.week ? `Week ${games[0].week}` : "Scheduled Games";
   const singleSide = sideMode === "home" || sideMode === "away";
   const singleTeam = sideMode === "home" ? game?.team : game?.opponent;
   const singleScore = sideMode === "home" ? liveGame?.home_score : liveGame?.away_score;
+  const singleOpponent = sideMode === "home" ? game?.opponent : game?.team;
+  const singleOpponentScore = sideMode === "home" ? liveGame?.away_score : liveGame?.home_score;
+  const homeTimeouts = getTimeoutUsageForGame(liveGame, "home", settings);
+  const awayTimeouts = getTimeoutUsageForGame(liveGame, "away", settings);
   const breakMode = isBreakStatus(liveGame?.status);
   const finalMode = liveGame?.status === "final_display";
 
   return (
     <div style={singleSide ? displaySingleWrap : displayWrap}>
+      <button type="button" style={displayHornButton} onClick={onEnableHorn}>
+        {hornReady ? "Horn" : "Enable Horn"}
+      </button>
+
       {!scoreboardsOpen && (
         <div style={displayEmpty}>
           <div style={displayIdleTitle}>{field?.name || "Field"}</div>
@@ -732,10 +1214,20 @@ function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpe
             {games.length ? games.map((scheduledGame) => (
               <div key={scheduledGame.id} style={displayGameRow}>
                 <div style={displayGameTime}>{scheduledGame.event_time || scheduledGame.time || "Time TBD"}</div>
-                <div style={displayGameTeams}>
-                  {cleanTeamName(scheduledGame.team)} vs {cleanTeamName(scheduledGame.opponent)}
+                <div style={displayGameMain}>
+                  <div style={displayGameTeamsRow}>
+                    <DisplayScheduleTeam team={scheduledGame.team} />
+                    <span style={displayGameVs}>vs</span>
+                    <DisplayScheduleTeam team={scheduledGame.opponent} />
+                  </div>
+                  <div style={displayGameRefs}>
+                    Refs: {formatAssignedRefs(scheduledGame.assigned_refs)}
+                  </div>
                 </div>
-                <div style={displayGameDivision}>{scheduledGame.division}</div>
+                <div style={displayGameMetaBlock}>
+                  <div style={displayGameDivision}>{scheduledGame.division || "Division TBD"}</div>
+                  <div style={displayGameField}>{scheduledGame.field || field?.name || "Field TBD"}</div>
+                </div>
               </div>
             )) : (
               <div style={displayNoGames}>No scheduled games found for this field.</div>
@@ -745,7 +1237,13 @@ function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpe
       )}
 
       {scoreboardsOpen && liveGame && breakMode && (
-        <BreakClockDisplay label={getBreakLabel(liveGame)} clock={liveClock || liveGame.clock} />
+        <BreakClockDisplay
+          label={getBreakLabel(liveGame)}
+          clock={liveClock || liveGame.clock}
+          game={game}
+          liveGame={liveGame}
+          settings={settings}
+        />
       )}
 
       {scoreboardsOpen && liveGame && finalMode && (
@@ -753,25 +1251,56 @@ function ScoreOnlyBoard({ field, liveGame, liveClock, games = [], scoreboardsOpe
       )}
 
       {scoreboardsOpen && liveGame && singleSide && (
-        !breakMode && !finalMode && <ScoreOnlySide team={singleTeam} score={singleScore} clock={liveClock || liveGame.clock} single />
+        !breakMode && !finalMode && (
+          <ScoreOnlySide
+            team={singleTeam}
+            score={singleScore}
+            clock={liveClock || liveGame.clock}
+            timeoutUsage={sideMode === "home" ? homeTimeouts : awayTimeouts}
+            opponentName={singleOpponent}
+            opponentScore={singleOpponentScore}
+            single
+          />
+        )
       )}
 
       {scoreboardsOpen && liveGame && !singleSide && (
         !breakMode && !finalMode && <>
-          <ScoreOnlySide team={game?.team} score={liveGame.home_score} clock={liveClock || liveGame.clock} />
-          <ScoreOnlySide team={game?.opponent} score={liveGame.away_score} clock={liveClock || liveGame.clock} />
+          <ScoreOnlySide
+            team={game?.team}
+            score={liveGame.home_score}
+            clock={liveClock || liveGame.clock}
+            timeoutUsage={homeTimeouts}
+            opponentName={game?.opponent}
+            opponentScore={liveGame.away_score}
+          />
+          <ScoreOnlySide
+            team={game?.opponent}
+            score={liveGame.away_score}
+            clock={liveClock || liveGame.clock}
+            timeoutUsage={awayTimeouts}
+            opponentName={game?.team}
+            opponentScore={liveGame.home_score}
+          />
         </>
       )}
     </div>
   );
 }
 
-function BreakClockDisplay({ label, clock }) {
+function BreakClockDisplay({ label, clock, game, liveGame, settings }) {
   return (
     <div style={breakDisplay}>
       <div style={breakLabel}>{label}</div>
       <div style={breakClock}>{clock || "0:00"}</div>
-      <div style={breakSub}>Game clock paused</div>
+      <div style={breakScoreLine}>
+        <span>{cleanTeamName(game?.team)}</span>
+        <strong>{Number(liveGame?.home_score || 0)}</strong>
+        <span style={breakScoreDash}>-</span>
+        <strong>{Number(liveGame?.away_score || 0)}</strong>
+        <span>{cleanTeamName(game?.opponent)}</span>
+      </div>
+      <div style={breakSub}>{getPeriodName(settings)} clock paused</div>
     </div>
   );
 }
@@ -800,7 +1329,7 @@ function FinalScoreDisplay({ game, liveGame, clock }) {
   );
 }
 
-function ScoreOnlySide({ team, score, clock, single = false }) {
+function ScoreOnlySide({ team, score, clock, timeoutUsage, opponentName, opponentScore, single = false }) {
   const logo = getLogo(team);
   return (
     <div style={single ? displaySingleSide : displaySide}>
@@ -808,8 +1337,33 @@ function ScoreOnlySide({ team, score, clock, single = false }) {
         {logo && <img src={logo} alt="" style={single ? displaySingleLogo : displayLogo} />}
         <div style={single ? displaySingleTeam : displayTeam}>{cleanTeamName(team)}</div>
       </div>
+      <TimeoutDots total={timeoutUsage?.total} used={timeoutUsage?.used} display />
       <div style={single ? displaySingleScore : displayScore}>{score || 0}</div>
-      <div style={single ? displaySingleClock : displayClock}>{clock || "0:00"}</div>
+      <div style={single ? displaySingleClockLine : displayClockLine}>
+        <span style={single ? displaySingleClock : displayClock}>{clock || "0:00"}</span>
+        <span style={single ? displaySingleOpponentScore : displayOpponentScore}>
+          {cleanTeamName(opponentName) || "Other"} {Number(opponentScore || 0)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TimeoutDots({ total = 3, used = 0, display = false }) {
+  const safeTotal = Math.max(0, Number(total || 0));
+  const safeUsed = Math.max(0, Number(used || 0));
+
+  return (
+    <div style={display ? displayTimeoutDots : timeoutDots}>
+      {Array.from({ length: safeTotal }).map((_, index) => (
+        <span
+          key={index}
+          style={{
+            ...(display ? displayTimeoutDot : timeoutDot),
+            ...(index < safeUsed ? (display ? displayTimeoutDotUsed : timeoutDotUsed) : {}),
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -864,6 +1418,11 @@ function cleanTeamName(value) {
   return (value || "").toString().replace(/\s+/g, " ").trim();
 }
 
+function formatAssignedRefs(refs = []) {
+  const names = refs.map((ref) => ref.name).filter(Boolean);
+  return names.length ? names.join(" / ") : "TBD";
+}
+
 function getLogo(team) {
   const key = cleanTeamName(team).toLowerCase();
   if (key.includes("49")) return TEAM_LOGOS["49ers"];
@@ -874,12 +1433,100 @@ function isTestGame(game) {
   return game?.source === "scoreboard-test" || game?.is_scoreboard_test;
 }
 
+function normalizeScoreboardGame(game) {
+  if (!game) return game;
+  if (!isTestGame(game)) return game;
+
+  return {
+    ...game,
+    team: "Ravens",
+    opponent: "Chiefs",
+  };
+}
+
 function isTimeoutStatus(status) {
   return status === "timeout" || status === "timeout_home" || status === "timeout_away";
 }
 
 function isBreakStatus(status) {
   return status === "halftime" || isTimeoutStatus(status);
+}
+
+function getHalfKey(liveGame) {
+  return String(Number(liveGame?.half || 1) >= 2 ? 2 : 1);
+}
+
+function createTimeoutState(count = 3) {
+  const safeCount = Math.max(0, Number(count || 0));
+  return {
+    home: { 1: safeCount, 2: safeCount },
+    away: { 1: safeCount, 2: safeCount },
+  };
+}
+
+function getTimeoutStorageKey(liveGameId) {
+  return `field-scoreboard-timeouts-${liveGameId}`;
+}
+
+function loadTimeoutState(liveGameId, count, remoteState) {
+  const remoteTimeouts = normalizeTimeoutState(remoteState, count);
+  if (remoteState) {
+    saveTimeoutState(liveGameId, remoteTimeouts);
+    return remoteTimeouts;
+  }
+
+  try {
+    const saved = window.localStorage.getItem(getTimeoutStorageKey(liveGameId));
+    if (saved) {
+      return normalizeTimeoutState(JSON.parse(saved), count);
+    }
+  } catch (error) {
+    console.warn("Timeout state could not be loaded:", error);
+  }
+
+  return createTimeoutState(count);
+}
+
+function saveTimeoutState(liveGameId, timeouts) {
+  if (!liveGameId) return;
+  try {
+    window.localStorage.setItem(getTimeoutStorageKey(liveGameId), JSON.stringify(timeouts));
+  } catch (error) {
+    console.warn("Timeout state could not be saved:", error);
+  }
+}
+
+function normalizeTimeoutState(value, count) {
+  const defaults = createTimeoutState(count);
+  let parsed = value;
+
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = null;
+    }
+  }
+
+  return {
+    ...defaults,
+    ...(parsed || {}),
+    home: { ...defaults.home, ...(parsed?.home || {}) },
+    away: { ...defaults.away, ...(parsed?.away || {}) },
+  };
+}
+
+function getTimeoutUsageForGame(liveGame, side, settings) {
+  const total = Number(settings?.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+  const halfKey = getHalfKey(liveGame);
+  const timeoutState = normalizeTimeoutState(liveGame?.timeout_state, total);
+  const remaining = Number(timeoutState?.[side]?.[halfKey] ?? total);
+
+  return {
+    total,
+    remaining,
+    used: Math.max(0, total - remaining),
+  };
 }
 
 function getBreakLabel(liveGame, fallback = "display") {
@@ -897,6 +1544,14 @@ function getGameClockButtonLabel(liveGame, clockSeconds, settings) {
     return "Start Game";
   }
   return "Resume Time";
+}
+
+function getPeriodFormat(settings) {
+  return settings?.scoreboard_period_format === "quarter" ? "quarter" : "half";
+}
+
+function getPeriodName(settings) {
+  return getPeriodFormat(settings) === "quarter" ? "Quarter" : "Half";
 }
 
 function getPhysicalFieldKey(field) {
@@ -998,6 +1653,7 @@ function getLocalDateString(date) {
 }
 
 const controlWrap = { background: "#f8fafc", boxSizing: "border-box", minHeight: "100vh", padding: 24 };
+const liveControlWrap = { background: "#f8fafc", boxSizing: "border-box", display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden", padding: "min(14px, 1.8dvh)" };
 const masterHero = { background: "#fff", borderRadius: 20, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", padding: 30, textAlign: "center" };
 const masterGrid = { display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", marginTop: 20 };
 const masterTile = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", color: "#0f172a", minHeight: 136, padding: 28, textDecoration: "none" };
@@ -1005,6 +1661,7 @@ const masterTileTitle = { fontSize: 28, fontWeight: 900, lineHeight: 1.05 };
 const masterTileSub = { color: "#64748b", fontSize: 17, fontWeight: 800, lineHeight: 1.35, marginTop: 10 };
 const closedPanel = { background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 18, color: "#9a3412", fontSize: 19, fontWeight: 900, marginTop: 16, padding: 24, textAlign: "center" };
 const topBar = { alignItems: "center", background: "#fff", borderRadius: 18, display: "flex", justifyContent: "space-between", padding: 22, gap: 16 };
+const liveTopBar = { alignItems: "center", background: "#fff", borderRadius: 16, display: "flex", flex: "0 0 auto", justifyContent: "space-between", padding: "min(12px, 1.5dvh) min(16px, 2vw)", gap: 10 };
 const pageTitle = { color: "#0f172a", fontSize: 34, fontWeight: 900, lineHeight: 1.05 };
 const pageSub = { color: "#64748b", fontSize: 16, fontWeight: 800, marginTop: 4 };
 const displayLinks = { display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "flex-end" };
@@ -1020,10 +1677,15 @@ const select = { appearance: "none", background: "#f8fafc", border: "2px solid #
 const gameGrid = { display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", marginTop: 18 };
 const gameTile = { background: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 16, cursor: "pointer", minHeight: 132, padding: 20, textAlign: "left" };
 const testGameTile = { background: "#f0fdf4", borderColor: "#86efac" };
+const testLogoRow = { alignItems: "center", display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)", marginTop: 12 };
+const testTileTeam = { alignItems: "center", color: "#0f172a", display: "inline-flex", fontSize: 18, fontWeight: 900, gap: 8, minWidth: 0, whiteSpace: "nowrap" };
+const testTileLogo = { flex: "0 0 auto", height: 34, objectFit: "contain", width: 34 };
+const testVs = { color: "#64748b", fontSize: 13, fontWeight: 900, textTransform: "uppercase" };
 const gameTeams = { color: "#0f172a", fontSize: 23, fontWeight: 900, lineHeight: 1.1 };
 const gameMeta = { color: "#64748b", fontSize: 16, fontWeight: 800, marginTop: 8 };
 const startText = { color: "#16a34a", fontSize: 16, fontWeight: 900, marginTop: 14, textTransform: "uppercase" };
 const boardPanel = { background: "#fff", borderRadius: 20, boxSizing: "border-box", display: "flex", flexDirection: "column", height: "calc(100dvh - 142px)", marginTop: 14, overflow: "hidden", padding: 18 };
+const liveBoardPanel = { background: "#fff", borderRadius: 18, boxSizing: "border-box", display: "flex", flex: "1 1 auto", flexDirection: "column", marginTop: "min(10px, 1.2dvh)", minHeight: 0, overflow: "hidden", padding: "min(14px, 1.8dvh)" };
 const controllerBreakBanner = { background: "#dbeafe", borderRadius: 14, color: "#1d4ed8", fontSize: "min(18px, 3dvh)", fontWeight: 900, marginBottom: 10, padding: "10px 14px", textAlign: "center" };
 const controllerFinalPanel = { alignItems: "center", display: "flex", flex: 1, flexDirection: "column", justifyContent: "center", textAlign: "center" };
 const controllerFinalLabel = { color: "#16a34a", fontSize: "min(44px, 7dvh)", fontWeight: 900, textTransform: "uppercase" };
@@ -1033,21 +1695,26 @@ const timer = { color: "#0f172a", fontSize: "min(86px, 12dvh)", fontWeight: 900,
 const timerActions = { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 10 };
 const primaryBtn = { background: "#16a34a", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 17, fontWeight: 900, minHeight: 50, padding: "13px 18px" };
 const secondaryBtn = { background: "#e5e7eb", border: "none", borderRadius: 14, color: "#111827", cursor: "pointer", fontSize: 17, fontWeight: 900, minHeight: 50, padding: "13px 18px" };
-const scoreGrid = { display: "grid", flex: 1, gap: 14, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginTop: 16, minHeight: 0 };
-const teamPanel = { background: "#f8fafc", borderRadius: 20, boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0, padding: 16, textAlign: "center" };
-const teamHeader = { alignItems: "center", display: "flex", gap: 12, justifyContent: "center", minHeight: 72 };
-const logoStyle = { height: "min(70px, 9dvh)", objectFit: "contain", width: "min(70px, 9dvh)" };
-const teamName = { color: "#0f172a", fontSize: "min(28px, 4dvh)", fontWeight: 900, lineHeight: 1, textAlign: "left" };
-const scoreText = { color: "#0f172a", fontSize: "min(112px, 17dvh)", fontWeight: 900, lineHeight: 0.82 };
-const pointGrid = { display: "grid", gap: 10 };
-const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: "min(18px, 2.6dvh)", fontWeight: 900, minHeight: 50, padding: "13px 10px" };
-const undoGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 10 };
-const undoBtn = { background: "#fee2e2", border: "none", borderRadius: 12, color: "#991b1b", cursor: "pointer", fontSize: "min(16px, 2.3dvh)", fontWeight: 900, minHeight: 42, padding: "10px 8px" };
-const timeoutTeamBtn = { background: "#fef3c7", border: "none", borderRadius: 14, color: "#92400e", cursor: "pointer", fontSize: "min(17px, 2.5dvh)", fontWeight: 900, marginTop: 10, minHeight: 48, padding: "12px 10px" };
+const hornBtn = { background: "#f59e0b", border: "none", borderRadius: 14, color: "#111827", cursor: "pointer", fontSize: 17, fontWeight: 900, minHeight: 50, padding: "13px 18px" };
+const timeoutControlBtn = { background: "#fef3c7", border: "none", borderRadius: 14, color: "#92400e", cursor: "pointer", fontSize: "min(16px, 2.3dvh)", fontWeight: 900, minHeight: 50, padding: "13px 16px" };
+const scoreGrid = { display: "grid", flex: 1, gap: 14, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginTop: 14, minHeight: 0 };
+const teamPanel = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 18, boxSizing: "border-box", display: "grid", gridTemplateRows: "auto auto minmax(0, 1fr) auto auto", minHeight: 0, padding: "min(18px, 2.4dvh)", textAlign: "center" };
+const teamHeader = { alignItems: "center", display: "flex", gap: 12, justifyContent: "center", minHeight: 0 };
+const logoStyle = { flex: "0 0 auto", height: "min(58px, 7.5dvh)", objectFit: "contain", width: "min(58px, 7.5dvh)" };
+const teamName = { color: "#0f172a", fontSize: "min(30px, 3.8dvh)", fontWeight: 900, lineHeight: 0.95, overflowWrap: "anywhere", textAlign: "left" };
+const timeoutDots = { alignItems: "center", display: "flex", gap: 8, justifyContent: "center", marginBottom: "min(8px, 1dvh)", marginTop: "min(10px, 1.3dvh)", minHeight: 14 };
+const timeoutDot = { background: "#cbd5e1", borderRadius: 999, display: "inline-block", height: 13, width: 13 };
+const timeoutDotUsed = { background: "#ef4444", boxShadow: "0 0 0 2px rgba(239,68,68,0.16)" };
+const scoreText = { alignSelf: "center", color: "#0f172a", fontSize: "min(132px, 22dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.72 };
+const pointGrid = { display: "grid", gap: 8 };
+const pointBtn = { background: "#2f6ea6", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: "min(18px, 2.4dvh)", fontWeight: 900, minHeight: "min(52px, 7dvh)", padding: "12px 10px" };
+const undoGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 8 };
+const undoBtn = { background: "#fee2e2", border: "none", borderRadius: 12, color: "#991b1b", cursor: "pointer", fontSize: "min(16px, 2.1dvh)", fontWeight: 900, minHeight: "min(44px, 6dvh)", padding: "9px 8px" };
 const displayWrap = { background: "#fff", display: "grid", gridTemplateColumns: "1fr 1fr", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
 const displaySingleWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
-const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 18dvh) minmax(0, 66dvh) minmax(0, 12dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.4dvh 1.5vw" };
-const displaySingleSide = { alignItems: "center", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 18dvh) minmax(0, 67dvh) minmax(0, 11dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.6dvh 2vw" };
+const displayHornButton = { background: "rgba(15,23,42,0.82)", border: "none", borderRadius: 999, color: "#fff", cursor: "pointer", fontSize: "min(2.8vw, 2.8dvh)", fontWeight: 900, padding: "0.9dvh 1.4vw", position: "fixed", right: "1.5vw", top: "1.5dvh", zIndex: 1200 };
+const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 16dvh) minmax(0, 5dvh) minmax(0, 64dvh) minmax(0, 12dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.4dvh 1.5vw" };
+const displaySingleSide = { alignItems: "center", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 16dvh) minmax(0, 5dvh) minmax(0, 65dvh) minmax(0, 11dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.6dvh 2vw" };
 const displayTop = { alignItems: "center", display: "flex", gap: "1.4vw", justifyContent: "center", maxWidth: "46vw", minWidth: 0 };
 const displaySingleTop = { alignItems: "center", display: "flex", gap: "2vw", justifyContent: "center", maxWidth: "96vw", minWidth: 0 };
 const displayLogo = { height: "min(10dvh, 10vw)", maxHeight: "100%", objectFit: "contain", width: "min(10dvh, 10vw)" };
@@ -1056,8 +1723,15 @@ const displayTeam = { color: "#111827", fontSize: "min(4.4vw, 6.4dvh)", fontWeig
 const displaySingleTeam = { color: "#111827", fontSize: "min(6.8vw, 8dvh)", fontWeight: 900, lineHeight: 0.86, maxWidth: "72vw", overflowWrap: "anywhere", textAlign: "left" };
 const displayScore = { alignSelf: "center", color: "#111827", fontSize: "min(38vw, 66dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.64, maxWidth: "47vw", textAlign: "center" };
 const displaySingleScore = { alignSelf: "center", color: "#111827", fontSize: "min(54vw, 74dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.6, maxWidth: "96vw", textAlign: "center" };
+const displayTimeoutDots = { alignItems: "center", alignSelf: "center", display: "flex", gap: "1vw", justifyContent: "center", minHeight: "4dvh" };
+const displayTimeoutDot = { background: "#cbd5e1", borderRadius: 999, display: "inline-block", height: "min(2.8vw, 3.7dvh)", width: "min(2.8vw, 3.7dvh)" };
+const displayTimeoutDotUsed = { background: "#ef4444", boxShadow: "0 0 0 0.35vw rgba(239,68,68,0.16)" };
+const displayClockLine = { alignItems: "baseline", alignSelf: "end", display: "flex", gap: "2vw", justifyContent: "center", maxWidth: "47vw", minWidth: 0 };
+const displaySingleClockLine = { alignItems: "baseline", alignSelf: "end", display: "flex", gap: "3vw", justifyContent: "center", maxWidth: "96vw", minWidth: 0 };
 const displayClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(9vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
 const displaySingleClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(13vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
+const displayOpponentScore = { color: "#64748b", fontSize: "min(7vw, 9dvh)", fontWeight: 900, lineHeight: 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const displaySingleOpponentScore = { color: "#64748b", fontSize: "min(10vw, 10dvh)", fontWeight: 900, lineHeight: 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const displayEmpty = { alignItems: "center", color: "#111827", display: "flex", flexDirection: "column", fontSize: "clamp(44px, 7vw, 112px)", fontWeight: 900, gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", textAlign: "center" };
 const displayIdleTitle = { fontSize: "clamp(72px, 12vw, 180px)", fontWeight: 900, lineHeight: 0.95 };
 const displayIdleSub = { color: "#64748b", fontSize: "clamp(34px, 5vw, 78px)", marginTop: "3vh" };
@@ -1065,14 +1739,23 @@ const displaySchedule = { alignItems: "center", boxSizing: "border-box", display
 const displayFieldName = { color: "#111827", fontSize: "min(12vw, 15dvh)", fontWeight: 900, lineHeight: 0.9, textAlign: "center" };
 const displayWeekLabel = { color: "#2f6ea6", fontSize: "min(5.6vw, 7dvh)", fontWeight: 900, marginTop: "2dvh", textTransform: "uppercase" };
 const displayGameList = { display: "grid", gap: "1.4dvh", marginTop: "2.4dvh", maxWidth: "94vw", width: "100%" };
-const displayGameRow = { alignItems: "center", border: "0.45vw solid #111827", borderRadius: "1.5vw", boxSizing: "border-box", display: "grid", gap: "2vw", gridTemplateColumns: "18vw 1fr 22vw", minHeight: "10.5dvh", padding: "1.3dvh 2vw" };
+const displayGameRow = { alignItems: "center", border: "0.45vw solid #111827", borderRadius: "1.5vw", boxSizing: "border-box", display: "grid", gap: "2vw", gridTemplateColumns: "16vw 1fr 26vw", minHeight: "10.5dvh", padding: "1.1dvh 2vw" };
 const displayGameTime = { color: "#111827", fontSize: "min(4.8vw, 7dvh)", fontWeight: 900, lineHeight: 0.95 };
-const displayGameTeams = { color: "#111827", fontSize: "min(5.2vw, 7.4dvh)", fontWeight: 900, lineHeight: 0.95, overflowWrap: "anywhere" };
-const displayGameDivision = { color: "#475569", fontSize: "min(3.6vw, 5.2dvh)", fontWeight: 900, lineHeight: 1, textAlign: "right" };
+const displayGameMain = { display: "grid", gap: "0.7dvh", minWidth: 0 };
+const displayGameTeamsRow = { alignItems: "center", color: "#111827", display: "grid", fontSize: "min(3.8vw, 5.3dvh)", fontWeight: 900, gap: "0.9vw", gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)", lineHeight: 0.95, minWidth: 0 };
+const displayScheduleTeam = { alignItems: "center", display: "inline-flex", gap: "0.55vw", minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" };
+const displayScheduleLogo = { flex: "0 0 auto", height: "min(4.4dvh, 3.4vw)", objectFit: "contain", width: "min(4.4dvh, 3.4vw)" };
+const displayGameVs = { color: "#64748b", fontSize: "min(2.3vw, 3.1dvh)", fontWeight: 900, textTransform: "uppercase" };
+const displayGameRefs = { color: "#2563eb", fontSize: "min(2.6vw, 3.5dvh)", fontWeight: 900, lineHeight: 1, overflowWrap: "anywhere" };
+const displayGameMetaBlock = { display: "grid", gap: "0.6dvh", minWidth: 0, textAlign: "right" };
+const displayGameDivision = { color: "#111827", fontSize: "min(3.4vw, 4.8dvh)", fontWeight: 900, lineHeight: 1 };
+const displayGameField = { color: "#475569", fontSize: "min(2.8vw, 3.8dvh)", fontWeight: 900, lineHeight: 1 };
 const displayNoGames = { color: "#64748b", fontSize: "clamp(44px, 7vw, 108px)", fontWeight: 900, textAlign: "center" };
 const breakDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", width: "100vw" };
 const breakLabel = { color: "#2563eb", fontSize: "min(12vw, 16dvh)", fontWeight: 900, lineHeight: 0.9, textTransform: "uppercase" };
 const breakClock = { color: "#111827", fontSize: "min(42vw, 48dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.8, marginTop: "4dvh" };
+const breakScoreLine = { alignItems: "center", color: "#111827", display: "flex", flexWrap: "wrap", fontSize: "min(4.6vw, 5.6dvh)", fontWeight: 900, gap: "1.4vw", justifyContent: "center", lineHeight: 1, marginTop: "3dvh", textAlign: "center" };
+const breakScoreDash = { color: "#94a3b8" };
 const breakSub = { color: "#64748b", fontSize: "min(5vw, 6dvh)", fontWeight: 900, marginTop: "3dvh", textTransform: "uppercase" };
 const finalDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", overflow: "hidden", padding: "3dvh 4vw", textAlign: "center", width: "100vw" };
 const finalLabel = { color: "#16a34a", fontSize: "min(12vw, 15dvh)", fontWeight: 900, lineHeight: 0.86, textTransform: "uppercase" };
@@ -1095,3 +1778,13 @@ const deviceQrWrap = { alignItems: "center", display: "flex", flexDirection: "co
 const deviceQrFrame = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, display: "flex", padding: 14 };
 const deviceOpenLink = { background: "#2563eb", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 900, padding: "12px 16px", textDecoration: "none" };
 const deviceBackBtn = { background: "#f1f5f9", border: "none", borderRadius: 12, color: "#334155", cursor: "pointer", fontWeight: 900, padding: "12px 16px" };
+const clockEditorOverlay = { alignItems: "center", background: "rgba(15,23,42,0.82)", boxSizing: "border-box", display: "flex", inset: 0, justifyContent: "center", padding: 18, position: "fixed", zIndex: 2100 };
+const clockEditorPanel = { background: "#fff", borderRadius: 22, boxShadow: "0 24px 80px rgba(0,0,0,0.35)", maxWidth: 640, padding: 22, width: "100%" };
+const clockEditorHeader = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 16 };
+const clockEditorTitle = { color: "#0f172a", fontSize: 34, fontWeight: 900, marginTop: 2 };
+const clockEditorTime = { alignItems: "end", display: "grid", gap: 12, gridTemplateColumns: "1fr auto 1fr", marginTop: 22 };
+const clockEditorField = { display: "grid", gap: 8 };
+const clockEditorLabel = { color: "#64748b", fontSize: 14, fontWeight: 900, textTransform: "uppercase" };
+const clockEditorInput = { background: "#f8fafc", border: "2px solid #cbd5e1", borderRadius: 16, color: "#0f172a", fontSize: 58, fontVariantNumeric: "tabular-nums", fontWeight: 900, minWidth: 0, padding: "14px 12px", textAlign: "center", width: "100%" };
+const clockEditorColon = { color: "#0f172a", fontSize: 58, fontWeight: 900, lineHeight: 1, paddingBottom: 12 };
+const clockEditorSaveBtn = { background: "#16a34a", border: "none", borderRadius: 16, color: "#fff", cursor: "pointer", fontSize: 22, fontWeight: 900, marginTop: 18, minHeight: 58, width: "100%" };

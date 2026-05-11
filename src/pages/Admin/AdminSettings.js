@@ -128,8 +128,17 @@ export default function AdminSettings() {
 
           {/* SCOREBOARD */}
           <Tile title="Live Scoreboard">
+            <SegmentedRow
+              label="Scoreboard Format"
+              value={settings.scoreboard_period_format || "half"}
+              options={[
+                { label: "Half", value: "half" },
+                { label: "Quarter", value: "quarter" }
+              ]}
+              onChange={(val) => update("scoreboard_period_format", val)}
+            />
             <InputRow
-              label="Game Time (minutes)"
+              label={`${getPeriodName(settings)} Length (minutes)`}
               value={settings.scoreboard_game_minutes || 24}
               onChange={(val) => update("scoreboard_game_minutes", Number(val))}
             />
@@ -269,4 +278,49 @@ function ToggleRow({ label, value, onChange }) {
       </div>
     </div>
   );
+}
+
+function SegmentedRow({ label, value, options, onChange }) {
+  return (
+    <div>
+      <div style={{fontSize:13,color:"#64748b",marginBottom:6}}>
+        {label}
+      </div>
+      <div style={{
+        background:"#e2e8f0",
+        borderRadius:12,
+        display:"grid",
+        gap:4,
+        gridTemplateColumns:`repeat(${options.length}, minmax(0, 1fr))`,
+        padding:4
+      }}>
+        {options.map((option) => {
+          const active = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              style={{
+                background:active ? "#fff" : "transparent",
+                border:"none",
+                borderRadius:9,
+                boxShadow:active ? "0 2px 8px rgba(15,23,42,0.12)" : "none",
+                color:active ? "#0f172a" : "#475569",
+                cursor:"pointer",
+                fontWeight:800,
+                padding:"10px 12px"
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function getPeriodName(settings) {
+  return settings?.scoreboard_period_format === "quarter" ? "Quarter" : "Half";
 }

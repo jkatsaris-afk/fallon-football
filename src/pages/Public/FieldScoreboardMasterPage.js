@@ -158,10 +158,16 @@ export default function FieldScoreboardMasterPage() {
           </button>
         </div>
 
+        <PeriodFormatToggle
+          value={settings?.scoreboard_period_format || "half"}
+          onChange={(value) => updateSetting("scoreboard_period_format", value)}
+        />
+
         <div style={settingsGrid}>
-          <SettingInput label="Game" suffix="min" value={settings?.scoreboard_game_minutes || 24} onChange={(value) => updateSetting("scoreboard_game_minutes", value)} />
+          <SettingInput label={getPeriodLengthLabel(settings)} suffix="min" value={settings?.scoreboard_game_minutes || 24} onChange={(value) => updateSetting("scoreboard_game_minutes", value)} />
           <SettingInput label="Halftime" suffix="min" value={settings?.scoreboard_halftime_minutes || 5} onChange={(value) => updateSetting("scoreboard_halftime_minutes", value)} />
           <SettingInput label="Timeout" suffix="sec" value={settings?.scoreboard_timeout_seconds || 60} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
+          <SettingInput label="Timeouts" suffix="/half" value={settings?.scoreboard_timeouts_per_half || 3} onChange={(value) => updateSetting("scoreboard_timeouts_per_half", value)} />
           <SettingInput label="TD" suffix="pts" value={settings?.scoreboard_touchdown_points || 6} onChange={(value) => updateSetting("scoreboard_touchdown_points", value)} />
           <SettingInput label="XP 1" suffix="pt" value={settings?.scoreboard_extra_one_points || 1} onChange={(value) => updateSetting("scoreboard_extra_one_points", value)} />
           <SettingInput label="XP 2" suffix="pts" value={settings?.scoreboard_extra_two_points || 2} onChange={(value) => updateSetting("scoreboard_extra_two_points", value)} />
@@ -232,21 +238,72 @@ export default function FieldScoreboardMasterPage() {
   );
 }
 
+function PeriodFormatToggle({ value, onChange }) {
+  const format = value === "quarter" ? "quarter" : "half";
+
+  return (
+    <div style={formatToggleWrap}>
+      <span style={settingLabel}>Format</span>
+      <div style={formatToggle}>
+        <button
+          type="button"
+          style={{ ...formatBtn, ...(format === "half" ? formatBtnActive : {}) }}
+          onClick={() => onChange("half")}
+        >
+          Half
+        </button>
+        <button
+          type="button"
+          style={{ ...formatBtn, ...(format === "quarter" ? formatBtnActive : {}) }}
+          onClick={() => onChange("quarter")}
+        >
+          Quarter
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SettingInput({ label, suffix, value, onChange }) {
+  const [draft, setDraft] = useState(String(value ?? ""));
+
+  useEffect(() => {
+    setDraft(String(value ?? ""));
+  }, [value]);
+
+  const commit = () => {
+    const next = Number(draft);
+    if (draft !== "" && Number.isFinite(next)) {
+      onChange(next);
+      return;
+    }
+
+    setDraft(String(value ?? ""));
+  };
+
   return (
     <label style={settingField}>
       <span style={settingLabel}>{label}</span>
       <div style={settingInputWrap}>
         <input
           type="number"
-          value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
+          inputMode="numeric"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
           style={settingInput}
         />
         <span style={settingSuffix}>{suffix}</span>
       </div>
     </label>
   );
+}
+
+function getPeriodLengthLabel(settings) {
+  return settings?.scoreboard_period_format === "quarter" ? "Quarter Length" : "Half Length";
 }
 
 function DeviceOverlay({ field, type, origin, onSelect, onBack, onClose }) {
@@ -361,6 +418,10 @@ const toggleButton = { border: "none", borderRadius: 999, color: "#fff", cursor:
 const toggleOn = { background: "#16a34a" };
 const toggleOff = { background: "#dc2626" };
 const settingsGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(126px, 1fr))", marginTop: 14 };
+const formatToggleWrap = { display: "grid", gap: 8, marginTop: 14 };
+const formatToggle = { background: "#e2e8f0", borderRadius: 14, display: "grid", gap: 4, gridTemplateColumns: "1fr 1fr", maxWidth: 360, padding: 4 };
+const formatBtn = { background: "transparent", border: "none", borderRadius: 11, color: "#475569", cursor: "pointer", fontSize: 15, fontWeight: 900, padding: "12px 14px" };
+const formatBtnActive = { background: "#fff", boxShadow: "0 2px 8px rgba(15,23,42,0.12)", color: "#0f172a" };
 const settingField = { display: "flex", flexDirection: "column", gap: 5 };
 const settingLabel = { color: "#475569", fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
 const settingInputWrap = { alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, display: "flex", overflow: "hidden" };
