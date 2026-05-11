@@ -72,7 +72,11 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       loadLiveGame();
       loadScoreboardSettings();
     }, refreshMs);
-    return () => clearInterval(interval);
+    const scheduleInterval = setInterval(loadData, 10000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(scheduleInterval);
+    };
   }, [fieldId, scoreOnly]);
 
   useEffect(() => {
@@ -205,9 +209,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const gamesWithRefs = await attachRefAssignments(gameData || []);
     setGames(gamesWithRefs);
 
-    if (!selectedWeek && gamesWithRefs?.length) {
-      setSelectedWeek(String(gamesWithRefs[0].week || ""));
-    }
+    setSelectedWeek((currentWeek) => currentWeek || String(gamesWithRefs?.[0]?.week || ""));
 
     await loadLiveGame(relatedIds);
   };
@@ -218,20 +220,30 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     const { data: assignments, error } = await supabase
       .from("ref_assignments")
-      .select(`
-        game_id,
-        role,
-        referee_id,
-        referees (
-          first_name,
-          last_name
-        )
-      `)
+      .select("game_id, role, referee_id")
       .in("game_id", gameIds);
 
     if (error) {
       console.error("Display ref assignment load failed:", error);
       return gameRows;
+    }
+
+    const refereeIds = [...new Set((assignments || []).map((assignment) => assignment.referee_id).filter(Boolean))];
+    const refereesById = {};
+
+    if (refereeIds.length) {
+      const { data: refereeRows, error: refereeError } = await supabase
+        .from("referees")
+        .select("id, first_name, last_name")
+        .in("id", refereeIds);
+
+      if (refereeError) {
+        console.error("Display referee name load failed:", refereeError);
+      }
+
+      (refereeRows || []).forEach((referee) => {
+        refereesById[referee.id] = referee;
+      });
     }
 
     const assignmentsByGame = {};
@@ -248,7 +260,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         .sort((a, b) => String(a.role || "").localeCompare(String(b.role || "")))
         .map((assignment) => ({
           role: assignment.role,
-          name: `${assignment.referees?.first_name || ""} ${assignment.referees?.last_name || ""}`.trim(),
+          name: `${refereesById[assignment.referee_id]?.first_name || ""} ${refereesById[assignment.referee_id]?.last_name || ""}`.trim(),
         }))
         .filter((assignment) => assignment.name),
     }));
