@@ -22,17 +22,20 @@ const TEAM_LOGOS = {
   steelers, ravens, "49ers": niners,
 };
 
-export default function ScoreboardPage() {
+export default function ScoreboardPage({ initialLive = false }) {
   const [scores, setScores] = useState([]);
   const [liveGames, setLiveGames] = useState([]);
   const [scheduleById, setScheduleById] = useState({});
   const [search, setSearch] = useState("");
   const [selectedDivision, setSelectedDivision] = useState("all");
-  const [showLive, setShowLive] = useState(false);
+  const [showLive, setShowLive] = useState(initialLive);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (sessionStorage.getItem("publicScoreboardView") === "live") {
+    const params = new URLSearchParams(window.location.search);
+    const directLiveView = initialLive || params.get("view") === "live" || params.get("live") === "1";
+
+    if (directLiveView || sessionStorage.getItem("publicScoreboardView") === "live") {
       setShowLive(true);
       sessionStorage.removeItem("publicScoreboardView");
     }
@@ -182,7 +185,10 @@ export default function ScoreboardPage() {
       <LiveScoreboardView
         liveGames={liveGames}
         loading={loading}
-        onBack={() => setShowLive(false)}
+        onBack={() => {
+          window.history.replaceState({}, "", "/scoreboard");
+          setShowLive(false);
+        }}
       />
     );
   }
@@ -200,7 +206,10 @@ export default function ScoreboardPage() {
             ...liveButton,
             ...(liveCount ? liveButtonActive : liveButtonIdle),
           }}
-          onClick={() => setShowLive(true)}
+          onClick={() => {
+            window.history.pushState({}, "", "/scoreboard/live");
+            setShowLive(true);
+          }}
         >
           {liveCount ? `Live Scoreboard (${liveCount})` : "Live Scoreboard"}
         </button>

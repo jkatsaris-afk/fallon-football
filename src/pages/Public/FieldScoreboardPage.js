@@ -62,6 +62,8 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const audioContextRef = useRef(null);
   const previousDisplayClockRef = useRef(null);
   const lastDisplayHornKeyRef = useRef("");
+  const controllerClockAnchorRef = useRef({ seconds: DEFAULT_SETTINGS.scoreboard_game_minutes * 60, startedAt: Date.now() });
+  const lastControllerClockPersistRef = useRef(null);
 
   useEffect(() => {
     loadData();
@@ -77,30 +79,42 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     if (!running || !liveGame) return undefined;
 
     const interval = setInterval(() => {
-      setClockSeconds((current) => {
-        const next = Math.max(0, current - 1);
-        if (current > 0 && next === 0) {
+      const { seconds, startedAt } = controllerClockAnchorRef.current;
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const next = Math.max(0, seconds - elapsed);
+      const previousPersisted = lastControllerClockPersistRef.current;
+
+      setClockSeconds((current) => (current === next ? current : next));
+
+      if (previousPersisted !== next) {
+        lastControllerClockPersistRef.current = next;
+        if (Number(previousPersisted || 0) > 0 && next === 0) {
           playClockTone();
         }
         if (next === 0 && isBreakStatus(liveGame.status)) {
           finishBreakClock();
-          return 0;
+          return;
         }
         if (next === 0 && liveGame.status === "final_display") {
           finishFinalDisplay();
-          return 0;
+          return;
         }
         if (next === 0) {
           setRunning(false);
           updateLiveGame({ clock: formatClock(next) }, false);
-          return 0;
+          return;
         }
         updateLiveGame({ clock: formatClock(next) }, false);
-        return next;
-      });
-    }, 1000);
+      }
+    }, 250);
 
     return () => clearInterval(interval);
+  }, [running, liveGame?.id, liveGame?.status]);
+
+  useEffect(() => {
+    if (!running || !liveGame) return;
+    controllerClockAnchorRef.current = { seconds: clockSeconds, startedAt: Date.now() };
+    lastControllerClockPersistRef.current = clockSeconds;
   }, [running, liveGame?.id, liveGame?.status]);
 
   useEffect(() => {
@@ -572,6 +586,12 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     });
   };
 
+  const triggerHorn = async () => {
+    playClockTone();
+    if (!liveGame) return;
+    await updateLiveGame({ horn_signal: String(Date.now()) });
+  };
+
   const openClockEditor = () => {
     setRunning(false);
     setClockEditorOpen(true);
@@ -1001,7 +1021,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
                     </button>
                     <button
                       style={hornBtn}
-                      onClick={playClockTone}
+                      onClick={triggerHorn}
                     >
                       Horn
                     </button>
@@ -1195,6 +1215,10 @@ function ScoreOnlyBoard({
 
   return (
     <div style={singleSide ? displaySingleWrap : displayWrap}>
+      {scoreboardsOpen && liveGame && (
+        <div style={displayFieldCorner}>{field?.name || game?.field || "Field"}</div>
+      )}
+
       {!hornReady && (
         <button type="button" style={displayHornButton} onClick={onEnableHorn}>
           Enable Horn
@@ -1771,6 +1795,7 @@ const undoGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minm
 const undoBtn = { background: "#fee2e2", border: "none", borderRadius: 12, color: "#991b1b", cursor: "pointer", fontSize: "min(16px, 2.1dvh)", fontWeight: 900, minHeight: "min(44px, 6dvh)", padding: "9px 8px" };
 const displayWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
 const displaySingleWrap = { background: "#fff", display: "grid", height: "100dvh", inset: 0, overflow: "hidden", position: "fixed", width: "100vw", zIndex: 999 };
+const displayFieldCorner = { color: "#64748b", fontSize: "min(2.4vw, 2.8dvh)", fontWeight: 900, left: "1.6vw", lineHeight: 1, position: "fixed", textTransform: "uppercase", top: "1.6dvh", zIndex: 1200 };
 const displayHornButton = { background: "rgba(15,23,42,0.82)", border: "none", borderRadius: 999, color: "#fff", cursor: "pointer", fontSize: "min(2.8vw, 2.8dvh)", fontWeight: 900, padding: "0.9dvh 1.4vw", position: "fixed", right: "1.5vw", top: "1.5dvh", zIndex: 1200 };
 const displaySide = { alignItems: "center", borderRight: "0.7vw solid #111827", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 16dvh) minmax(0, 5dvh) minmax(0, 64dvh) minmax(0, 12dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.4dvh 1.5vw" };
 const displaySingleSide = { alignItems: "center", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 16dvh) minmax(0, 5dvh) minmax(0, 65dvh) minmax(0, 11dvh)", height: "100dvh", justifyItems: "center", overflow: "hidden", padding: "1.6dvh 2vw" };

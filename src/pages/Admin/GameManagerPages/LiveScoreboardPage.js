@@ -93,7 +93,7 @@ export default function LiveScoreboardPage() {
   const origin = window.location.origin;
   const scoreboardsOpen = settings?.live_scoreboards_open !== false;
   const masterIpadLink = `${origin}/scoreboard-master`;
-  const publicScoreboardLink = `${origin}/scoreboard`;
+  const publicScoreboardLink = `${origin}/scoreboard/live`;
 
   const printParentSign = () => {
     setShowParentSign(true);
@@ -126,16 +126,16 @@ export default function LiveScoreboardPage() {
       <div style={masterPanel}>
         <div>
           <div style={settingsTitle}>Parent Live Scores</div>
-          <div style={settingsHint}>Print this sign for tents so parents can scan and open the public live scoreboard.</div>
+          <div style={settingsHint}>Print this sign for tents so parents can scan directly into the public live scores page.</div>
           <a href={publicScoreboardLink} target="_blank" rel="noreferrer" style={masterLink}>
-            Open Public Scoreboard
+            Open Live Scores
           </a>
           <button type="button" style={printSignBtn} onClick={printParentSign}>
             Print / Save PDF Sign
           </button>
         </div>
         <div style={masterQrFrame}>
-          <QRCodeSVG value={publicScoreboardLink} size={150} level="M" includeMargin />
+          <QRCodeSVG key={publicScoreboardLink} value={publicScoreboardLink} size={150} level="M" includeMargin />
         </div>
       </div>
       </div>
@@ -261,7 +261,7 @@ function ParentScoreboardSign({ href, onClose, onPrint }) {
         <div style={signTitle}>Live Scores</div>
         <div style={signSubtitle}>Scan to follow live games, current scores, and final results.</div>
         <div style={signQrFrame}>
-          <QRCodeSVG value={href} size={330} level="H" includeMargin />
+          <QRCodeSVG key={href} value={href} size={330} level="H" includeMargin />
         </div>
         <div style={signUrl}>{href}</div>
       </div>

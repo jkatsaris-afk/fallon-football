@@ -68,8 +68,7 @@ export default function HomePage({ setPage }) {
   };
 
   const openLiveScoreboard = () => {
-    sessionStorage.setItem("publicScoreboardView", "live");
-    setPage("scoreboard");
+    setPage("scoreboardLive");
   };
 
   const openFullSchedule = () => {
