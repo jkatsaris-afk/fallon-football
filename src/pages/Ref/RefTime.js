@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 /* LOGOS */
 import bills from "../../resources/Buffalo Bills.png";
@@ -48,12 +49,13 @@ export default function RefTime() {
 
     setRef(refData);
 
-    const { data: gamesData } = await supabase
+    const active = await getActiveSeason();
+    const { data: gamesData } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
       .select("*")
-      .ilike("event_type", "%game%")
+      .or("event_type.ilike.%game%,event_type.ilike.%champ%")
       .order("event_date")
-      .order("event_time");
+      .order("event_time"), active);
 
     const groupedData = (gamesData || []).reduce((acc, game) => {
       if (!game?.event_date) return acc;

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, Radio, Search, Users } from "lucide-react";
 import { supabase } from "../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 import bills from "../../resources/Buffalo Bills.png";
 import bengals from "../../resources/Cincinnati Bengals.png";
@@ -27,7 +29,9 @@ export default function ScoreboardPage({ initialLive = false }) {
   const [liveGames, setLiveGames] = useState([]);
   const [scheduleById, setScheduleById] = useState({});
   const [search, setSearch] = useState("");
-  const [selectedDivision, setSelectedDivision] = useState("all");
+  const [mode, setMode] = useState("week");
+  const [selectedWeek, setSelectedWeek] = useState("all");
+  const [selectedTeamKey, setSelectedTeamKey] = useState("all");
   const [showLive, setShowLive] = useState(initialLive);
   const [loading, setLoading] = useState(true);
 
@@ -70,6 +74,7 @@ export default function ScoreboardPage({ initialLive = false }) {
   }, [showLive]);
 
   const loadData = async () => {
+    const active = await getActiveSeason();
     const [{ data: scoreData }, { data: liveData }] = await Promise.all([
       supabase
         .from("game_scores")
@@ -91,17 +96,17 @@ export default function ScoreboardPage({ initialLive = false }) {
 
     let nextScheduleById = {};
     if (scheduleIds.length) {
-      const { data: scheduleRows } = await supabase
+      const { data: scheduleRows } = await applyUuidSeasonFilter(supabase
         .from("schedule_master_auto")
         .select("*")
-        .in("id", scheduleIds);
+        .in("id", scheduleIds), active);
 
       (scheduleRows || []).forEach((game) => {
         nextScheduleById[game.id] = game;
       });
     }
 
-    setScores(scoreData || []);
+    setScores((scoreData || []).filter((score) => nextScheduleById[score.schedule_id]));
     setLiveGames((liveData || []).map((game) => ({
       ...game,
       schedule: nextScheduleById[game.schedule_id],
@@ -111,6 +116,7 @@ export default function ScoreboardPage({ initialLive = false }) {
   };
 
   const loadLiveData = async () => {
+    const active = await getActiveSeason();
     const { data: liveData } = await supabase
       .from("games_live")
       .select("*")
@@ -121,17 +127,17 @@ export default function ScoreboardPage({ initialLive = false }) {
     let liveScheduleById = {};
 
     if (scheduleIds.length) {
-      const { data: scheduleRows } = await supabase
+      const { data: scheduleRows } = await applyUuidSeasonFilter(supabase
         .from("schedule_master_auto")
         .select("*")
-        .in("id", scheduleIds);
+        .in("id", scheduleIds), active);
 
       (scheduleRows || []).forEach((game) => {
         liveScheduleById[game.id] = game;
       });
     }
 
-    setLiveGames((liveData || []).map((game) => ({
+    setLiveGames((liveData || []).filter((game) => liveScheduleById[game.schedule_id]).map((game) => ({
       ...game,
       schedule: liveScheduleById[game.schedule_id],
     })));
@@ -139,21 +145,68 @@ export default function ScoreboardPage({ initialLive = false }) {
     setLoading(false);
   };
 
-  const divisionTiles = useMemo(() => {
-    const divisions = scores
-      .map((score) => normalizeDivision(scheduleById[score.schedule_id]?.division))
-      .filter(Boolean);
+  const scoreRows = useMemo(() => (
+    scores.map((score) => {
+      const game = scheduleById[score.schedule_id] || {};
+      return {
+        ...score,
+        game,
+        week: game.week,
+        division: normalizeDivision(game.division),
+        field: game.field,
+        eventDate: game.event_date,
+        eventTime: game.event_time || game.time,
+        homeKey: teamKey(score.home_team, game.division),
+        awayKey: teamKey(score.away_team, game.division),
+      };
+    })
+  ), [scores, scheduleById]);
 
-    return ["all", ...[...new Set(divisions)].sort(sortDivisions)];
-  }, [scores, scheduleById]);
+  const weekTiles = useMemo(() => {
+    const map = {};
+    scoreRows.forEach((row) => {
+      if (!row.week) return;
+      if (!map[row.week]) map[row.week] = [];
+      if (row.eventDate) map[row.week].push(row.eventDate);
+    });
+    return Object.entries(map)
+      .map(([week, dates]) => ({
+        week,
+        dateLabel: formatDateRange(dates),
+        count: scoreRows.filter((row) => String(row.week) === String(week)).length,
+      }))
+      .sort((a, b) => Number(a.week) - Number(b.week));
+  }, [scoreRows]);
+
+  const teamTiles = useMemo(() => {
+    const map = {};
+    scoreRows.forEach((row) => {
+      [
+        { key: row.homeKey, name: row.home_team },
+        { key: row.awayKey, name: row.away_team },
+      ].forEach((team) => {
+        if (!team.name || !team.key) return;
+        if (!map[team.key]) {
+          map[team.key] = {
+            key: team.key,
+            name: cleanTeamName(team.name),
+            division: row.division,
+            logo: getLogo(team.name),
+            count: 0,
+          };
+        }
+        map[team.key].count += 1;
+      });
+    });
+    return Object.values(map).sort((a, b) => sortDivisions(a.division, b.division) || a.name.localeCompare(b.name));
+  }, [scoreRows]);
 
   const filteredScores = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return scores.filter((score) => {
-      const game = scheduleById[score.schedule_id] || {};
-      const division = normalizeDivision(game.division);
-      if (selectedDivision !== "all" && division !== selectedDivision) return false;
+    return scoreRows.filter((score) => {
+      if (mode === "week" && selectedWeek !== "all" && String(score.week) !== String(selectedWeek)) return false;
+      if (mode === "team" && selectedTeamKey !== "all" && score.homeKey !== selectedTeamKey && score.awayKey !== selectedTeamKey) return false;
       if (!query) return true;
 
       const haystack = [
@@ -161,22 +214,22 @@ export default function ScoreboardPage({ initialLive = false }) {
         score.away_team,
         score.home_score,
         score.away_score,
-        game.division,
-        game.week,
-        game.field,
-        game.event_date,
-        game.event_time || game.time,
+        score.division,
+        score.week,
+        score.field,
+        score.eventDate,
+        score.eventTime,
       ].join(" ").toLowerCase();
 
       return haystack.includes(query);
     });
-  }, [scores, scheduleById, search, selectedDivision]);
+  }, [mode, scoreRows, search, selectedTeamKey, selectedWeek]);
 
   const visibleScores = useMemo(() => (
-    search.trim() || selectedDivision !== "all"
+    search.trim() || selectedWeek !== "all" || selectedTeamKey !== "all"
       ? filteredScores
       : filteredScores.slice(0, RECENT_SCORE_LIMIT)
-  ), [filteredScores, search, selectedDivision]);
+  ), [filteredScores, search, selectedTeamKey, selectedWeek]);
 
   const liveCount = liveGames.length;
 
@@ -195,77 +248,123 @@ export default function ScoreboardPage({ initialLive = false }) {
 
   return (
     <div style={wrap}>
-      <div className="card" style={heroCard}>
-        <div className="title">Scores</div>
-        <div className="sub">Search final scores and check live games from one place.</div>
-
-        <button
-          type="button"
-          className="button"
-          style={{
-            ...liveButton,
-            ...(liveCount ? liveButtonActive : liveButtonIdle),
-          }}
-          onClick={() => {
-            window.history.pushState({}, "", "/scoreboard/live");
-            setShowLive(true);
-          }}
-        >
-          {liveCount ? `Live Scoreboard (${liveCount})` : "Live Scoreboard"}
-        </button>
-      </div>
-
-      <div className="card" style={panelCard}>
-        <div className="title">Recent Scores</div>
-        <div className="sub">
-          Showing the latest finals. Use a division tile or search to narrow the list.
+      <section style={hero}>
+        <div>
+          <div style={eyebrow}>Public Scores</div>
+          <h1 style={title}>Game Results</h1>
+          <div style={heroText}>Search finals by week, team, division, field, or score.</div>
         </div>
+      </section>
+
+      <button
+        type="button"
+        style={{ ...liveTile, ...(liveCount ? liveTileActive : {}) }}
+        onClick={() => {
+          window.history.pushState({}, "", "/scoreboard/live");
+          setShowLive(true);
+        }}
+      >
+        <div style={liveTileIcon}><Radio size={22} /></div>
+        <div>
+          <div style={liveTileTitle}>Live Scoreboard</div>
+          <div style={liveTileSub}>{liveCount ? `${liveCount} live game${liveCount === 1 ? "" : "s"}` : "No games live right now"}</div>
+        </div>
+      </button>
+
+      <div style={searchShell}>
+        <Search size={19} color="#64748b" />
         <input
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search team, division, week, field..."
+          placeholder="Search team, division, week, field, score..."
           style={searchInput}
         />
-        <div style={divisionGrid}>
-          {divisionTiles.map((division) => (
-            <button
-              key={division}
-              type="button"
-              style={{
-                ...divisionTile,
-                ...(selectedDivision === division ? activeDivisionTile : {}),
-              }}
-              onClick={() => setSelectedDivision(division)}
-            >
-              {division === "all" ? "All" : division}
+      </div>
+
+      <div style={modeGrid}>
+        <ModeTile icon={<CalendarDays size={22} />} title="By Week" active={mode === "week"} onClick={() => setMode("week")} />
+        <ModeTile icon={<Users size={22} />} title="By Team" active={mode === "team"} onClick={() => setMode("team")} />
+      </div>
+
+      {mode === "week" && (
+        <div style={tileGrid}>
+          <button style={selectorTile(selectedWeek === "all")} onClick={() => setSelectedWeek("all")}>
+            <div style={tileTitle}>Recent Scores</div>
+            <div style={tileSub}>All weeks</div>
+          </button>
+          {weekTiles.map((week) => (
+            <button key={week.week} style={selectorTile(String(selectedWeek) === String(week.week))} onClick={() => setSelectedWeek(String(week.week))}>
+              <div style={tileTitle}>Week {week.week}</div>
+              <div style={tileSub}>{week.dateLabel}</div>
+              <div style={tileMeta}>{week.count} finals</div>
             </button>
           ))}
         </div>
-      </div>
+      )}
 
-      {loading && <div style={emptyState}>Loading scores...</div>}
-
-      {!loading && filteredScores.length === 0 && (
-        <div style={emptyState}>
-          {scores.length ? "No scores match that search." : "No completed scores have been posted yet."}
+      {mode === "team" && (
+        <div style={tileGrid}>
+          <button style={selectorTile(selectedTeamKey === "all")} onClick={() => setSelectedTeamKey("all")}>
+            <div style={tileTitle}>All Teams</div>
+            <div style={tileSub}>Full results</div>
+          </button>
+          {teamTiles.map((team) => (
+            <button key={team.key} style={selectorTile(selectedTeamKey === team.key)} onClick={() => setSelectedTeamKey(team.key)}>
+              <div style={teamTileTop}>
+                {team.logo && <img src={team.logo} alt="" style={teamTileLogo} />}
+                <div>
+                  <div style={tileTitle}>{team.name}</div>
+                  <div style={tileSub}>{team.division}</div>
+                </div>
+              </div>
+            </button>
+          ))}
         </div>
       )}
 
-      {!loading && visibleScores.map((score) => (
-        <ScoreTile
-          key={score.id}
-          score={score}
-          game={scheduleById[score.schedule_id]}
-        />
-      ))}
-
-      {!loading && !search.trim() && selectedDivision === "all" && filteredScores.length > RECENT_SCORE_LIMIT && (
-        <div style={emptyState}>
-          Showing the {RECENT_SCORE_LIMIT} most recent finals. Search or choose a division to see more.
+      <section style={listCard}>
+        <div style={listHeader}>
+          <div>
+            <div style={sectionTitle}>{getScoreListTitle(mode, selectedWeek, selectedTeamKey, teamTiles)}</div>
+            <div style={sectionSub}>{filteredScores.length} final score{filteredScores.length === 1 ? "" : "s"}</div>
+          </div>
         </div>
-      )}
+
+        {loading && <div style={emptyState}>Loading scores...</div>}
+
+        {!loading && filteredScores.length === 0 && (
+          <div style={emptyState}>
+            {scores.length ? "No scores match that search." : "No completed scores have been posted yet."}
+          </div>
+        )}
+
+        <div style={rows}>
+          {!loading && visibleScores.map((score) => (
+            <ScoreTile
+              key={score.id}
+              score={score}
+              game={score.game}
+            />
+          ))}
+        </div>
+
+        {!loading && !search.trim() && selectedWeek === "all" && selectedTeamKey === "all" && filteredScores.length > RECENT_SCORE_LIMIT && (
+          <div style={emptyState}>
+            Showing the {RECENT_SCORE_LIMIT} most recent finals. Search or choose a week/team to see more.
+          </div>
+        )}
+      </section>
     </div>
+  );
+}
+
+function ModeTile({ icon, title, active, onClick }) {
+  return (
+    <button style={{ ...modeTile, ...(active ? activeModeTile : {}) }} onClick={onClick}>
+      <div style={modeIcon}>{icon}</div>
+      <div style={modeTitle}>{title}</div>
+    </button>
   );
 }
 
@@ -345,9 +444,9 @@ function ScoreTile({ score, game }) {
     : cleanTeamName(score.away_team);
 
   return (
-    <div style={resultTile}>
-      <div style={tileTop}>
-        <span style={miniPill}>{game?.division || "Final"}</span>
+    <article style={resultTile}>
+      <div style={resultMeta}>
+        <span style={miniPill}>{normalizeDivision(game?.division) || "Final"}</span>
         <span style={mutedText}>
           {formatDate(game?.event_date)}{game?.week ? ` • Week ${game.week}` : ""}
         </span>
@@ -362,7 +461,7 @@ function ScoreTile({ score, game }) {
       <div style={detailLine}>
         {winner === "Tie" ? "Tie game" : `${winner} win`}{game?.field ? ` • ${game.field}` : ""}{game?.event_time || game?.time ? ` • ${game.event_time || game.time}` : ""}
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -385,8 +484,21 @@ function cleanTeamName(value) {
 }
 
 function getLogo(team) {
-  const key = cleanTeamName(team).toLowerCase();
+  const cleaned = cleanTeamName(team);
+  const key = cleaned.toLowerCase();
   if (key.includes("49")) return TEAM_LOGOS["49ers"];
+  if (key.includes("bengal")) return TEAM_LOGOS.bengals;
+  if (key.includes("bill")) return TEAM_LOGOS.bills;
+  if (key.includes("bronco")) return TEAM_LOGOS.broncos;
+  if (key.includes("chief")) return TEAM_LOGOS.chiefs;
+  if (key.includes("colt")) return TEAM_LOGOS.colts;
+  if (key.includes("eagle")) return TEAM_LOGOS.eagles;
+  if (key.includes("jet")) return TEAM_LOGOS.jets;
+  if (key.includes("lion")) return TEAM_LOGOS.lions;
+  if (key.includes("raider")) return TEAM_LOGOS.raiders;
+  if (key.includes("ram")) return TEAM_LOGOS.rams;
+  if (key.includes("steeler")) return TEAM_LOGOS.steelers;
+  if (key.includes("raven")) return TEAM_LOGOS.ravens;
   return TEAM_LOGOS[key] || null;
 }
 
@@ -402,6 +514,24 @@ function formatDate(value) {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, Number(month || 1) - 1, day || 1);
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatDateRange(dates) {
+  const cleanDates = [...new Set(dates.filter(Boolean))].sort();
+  if (!cleanDates.length) return "Date TBD";
+  if (cleanDates.length === 1) return formatDate(cleanDates[0]);
+  return `${formatDate(cleanDates[0])} - ${formatDate(cleanDates[cleanDates.length - 1])}`;
+}
+
+function teamKey(name, division) {
+  return `${normalizeDivision(division)}::${cleanTeamName(name).toLowerCase()}`;
+}
+
+function getScoreListTitle(mode, selectedWeek, selectedTeamKey, teams) {
+  if (mode === "week") return selectedWeek === "all" ? "Recent Scores" : `Week ${selectedWeek}`;
+  if (selectedTeamKey === "all") return "All Team Scores";
+  const team = teams.find((item) => item.key === selectedTeamKey);
+  return team ? `${team.division} ${team.name}` : "Team Scores";
 }
 
 function normalizeDivision(value) {
@@ -427,19 +557,37 @@ function sortDivisions(a, b) {
   return a.localeCompare(b);
 }
 
-const wrap = { display: "flex", flexDirection: "column", gap: 12 };
-const heroCard = { marginBottom: 0 };
-const panelCard = { marginBottom: 0 };
-const sectionHeader = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 12 };
-const liveButton = { alignItems: "center", display: "flex", justifyContent: "center" };
-const liveButtonActive = { background: "#dc2626" };
-const liveButtonIdle = { background: "#0f7a3b" };
-const searchInput = { background: "#f8fafc", border: "1px solid #d1d5db", borderRadius: 12, boxSizing: "border-box", fontSize: 16, marginTop: 12, padding: "13px 14px", width: "100%" };
-const divisionGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginTop: 12 };
-const divisionTile = { background: "#f8fafc", border: "1px solid #d1d5db", borderRadius: 12, color: "#334155", cursor: "pointer", fontSize: 13, fontWeight: 900, minHeight: 42, padding: "10px 8px" };
-const activeDivisionTile = { background: "#0f7a3b", borderColor: "#0f7a3b", color: "#fff" };
-const resultTile = { background: "#fff", border: "1px solid #e5e7eb", borderLeft: "4px solid #0f7a3b", borderRadius: 16, boxShadow: "0 6px 16px rgba(0,0,0,0.05)", margin: "0 15px", padding: 16 };
-const tileTop = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 };
+const wrap = { display: "flex", flexDirection: "column", gap: 14, paddingBottom: 92 };
+const hero = { background: "#0f172a", borderRadius: 18, color: "#fff", padding: 20 };
+const eyebrow = { color: "#86efac", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
+const title = { fontSize: 32, fontWeight: 900, margin: "5px 0 0" };
+const heroText = { color: "#d1d5db", fontSize: 14, fontWeight: 700, marginTop: 8 };
+const liveTile = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 22px rgba(15,23,42,0.08)", color: "#334155", cursor: "pointer", display: "flex", gap: 12, padding: 14, textAlign: "left" };
+const liveTileActive = { borderColor: "#fecaca", boxShadow: "0 12px 24px rgba(220,38,38,0.14)" };
+const liveTileIcon = { alignItems: "center", background: "#fee2e2", borderRadius: 12, color: "#dc2626", display: "flex", height: 42, justifyContent: "center", width: 42 };
+const liveTileTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900 };
+const liveTileSub = { color: "#64748b", fontSize: 12, fontWeight: 800, marginTop: 3 };
+const searchShell = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 22px rgba(15,23,42,0.08)", display: "flex", gap: 10, padding: "11px 13px" };
+const searchInput = { border: "none", flex: 1, fontSize: 16, fontWeight: 700, minWidth: 0, outline: "none" };
+const modeGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" };
+const modeTile = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 22px rgba(15,23,42,0.08)", color: "#334155", cursor: "pointer", display: "flex", gap: 10, padding: 14, textAlign: "left" };
+const activeModeTile = { borderColor: "#86efac", color: "#166534" };
+const modeIcon = { alignItems: "center", background: "#ecfdf5", borderRadius: 12, display: "flex", height: 40, justifyContent: "center", width: 40 };
+const modeTitle = { fontSize: 15, fontWeight: 900 };
+const tileGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))" };
+const selectorTile = (active) => ({ background: "#fff", border: `1px solid ${active ? "#86efac" : "#e2e8f0"}`, borderRadius: 16, boxShadow: active ? "0 12px 24px rgba(22,101,52,0.14)" : "0 8px 22px rgba(15,23,42,0.08)", color: "#0f172a", cursor: "pointer", minHeight: 86, padding: 14, textAlign: "left" });
+const tileTitle = { fontSize: 15, fontWeight: 900 };
+const tileSub = { color: "#64748b", fontSize: 12, fontWeight: 800, marginTop: 4 };
+const tileMeta = { color: "#166534", fontSize: 12, fontWeight: 900, marginTop: 6 };
+const teamTileTop = { alignItems: "center", display: "flex", gap: 9 };
+const teamTileLogo = { height: 34, objectFit: "contain", width: 34 };
+const listCard = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, boxShadow: "0 10px 24px rgba(15,23,42,0.08)", overflow: "hidden" };
+const listHeader = { borderBottom: "1px solid #e2e8f0", padding: 16 };
+const sectionTitle = { color: "#0f172a", fontSize: 20, fontWeight: 900 };
+const sectionSub = { color: "#64748b", fontSize: 12, fontWeight: 800, marginTop: 3 };
+const rows = { display: "grid" };
+const resultTile = { background: "#fff", borderBottom: "1px solid #e2e8f0", padding: 16 };
+const resultMeta = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 };
 const miniPill = { background: "#ecfdf5", borderRadius: 999, color: "#0f7a3b", fontSize: 12, fontWeight: 800, padding: "5px 9px" };
 const mutedText = { color: "#64748b", fontSize: 12, fontWeight: 700, textAlign: "right" };
 const scoreRow = { alignItems: "center", display: "grid", gap: 8, gridTemplateColumns: "1fr auto 1fr" };
@@ -451,7 +599,7 @@ const teamName = { color: "#111827", fontSize: 14, fontWeight: 800, lineHeight: 
 const scoreNumber = { color: "#111827", fontSize: 34, fontWeight: 900, lineHeight: 1, marginTop: 6 };
 const scoreDivider = { color: "#94a3b8", fontSize: 11, fontWeight: 900, textAlign: "center", textTransform: "uppercase" };
 const detailLine = { color: "#64748b", fontSize: 13, fontWeight: 700, marginTop: 10, textAlign: "center" };
-const emptyState = { background: "#fff", border: "1px dashed #cbd5e1", borderRadius: 14, color: "#64748b", fontSize: 14, fontWeight: 700, margin: "0 15px", padding: 18, textAlign: "center" };
+const emptyState = { color: "#64748b", fontSize: 14, fontWeight: 800, padding: 22, textAlign: "center" };
 const livePage = { display: "flex", flexDirection: "column", gap: 14, minHeight: "calc(100vh - 210px)" };
 const livePageHeader = { alignItems: "center", background: "#0f172a", borderRadius: 18, color: "#fff", display: "flex", gap: 14, padding: 16 };
 const backButton = { background: "#fff", border: "none", borderRadius: 12, color: "#0f172a", cursor: "pointer", flex: "0 0 auto", fontSize: 13, fontWeight: 900, padding: "10px 12px" };

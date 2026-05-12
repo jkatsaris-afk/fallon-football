@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 import bills from "../../resources/Buffalo Bills.png";
 import bengals from "../../resources/Cincinnati Bengals.png";
@@ -198,13 +199,14 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const relatedIds = await loadRelatedFieldIds(fieldData);
     setScoreboardFieldIds(relatedIds);
 
-    const { data: gameData } = await supabase
+    const active = await getActiveSeason();
+    const { data: gameData } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
       .select("*")
       .in("field_id", relatedIds)
-      .ilike("event_type", "%game%")
+      .or("event_type.ilike.%game%,event_type.ilike.%champ%")
       .order("week", { ascending: true })
-      .order("event_time", { ascending: true });
+      .order("event_time", { ascending: true }), active);
 
     const gamesWithRefs = await attachRefAssignments(gameData || []);
     setGames(gamesWithRefs);

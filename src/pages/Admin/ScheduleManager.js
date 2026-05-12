@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { applyPersonSeasonFilter, applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 /* ================= LOGOS ================= */
 
@@ -29,6 +30,7 @@ export default function ScheduleManager() {
   const [fields, setFields] = useState([]);
   const [allFields, setAllFields] = useState([]);
   const [timeSlots, setTimeSlots] = useState([]);
+  const [fieldTimeBlocks, setFieldTimeBlocks] = useState([]);
   const [matchups, setMatchups] = useState([]);
   const [teams, setTeams] = useState([]);
   const [nflTeams, setNflTeams] = useState([]);
@@ -36,9 +38,6 @@ export default function ScheduleManager() {
   const [activeTool, setActiveTool] = useState("overview");
   const [weekToSchedule, setWeekToSchedule] = useState("");
   const [weekDate, setWeekDate] = useState("");
-  const [championshipDate, setChampionshipDate] = useState("");
-  const [championshipWeek, setChampionshipWeek] = useState(9);
-  const [championshipSeeds, setChampionshipSeeds] = useState({});
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   const TABLE = "schedule_master_auto";
@@ -50,17 +49,22 @@ export default function ScheduleManager() {
   /* ================= LOAD ================= */
 
   const loadAll = async () => {
-    const { data: s } = await supabase.from(TABLE).select("*");
+    const active = await getActiveSeason();
+    const { data: s } = await applyUuidSeasonFilter(supabase.from(TABLE).select("*"), active);
 
     const { data: f } = await supabase
       .from("fields")
       .select("*")
       .order("field_number");
 
-    const { data: m } = await supabase.from("matchups").select("*");
-    const { data: t } = await supabase.from("teams").select("*");
+    const { data: m } = await supabase.from("matchups").select("*").eq("season_year", active.seasonYear || 0);
+    const { data: t } = await applyPersonSeasonFilter(supabase.from("teams").select("*"), active);
     const { data: nfl } = await supabase.from("nfl_teams").select("*");
     const { data: slots } = await supabase.from("field_time_slots").select("*");
+    const { data: fieldBlocks } = await supabase
+      .from("field_time_blocks")
+      .select("*")
+      .eq("is_active", true);
 
     setSchedule(s || []);
     setAllFields(f || []);
@@ -72,6 +76,7 @@ export default function ScheduleManager() {
     setTeams(t || []);
     setNflTeams(nfl || []);
     setTimeSlots(slots || []);
+    setFieldTimeBlocks(fieldBlocks || []);
   };
 
   /* ================= GENERATE ================= */
@@ -94,6 +99,14 @@ export default function ScheduleManager() {
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
   );
 
+  const getFieldTimeSlots = (fieldId) => {
+    const blocks = fieldTimeBlocks
+      .filter((block) => block.field_id === fieldId)
+      .sort((a, b) => (a.sort_order || timeToMinutes(a.time)) - (b.sort_order || timeToMinutes(b.time)));
+
+    return blocks.length ? blocks : getGameTimeSlots();
+  };
+
   const buildScheduleRowsForWeek = (week, eventDate) => {
     const weekGames = matchups.filter((matchup) => String(matchup.week) === String(week));
     const rows = [];
@@ -105,12 +118,12 @@ export default function ScheduleManager() {
       const homeNFL = nflTeams.find(n => n.id === homeTeam?.nfl_team_id);
       const awayNFL = nflTeams.find(n => n.id === awayTeam?.nfl_team_id);
       const validFields = getFieldPool(game.division, "regular");
-      const validTimes = getGameTimeSlots();
 
-      if (!validFields.length || !validTimes.length) return;
+      if (!validFields.length) return;
 
       const divisionIndex = gameIndexByDivision[game.division] || 0;
       const field = validFields[divisionIndex % validFields.length];
+      const validTimes = getFieldTimeSlots(field?.id);
       const time = validTimes[Math.floor(divisionIndex / validFields.length)];
 
       if (!field || !time) return;
@@ -127,7 +140,8 @@ export default function ScheduleManager() {
         team: homeNFL?.short_name || homeNFL?.full_name || null,
         opponent: awayNFL?.short_name || awayNFL?.full_name || null,
         event_type: "game",
-        source: "auto"
+        source: "auto",
+        season_id: game.season_id || game.season_uuid || null,
       });
 
       gameIndexByDivision[game.division] = divisionIndex + 1;
@@ -139,7 +153,8 @@ export default function ScheduleManager() {
   const generateSchedule = async () => {
     setStatus(null);
 
-    const { data: existingSchedule } = await supabase.from(TABLE).select("week,event_date");
+    const active = await getActiveSeason();
+    const { data: existingSchedule } = await applyUuidSeasonFilter(supabase.from(TABLE).select("week,event_date"), active);
 
     if (!matchups?.length) {
       setStatus({ type: "error", message: "No matchups found in the database." });
@@ -150,7 +165,7 @@ export default function ScheduleManager() {
       setStatus({ type: "error", message: "No fields found in the database." });
       return;
     }
-    if (!timeSlots?.length) {
+    if (!timeSlots?.length && !fieldTimeBlocks?.length) {
       setStatus({ type: "error", message: "No time slots found in the database." });
       return;
     }
@@ -165,6 +180,7 @@ export default function ScheduleManager() {
     await supabase
       .from(TABLE)
       .delete()
+      .eq("season_id", active.seasonId || "00000000-0000-0000-0000-000000000000")
       .neq("id", "00000000-0000-0000-0000-000000000000");
 
     let insert = [];
@@ -180,7 +196,10 @@ export default function ScheduleManager() {
       return;
     }
 
-    const { error } = await supabase.from(TABLE).insert(insert);
+    const { error } = await supabase.from(TABLE).insert(insert.map((row) => ({
+      ...row,
+      season_id: active.seasonId,
+    })));
 
     if (error) {
       console.error(error);
@@ -207,8 +226,9 @@ export default function ScheduleManager() {
       return;
     }
 
-    await supabase.from(TABLE).delete().eq("week", weekToSchedule);
-    const { error } = await supabase.from(TABLE).insert(rows);
+    const active = await getActiveSeason();
+    await supabase.from(TABLE).delete().eq("week", weekToSchedule).eq("season_id", active.seasonId || "00000000-0000-0000-0000-000000000000");
+    const { error } = await supabase.from(TABLE).insert(rows.map((row) => ({ ...row, season_id: active.seasonId })));
 
     if (error) {
       console.error("Week schedule insert error:", error);
@@ -217,63 +237,6 @@ export default function ScheduleManager() {
     }
 
     setStatus({ type: "success", message: `Week ${weekToSchedule} scheduled.` });
-    await loadAll();
-  };
-
-  const createChampionshipGames = async () => {
-    setStatus(null);
-
-    if (!championshipDate) {
-      setStatus({ type: "error", message: "Set a championship date before creating games." });
-      return;
-    }
-
-    const rows = divisions.flatMap((division) => {
-      const setup = championshipSeeds[division] || {};
-      const homeTeam = teams.find((team) => team.id === setup.seed1);
-      const awayTeam = teams.find((team) => team.id === setup.seed2);
-      const field = allFields.find((item) => item.id === setup.fieldId);
-      const time = setup.time;
-      const homeNFL = nflTeams.find((team) => team.id === homeTeam?.nfl_team_id);
-      const awayNFL = nflTeams.find((team) => team.id === awayTeam?.nfl_team_id);
-
-      if (!homeTeam || !awayTeam || !field || !time) return [];
-
-      return [{
-        week: championshipWeek,
-        field_id: field.id,
-        time,
-        event_time: time,
-        field: field.name,
-        event_date: championshipDate,
-        division,
-        team: homeNFL?.short_name || homeNFL?.full_name || null,
-        opponent: awayNFL?.short_name || awayNFL?.full_name || null,
-        event_type: "championship game",
-        source: "championship"
-      }];
-    });
-
-    if (!rows.length) {
-      setStatus({ type: "error", message: "Set seeds, fields, and times for at least one division." });
-      return;
-    }
-
-    await supabase
-      .from(TABLE)
-      .delete()
-      .eq("week", championshipWeek)
-      .ilike("event_type", "%champ%");
-
-    const { error } = await supabase.from(TABLE).insert(rows);
-
-    if (error) {
-      console.error("Championship insert error:", error);
-      setStatus({ type: "error", message: "Could not create championship games. Check the console for details." });
-      return;
-    }
-
-    setStatus({ type: "success", message: "Championship games created." });
     await loadAll();
   };
 
@@ -322,8 +285,15 @@ export default function ScheduleManager() {
     return hours * 60 + minutes;
   };
 
-  const weeks = [...new Set(schedule.map(s => s.week))].sort((a, b) => Number(a) - Number(b));
+  const isScheduledGameRow = (row) => {
+    const eventType = (row.event_type || "").toLowerCase();
+    return eventType.includes("game") || eventType.includes("champ");
+  };
+
+  const weeks = [...new Set(schedule.filter(isScheduledGameRow).map(s => s.week).filter(Boolean))]
+    .sort((a, b) => Number(a) - Number(b));
   const matchupWeeks = [...new Set(matchups.map((matchup) => matchup.week))]
+    .filter((week) => weeks.some((scheduledWeek) => String(scheduledWeek) === String(week)))
     .filter(Boolean)
     .sort((a, b) => Number(a) - Number(b));
   const regeneratePreview = (() => {
@@ -339,29 +309,14 @@ export default function ScheduleManager() {
     ), 0);
 
     return {
-      currentRows: schedule.length,
-      excelRows: schedule.filter((game) => (game.source || "").toLowerCase() === "excel").length,
-      autoRows: schedule.filter((game) => (game.source || "").toLowerCase() === "auto").length,
+      currentRows: schedule.filter(isScheduledGameRow).length,
+      excelRows: schedule.filter((game) => isScheduledGameRow(game) && (game.source || "").toLowerCase() === "excel").length,
+      autoRows: schedule.filter((game) => isScheduledGameRow(game) && (game.source || "").toLowerCase() === "auto").length,
       championshipRows: schedule.filter((game) => (game.event_type || "").toLowerCase().includes("champ")).length,
       generatedRows,
       weeks: matchupWeeks.length,
     };
   })();
-  const divisions = [...new Set([
-    ...matchups.map((matchup) => matchup.division),
-    ...teams.map((team) => team.division),
-  ].filter(Boolean))].sort((a, b) => {
-    if (a === "K-1") return -1;
-    if (b === "K-1") return 1;
-    return a.localeCompare(b);
-  });
-  const championshipFields = allFields.filter((field) => (
-    (field.season_phase || "regular") === "championship" &&
-    field.type === "game"
-  ));
-  const championshipFieldPool = championshipFields.length ? championshipFields : fields;
-  const gameTimes = getGameTimeSlots();
-
   const fieldColumns = [
     ...fields,
     ...schedule
@@ -409,25 +364,6 @@ export default function ScheduleManager() {
     return teamLogos[key] || null;
   };
 
-  const getTeamLabel = (team) => {
-    const nfl = nflTeams.find((item) => item.id === team?.nfl_team_id);
-    return nfl?.short_name || nfl?.full_name || "Team";
-  };
-
-  const getTeamsForDivision = (division) => (
-    teams.filter((team) => team.division === division)
-  );
-
-  const setChampionshipSeed = (division, field, value) => {
-    setChampionshipSeeds((prev) => ({
-      ...prev,
-      [division]: {
-        ...(prev[division] || {}),
-        [field]: value,
-      },
-    }));
-  };
-
   return (
     <div>
 
@@ -445,12 +381,6 @@ export default function ScheduleManager() {
           desc="Generate one week from DB matchups"
           active={activeTool === "week"}
           onClick={() => setActiveTool("week")}
-        />
-        <ToolTile
-          title="Championship Creator"
-          desc="Set seeds, fields, and times"
-          active={activeTool === "championship"}
-          onClick={() => setActiveTool("championship")}
         />
         <ToolTile
           title="Regenerate Season"
@@ -525,77 +455,9 @@ export default function ScheduleManager() {
         </div>
       )}
 
-      {activeTool === "championship" && (
-        <div style={panel}>
-          <h2 style={panelTitle}>Championship Creator</h2>
-          <div style={formGrid}>
-            <label style={fieldGroup}>
-              <span style={formLabel}>Championship Week</span>
-              <input style={input} type="number" value={championshipWeek} onChange={(e) => setChampionshipWeek(Number(e.target.value))} />
-            </label>
-            <label style={fieldGroup}>
-              <span style={formLabel}>Championship Date</span>
-              <input style={input} type="date" value={championshipDate} onChange={(e) => setChampionshipDate(e.target.value)} />
-            </label>
-          </div>
-
-          <div style={divisionSetupGrid}>
-            {divisions.map((division) => {
-              const divisionTeams = getTeamsForDivision(division);
-              const setup = championshipSeeds[division] || {};
-              const divisionFields = championshipFieldPool.filter((field) => !field.division || field.division === division);
-
-              return (
-                <div key={division} style={divisionSetupCard}>
-                  <div style={divisionSetupTitle}>{division}</div>
-                  <label style={fieldGroup}>
-                    <span style={formLabel}>Seed 1</span>
-                    <select style={input} value={setup.seed1 || ""} onChange={(e) => setChampionshipSeed(division, "seed1", e.target.value)}>
-                      <option value="">Select team</option>
-                      {divisionTeams.map((team) => (
-                        <option key={team.id} value={team.id}>{getTeamLabel(team)}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={fieldGroup}>
-                    <span style={formLabel}>Seed 2</span>
-                    <select style={input} value={setup.seed2 || ""} onChange={(e) => setChampionshipSeed(division, "seed2", e.target.value)}>
-                      <option value="">Select team</option>
-                      {divisionTeams.map((team) => (
-                        <option key={team.id} value={team.id}>{getTeamLabel(team)}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={fieldGroup}>
-                    <span style={formLabel}>Field</span>
-                    <select style={input} value={setup.fieldId || ""} onChange={(e) => setChampionshipSeed(division, "fieldId", e.target.value)}>
-                      <option value="">Select field</option>
-                      {divisionFields.map((field) => (
-                        <option key={field.id} value={field.id}>{field.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={fieldGroup}>
-                    <span style={formLabel}>Time</span>
-                    <select style={input} value={setup.time || ""} onChange={(e) => setChampionshipSeed(division, "time", e.target.value)}>
-                      <option value="">Select time</option>
-                      {gameTimes.map((slot) => (
-                        <option key={slot.id} value={slot.time}>{slot.time}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              );
-            })}
-          </div>
-
-          <button style={btn} onClick={createChampionshipGames}>Create Championship Games</button>
-        </div>
-      )}
-
       {weeks.map(week => {
         const weekGames = schedule
-          .filter(s => s.week === week)
+          .filter(s => s.week === week && isScheduledGameRow(s))
           .sort((a, b) => timeToMinutes(a.time || a.event_time) - timeToMinutes(b.time || b.event_time));
 
         return (

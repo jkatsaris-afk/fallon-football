@@ -26,7 +26,7 @@ export default function RefereeTimeSheetsPage() {
     const { data: scheduleData } = await supabase
       .from("schedule_master_auto")
       .select("*")
-      .ilike("event_type", "%game%");
+      .or("event_type.ilike.%game%,event_type.ilike.%champ%");
 
     setRefs(refData || []);
     setCheckins(checkinData || []);

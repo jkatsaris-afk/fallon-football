@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, ClipboardList, Radio, Trophy, UserPlus } from "lucide-react";
+import { AlertTriangle, Calendar, ClipboardList, Radio, Trophy, UserPlus, Users } from "lucide-react";
 import { supabase } from "../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
 
@@ -22,13 +23,14 @@ export default function HomePage({ setPage }) {
   }, []);
 
   const loadHomeData = async () => {
+    const active = await getActiveSeason();
     const [{ data: scheduleData }, { data: liveData }, { data: settingsData }] = await Promise.all([
-      supabase
+      applyUuidSeasonFilter(supabase
         .from("schedule_master_auto")
         .select("*")
-        .ilike("event_type", "%game%")
+        .or("event_type.ilike.%game%,event_type.ilike.%champ%")
         .order("event_date", { ascending: true })
-        .order("event_time", { ascending: true }),
+        .order("event_time", { ascending: true }), active),
       supabase
         .from("games_live")
         .select("*")
@@ -41,8 +43,9 @@ export default function HomePage({ setPage }) {
         .maybeSingle(),
     ]);
 
+    const scheduleIds = new Set((scheduleData || []).map((game) => game.id));
     setGames(scheduleData || []);
-    setLiveGames(liveData || []);
+    setLiveGames((liveData || []).filter((game) => scheduleIds.has(game.schedule_id)));
     setSettings(settingsData || {});
   };
 
@@ -130,6 +133,8 @@ export default function HomePage({ setPage }) {
         <QuickTile icon={<Trophy size={22} />} title="Scores" text="Search finals and live games." onClick={() => setPage("scoreboard")} />
         <QuickTile icon={<UserPlus size={22} />} title="Sign Up" text="Player, coach, and referee forms." onClick={() => window.location.href = "/signup"} />
         <QuickTile icon={<ClipboardList size={22} />} title="Coach Rankings" text="Public player ranking form." onClick={() => window.location.href = "/coach-rankings"} />
+        <QuickTile icon={<Users size={22} />} title="Board Members" text="League contacts and board roles." onClick={() => window.location.href = "/board"} />
+        <QuickTile icon={<AlertTriangle size={22} />} title="Report Concern" text="Anonymous coach or referee complaint form." onClick={() => window.location.href = "/complaint"} />
       </section>
 
       <section style={infoPanel}>

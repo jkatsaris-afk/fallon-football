@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { applyPersonSeasonFilter, getActiveSeason } from "../../utils/season";
 
 import CoachStaffPage from "./CoachManagerPages/CoachStaffPage";
 
@@ -15,10 +16,11 @@ export default function CoachManager() {
   const loadCoaches = async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
+    const active = await getActiveSeason();
+    const { data, error } = await applyPersonSeasonFilter(supabase
       .from("coaches")
       .select("*")
-      .order("first_name", { ascending: true });
+      .order("first_name", { ascending: true }), active);
 
     if (error) {
       console.error("Error loading coaches:", error);

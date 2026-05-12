@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabase";
+import { getActiveSeason, withSeasonPayload } from "../../utils/season";
 
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState(null);
+  const [activeSeason, setActiveSeason] = useState(null);
   const [divisions, setDivisions] = useState([]);
   const [status, setStatus] = useState(null);
 
@@ -24,13 +26,9 @@ export default function SignUpPage() {
   }, []);
 
   const loadSettings = async () => {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("*")
-      .eq("id", 1)
-      .single();
-
-    setSettings(data);
+    const active = await getActiveSeason();
+    setActiveSeason(active);
+    setSettings(active.settings);
 
     const { data: divisionData } = await supabase
       .from("divisions")
@@ -60,19 +58,18 @@ export default function SignUpPage() {
     const divisionId = divisions.find((item) => item.name === division)?.id || null;
     const parentEmail = cleanText(form.parentEmail).toLowerCase();
 
-    const profilePayload = {
+    const profilePayload = withSeasonPayload({
       first_name: cleanText(form.firstName),
       last_name: cleanText(form.lastName),
       age: Number(form.age),
       experience_level: form.experience,
       shirt_size: form.shirtSize,
-      season_id: settings.current_season,
       division_id: divisionId,
       parent_name: cleanText(form.parentName),
       parent_phone: cleanText(form.parentPhone),
       parent_email: parentEmail,
       waiver_signed: true,
-    };
+    }, activeSeason);
 
     const insertPayload = {
       ...profilePayload,
@@ -82,12 +79,11 @@ export default function SignUpPage() {
 
     const { data: existingPlayers, error: lookupError } = await supabase
       .from("players")
-      .select("id")
+      .select("id,season_id,season_uuid,rating,rank_score")
       .ilike("first_name", profilePayload.first_name)
       .ilike("last_name", profilePayload.last_name)
       .eq("parent_email", parentEmail)
-      .eq("season_id", settings.current_season)
-      .limit(1);
+      .order("created_at", { ascending: false });
 
     if (lookupError) {
       console.error("Player lookup failed:", lookupError);
@@ -96,10 +92,19 @@ export default function SignUpPage() {
       return;
     }
 
-    const existingPlayer = existingPlayers?.[0];
-    const { error } = existingPlayer
-      ? await supabase.from("players").update(profilePayload).eq("id", existingPlayer.id)
-      : await supabase.from("players").insert([insertPayload]);
+    const currentSeasonPlayer = existingPlayers?.find((player) => (
+      String(player.season_uuid) === String(activeSeason?.seasonId) ||
+      String(player.season_id) === String(activeSeason?.seasonYear)
+    ));
+    const pastPlayer = existingPlayers?.find((player) => player.id !== currentSeasonPlayer?.id);
+    const { error } = currentSeasonPlayer
+      ? await supabase.from("players").update(profilePayload).eq("id", currentSeasonPlayer.id)
+      : await supabase.from("players").insert([{
+          ...insertPayload,
+          is_returning: Boolean(pastPlayer),
+          rating: pastPlayer?.rating || pastPlayer?.rank_score || 3,
+          rank_score: pastPlayer?.rank_score || pastPlayer?.rating || 0,
+        }]);
 
     if (error) {
       console.error("Registration save failed:", error);
@@ -110,7 +115,11 @@ export default function SignUpPage() {
 
     setStatus({
       type: "success",
-      message: existingPlayer ? "Player profile updated." : "Player registered.",
+      message: currentSeasonPlayer
+        ? "Player profile updated for this season."
+        : pastPlayer
+          ? "Returning player updated and registered for this season."
+          : "Player registered.",
     });
     setLoading(false);
   };
@@ -133,7 +142,7 @@ export default function SignUpPage() {
         <>
           <h2 style={{ marginBottom: 10 }}>🏈 Player Registration</h2>
           <p style={{ color: "#64748b", marginBottom: 20 }}>
-            Season {settings.current_season}
+            Season {activeSeason?.seasonLabel || settings.current_season}
           </p>
 
           <Card>

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { getActiveSeason, withSeasonPayload } from "../../utils/season";
 
 export default function RefSignUpPage() {
   const [settings, setSettings] = useState(null);
+  const [activeSeason, setActiveSeason] = useState(null);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
 
@@ -24,14 +26,9 @@ export default function RefSignUpPage() {
 
   const loadSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from("app_settings")
-        .select("*")
-        .eq("id", 1)
-        .single();
-
-      if (error) throw error;
-      setSettings(data);
+      const active = await getActiveSeason();
+      setActiveSeason(active);
+      setSettings(active.settings);
     } catch (err) {
       console.error("Settings load error:", err);
       setSettings({ ref_signups_open: true }); // fallback so page doesn't go blank
@@ -55,7 +52,9 @@ export default function RefSignUpPage() {
         password: form.password
       });
 
-      if (authError) throw authError;
+      if (authError && !String(authError.message || "").toLowerCase().includes("already")) {
+        throw authError;
+      }
 
       /* 2. LOGIN (CRITICAL FOR RLS) */
       const { data: loginData, error: loginError } =
@@ -79,28 +78,34 @@ export default function RefSignUpPage() {
 
       if (uploadError) throw uploadError;
 
-      /* 4. INSERT REFEREE */
-      const { error: insertError } = await supabase
+      const refereePayload = withSeasonPayload({
+        auth_id: user.id,
+        first_name: form.firstName,
+        last_name: form.lastName,
+        phone: form.phone,
+        email: form.email,
+        age: Number(form.age || 0),
+        experience: form.experience,
+        availability: form.availability,
+        notes: form.notes,
+        profile_image: fileName,
+        status: "pending"
+      }, activeSeason);
+
+      const { data: existingRefs } = await supabase
         .from("referees")
-        .insert([
-          {
-            auth_id: user.id,
-            first_name: form.firstName,
-            last_name: form.lastName,
-            phone: form.phone,
-            email: form.email,
-            age: Number(form.age || 0),
-            experience: form.experience,
-            availability: form.availability,
-            notes: form.notes,
-            profile_image: fileName,
-            status: "pending"
-          }
-        ]);
+        .select("id")
+        .ilike("email", form.email)
+        .limit(1);
 
-      if (insertError) throw insertError;
+      const existingRef = existingRefs?.[0];
+      const { error: saveError } = existingRef
+        ? await supabase.from("referees").update(refereePayload).eq("id", existingRef.id)
+        : await supabase.from("referees").insert([refereePayload]);
 
-      alert("Account Created!");
+      if (saveError) throw saveError;
+
+      alert(existingRef ? "Referee profile updated for this season!" : "Account Created!");
 
     } catch (err) {
       console.error("FULL ERROR:", err);

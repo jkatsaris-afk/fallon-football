@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../../utils/season";
 
 /* TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
@@ -57,6 +58,7 @@ export default function TeamStatsPage() {
   const [scheduleMap, setScheduleMap] = useState({});
   const [scheduleDetails, setScheduleDetails] = useState({});
   const [selectedDivision, setSelectedDivision] = useState("all");
+  const [selectedTeamKey, setSelectedTeamKey] = useState(null);
   const [editingScoreId, setEditingScoreId] = useState(null);
   const [editScores, setEditScores] = useState({ home: "", away: "" });
   const [status, setStatus] = useState(null);
@@ -70,9 +72,10 @@ export default function TeamStatsPage() {
       .from("game_scores")
       .select("*");
 
-    const { data: schedule } = await supabase
+    const active = await getActiveSeason();
+    const { data: schedule } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
-      .select("id, division, week, time, event_time, field");
+      .select("id, division, week, time, event_time, field, event_date"), active);
 
     const map = {};
     const details = {};
@@ -83,7 +86,8 @@ export default function TeamStatsPage() {
 
     setScheduleMap(map);
     setScheduleDetails(details);
-    setGames(scores || []);
+    const currentScheduleIds = new Set((schedule || []).map((game) => game.id));
+    setGames((scores || []).filter((score) => currentScheduleIds.has(score.schedule_id)));
   };
 
   const startEdit = (game) => {
@@ -190,6 +194,30 @@ export default function TeamStatsPage() {
     });
   }, [filteredTeams]);
 
+  const selectedTeam = useMemo(() => (
+    rankedTeams.find((team) => `${team.team}_${team.division}` === selectedTeamKey) || null
+  ), [rankedTeams, selectedTeamKey]);
+
+  const selectedTeamGames = useMemo(() => {
+    if (!selectedTeam) return [];
+
+    return games
+      .filter((game) => {
+        const schedule = scheduleDetails[game.schedule_id] || {};
+        const division = normalizeDivision(schedule.division);
+        const teamName = cleanTeamName(selectedTeam.team);
+        return (
+          division === selectedTeam.division &&
+          (cleanTeamName(game.home_team) === teamName || cleanTeamName(game.away_team) === teamName)
+        );
+      })
+      .sort((a, b) => {
+        const aSchedule = scheduleDetails[a.schedule_id] || {};
+        const bSchedule = scheduleDetails[b.schedule_id] || {};
+        return Number(aSchedule.week || 0) - Number(bSchedule.week || 0);
+      });
+  }, [games, scheduleDetails, selectedTeam]);
+
   return (
     <div style={wrap}>
 
@@ -204,7 +232,10 @@ export default function TeamStatsPage() {
               ...filterTile,
               ...(selectedDivision === d ? activeTile : {})
             }}
-            onClick={() => setSelectedDivision(d)}
+            onClick={() => {
+              setSelectedDivision(d);
+              setSelectedTeamKey(null);
+            }}
           >
             {d === "all" ? "All Divisions" : d}
           </div>
@@ -215,9 +246,16 @@ export default function TeamStatsPage() {
       <div style={grid}>
         {rankedTeams.map(team => {
           const logo = TEAM_LOGOS[team.team];
+          const teamKey = `${team.team}_${team.division}`;
+          const active = selectedTeamKey === teamKey;
 
           return (
-            <div key={`${team.team}_${team.division}`} style={card}>
+            <button
+              key={teamKey}
+              type="button"
+              style={{ ...card, ...(active ? activeTeamCard : {}) }}
+              onClick={() => setSelectedTeamKey(active ? null : teamKey)}
+            >
 
               {logo && <img src={logo} style={logoStyle} />}
 
@@ -236,34 +274,36 @@ export default function TeamStatsPage() {
                 {team.division}
               </div>
 
-            </div>
+            </button>
           );
         })}
       </div>
 
-      <div style={resultsPanel}>
-        <div style={sectionTitle}>Game Results</div>
-
-        {status && (
-          <div style={{
-            ...statusBox,
-            ...(status.type === "error" ? errorBox : successBox),
-          }}>
-            {status.message}
+      {selectedTeam && (
+        <div style={resultsPanel}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={sectionTitle}>{selectedTeam.team} Games</div>
+              <div style={sectionSub}>{selectedTeam.division} • {selectedTeam.wins} - {selectedTeam.losses}</div>
+            </div>
+            <button style={closeTeamBtn} onClick={() => setSelectedTeamKey(null)}>Close</button>
           </div>
-        )}
 
-        <div style={resultsList}>
-          {games.map((game) => {
+          <div style={resultsList}>
+            {selectedTeamGames.map((game) => {
             const schedule = scheduleDetails[game.schedule_id] || {};
             const isEditing = editingScoreId === game.id;
             const division = normalizeDivision(schedule.division);
+            const selectedIsHome = cleanTeamName(game.home_team) === cleanTeamName(selectedTeam.team);
+            const teamScore = selectedIsHome ? game.home_score : game.away_score;
+            const opponentScore = selectedIsHome ? game.away_score : game.home_score;
+            const opponent = selectedIsHome ? game.away_team : game.home_team;
 
             return (
               <div key={game.id} style={resultRow}>
                 <div style={resultMeta}>
                   <div style={resultTitle}>
-                    {cleanTeamName(game.home_team)} vs {cleanTeamName(game.away_team)}
+                    {cleanTeamName(selectedTeam.team)} vs {cleanTeamName(opponent)}
                   </div>
                   <div style={resultSub}>
                     {division} • Week {schedule.week || "—"} • {schedule.time || schedule.event_time || "Time"} • {schedule.field || "Field"}
@@ -290,15 +330,21 @@ export default function TeamStatsPage() {
                   </div>
                 ) : (
                   <div style={scoreActions}>
-                    <div style={scorePill}>{game.home_score} - {game.away_score}</div>
-                    <button style={editBtn} onClick={() => startEdit(game)}>Edit</button>
+                    <div style={scorePill}>{teamScore} - {opponentScore}</div>
+                    <div style={resultOutcome}>
+                      {Number(teamScore) === Number(opponentScore) ? "Tie" : Number(teamScore) > Number(opponentScore) ? "Win" : "Loss"}
+                    </div>
                   </div>
                 )}
               </div>
             );
-          })}
+            })}
+            {!selectedTeamGames.length && (
+              <div style={emptyState}>No scored games found for this team.</div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
     </div>
   );
@@ -339,10 +385,19 @@ const grid = {
 
 const card = {
   background: "#fff",
+  border: "1px solid transparent",
   borderRadius: 18,
+  color: "inherit",
+  cursor: "pointer",
+  fontFamily: "inherit",
   padding: 18,
   boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
   textAlign: "center"
+};
+const activeTeamCard = {
+  background: "#ecfdf3",
+  borderColor: "#16a34a",
+  boxShadow: "0 8px 24px rgba(22,163,74,0.18)"
 };
 
 const logoStyle = { width: 50, marginBottom: 8 };
@@ -375,11 +430,35 @@ const resultsPanel = {
   padding: 18
 };
 
+const sectionHeader = {
+  alignItems: "center",
+  display: "flex",
+  gap: 12,
+  justifyContent: "space-between",
+  marginBottom: 12
+};
+
 const sectionTitle = {
   color: "#0f172a",
   fontSize: 20,
   fontWeight: 800,
-  marginBottom: 12
+};
+
+const sectionSub = {
+  color: "#64748b",
+  fontSize: 13,
+  fontWeight: 800,
+  marginTop: 3
+};
+
+const closeTeamBtn = {
+  background: "#e5e7eb",
+  border: "none",
+  borderRadius: 10,
+  color: "#111827",
+  cursor: "pointer",
+  fontWeight: 800,
+  padding: "8px 10px"
 };
 
 const resultsList = {
@@ -427,6 +506,23 @@ const scorePill = {
   color: "#0369a1",
   fontWeight: 900,
   padding: "7px 12px"
+};
+
+const resultOutcome = {
+  color: "#475569",
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase"
+};
+
+const emptyState = {
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: 12,
+  color: "#64748b",
+  fontWeight: 800,
+  padding: 14,
+  textAlign: "center"
 };
 
 const editBtn = {

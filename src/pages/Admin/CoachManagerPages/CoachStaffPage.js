@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
+import { applyPersonSeasonFilter, getActiveSeason } from "../../../utils/season";
 import DefaultProfile from "../../../resources/Default-A.png";
 
 /* TEAM LOGOS */
@@ -68,8 +69,10 @@ const normalizeTeam = (raw) => {
 
 export default function CoachStaffPage() {
   const [coaches, setCoaches] = useState([]);
+  const [complaintCounts, setComplaintCounts] = useState({});
   const [loadingState, setLoadingState] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     loadCoaches();
@@ -77,8 +80,9 @@ export default function CoachStaffPage() {
 
   const loadCoaches = async () => {
     setLoadingState(true);
+    const active = await getActiveSeason();
 
-    const { data, error } = await supabase
+    const coachQuery = supabase
       .from("coaches")
       .select(`
         *,
@@ -97,6 +101,7 @@ export default function CoachStaffPage() {
           )
         )
       `);
+    const { data, error } = await applyPersonSeasonFilter(coachQuery, active);
 
     if (error) {
       console.error(error);
@@ -105,7 +110,44 @@ export default function CoachStaffPage() {
       setCoaches(data || []);
     }
 
+    const { data: complaintData, error: complaintError } = await supabase
+      .from("complaints")
+      .select("coach_id,status");
+
+    if (!complaintError) {
+      const counts = {};
+      (complaintData || []).forEach((complaint) => {
+        if (!complaint.coach_id) return;
+        counts[complaint.coach_id] = counts[complaint.coach_id] || { total: 0, open: 0 };
+        counts[complaint.coach_id].total += 1;
+        if ((complaint.status || "open") !== "closed") counts[complaint.coach_id].open += 1;
+      });
+      setComplaintCounts(counts);
+    }
+
     setLoadingState(false);
+  };
+
+  const updateCoachNotes = async (coachId, notes) => {
+    setCoaches((current) => current.map((coach) => (
+      coach.id === coachId ? { ...coach, notes } : coach
+    )));
+  };
+
+  const saveCoachNotes = async (coach) => {
+    setStatus("");
+    const { error } = await supabase
+      .from("coaches")
+      .update({ notes: coach.notes || "" })
+      .eq("id", coach.id);
+
+    if (error) {
+      console.error(error);
+      setStatus("Coach notes could not be saved.");
+      return;
+    }
+
+    setStatus("Coach notes saved.");
   };
 
   const getName = (c) =>
@@ -154,6 +196,7 @@ export default function CoachStaffPage() {
 
       <div style={section}>
         <h2 style={title}>Coach Staff</h2>
+        {status && <div style={statusBox}>{status}</div>}
 
         <div style={list}>
           {filteredCoaches.map((coach) => {
@@ -162,6 +205,7 @@ export default function CoachStaffPage() {
             const raw = team?.nfl_team?.short_name;
             const teamName = normalizeTeam(raw);
             const logo = TEAM_LOGOS[teamName];
+            const coachComplaints = complaintCounts[coach.id] || { total: 0, open: 0 };
 
             return (
               <div key={coach.id} style={card}>
@@ -171,8 +215,14 @@ export default function CoachStaffPage() {
                     <div>
                       <div style={name}>{getName(coach)}</div>
                       <div style={sub}>{coach.email}</div>
+                      <div style={sub}>{formatPhone(coach.phone)}</div>
                     </div>
                   </div>
+                  {coachComplaints.total > 0 && (
+                    <div style={complaintBadge}>
+                      {coachComplaints.open} open / {coachComplaints.total} total complaints
+                    </div>
+                  )}
                 </div>
 
                 <div style={tile}>
@@ -192,6 +242,19 @@ export default function CoachStaffPage() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                <div style={notesBox}>
+                  <div style={label}>Coach Notes</div>
+                  <textarea
+                    value={coach.notes || ""}
+                    onChange={(e) => updateCoachNotes(coach.id, e.target.value)}
+                    placeholder="Internal notes for reports and coach packets"
+                    style={notesInput}
+                  />
+                  <button style={saveBtn} onClick={() => saveCoachNotes(coach)}>
+                    Save Notes
+                  </button>
                 </div>
 
               </div>
@@ -233,3 +296,16 @@ const sub = { fontSize:13, color:"#64748b" };
 const tile = { marginTop:10 };
 const label = { fontWeight:700 };
 const divisionBadge = { background:"#f1f5f9", padding:"4px 8px", borderRadius:8 };
+const statusBox = { background:"#ecfdf5", border:"1px solid #bbf7d0", borderRadius:12, color:"#166534", fontWeight:800, padding:"10px 12px", margin:"10px 0" };
+const complaintBadge = { background:"#fff7ed", border:"1px solid #fed7aa", borderRadius:999, color:"#9a3412", fontSize:12, fontWeight:800, padding:"8px 10px" };
+const notesBox = { marginTop:14, display:"flex", flexDirection:"column", gap:8 };
+const notesInput = { border:"1px solid #dbe4ee", borderRadius:12, minHeight:72, padding:10, resize:"vertical", width:"100%", boxSizing:"border-box" };
+const saveBtn = { alignSelf:"flex-start", background:"#166534", border:"none", borderRadius:10, color:"#fff", cursor:"pointer", fontWeight:800, padding:"9px 12px" };
+
+function formatPhone(value) {
+  if (!value) return "";
+  const digits = String(value).replace(/\D/g, "");
+  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  return String(value);
+}

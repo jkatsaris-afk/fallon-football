@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
+import { applyPersonSeasonFilter, applyUuidSeasonFilter, getActiveSeason } from "../../../utils/season";
 
 /* TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
@@ -47,16 +48,17 @@ export default function RefereeSchedulePage({ setPage }) {
 
   const loadData = async () => {
     setLoading(true);
+    const active = await getActiveSeason();
 
-    const { data: gameData } = await supabase
+    const { data: gameData } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
       .select("*")
-      .ilike("event_type", "%game%");
+      .or("event_type.ilike.%game%,event_type.ilike.%champ%"), active);
 
-    const { data: refData } = await supabase
+    const { data: refData } = await applyPersonSeasonFilter(supabase
       .from("referees")
       .select("*")
-      .eq("status", "approved");
+      .eq("status", "approved"), active);
 
     const { data: assignmentData } = await supabase
       .from("ref_assignments")

@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ScoreManagementPage from "./GameManagerPages/ScoreManagementPage";
 import ScoreRecordsPage from "./GameManagerPages/ScoreRecordsPage";
-import LiveScoreboardPage from "./GameManagerPages/LiveScoreboardPage";
-import ChampionshipMatchupsPage from "./GameManagerPages/ChampionshipMatchupsPage";
 import { supabase } from "../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 import Logo49ers from "../../resources/San Francisco 49ers.png";
 import LogoBengals from "../../resources/Cincinnati Bengals.png";
@@ -45,9 +44,10 @@ export default function GameManager() {
   }, []);
 
   const loadGameOverview = async () => {
-    const { data: scheduleData } = await supabase
+    const active = await getActiveSeason();
+    const { data: scheduleData } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
-      .select("id, division, team, opponent, event_type");
+      .select("id, division, team, opponent, event_type"), active);
 
     const { data: scoreData } = await supabase
       .from("game_scores")
@@ -131,12 +131,6 @@ export default function GameManager() {
         case "records":
           return <ScoreRecordsPage />;
 
-        case "live":
-          return <LiveScoreboardPage />;
-
-        case "championship":
-          return <ChampionshipMatchupsPage />;
-
         default:
           return (
             <div style={contentWrap}>
@@ -207,9 +201,9 @@ export default function GameManager() {
 
         <div style={titleRow}>
           <div>
-            <h1 style={title}>Game Manager</h1>
+            <h1 style={title}>Score Manager</h1>
             <div style={subtitle}>
-              Manage scoring, live games, records, and championship seeds.
+              Manage final scores, team stats, and score records.
             </div>
           </div>
         </div>
@@ -223,25 +217,12 @@ export default function GameManager() {
           />
 
           <ManagerTile
-            title="Score Records"
-            desc="View completed game results"
+            title="Team Stats"
+            desc="View standings and team game results"
             active={view === "records"}
             onClick={() => setView("records")}
           />
 
-          <ManagerTile
-            title="Live Scoreboard"
-            desc="Control live game scoring"
-            active={view === "live"}
-            onClick={() => setView("live")}
-          />
-
-          <ManagerTile
-            title="Championship Matchups"
-            desc="Calculate seeds by division"
-            active={view === "championship"}
-            onClick={() => setView("championship")}
-          />
         </div>
 
       </div>

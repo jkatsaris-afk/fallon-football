@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { getActiveSeason, withSeasonPayload } from "../../utils/season";
 
 export default function CoachSignUpPage() {
   const [settings, setSettings] = useState(null);
+  const [activeSeason, setActiveSeason] = useState(null);
+  const [divisions, setDivisions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
 
@@ -13,8 +16,13 @@ export default function CoachSignUpPage() {
     email: "",
     password: "",
     age: "",
+    role: "Head Coach",
     division: "",
-    assistant: false,
+    requestedAssistantName: "",
+    requestedAssistantEmail: "",
+    requestedAssistantPhone: "",
+    hasPlayers: false,
+    playerNames: "",
     coachedBefore: false,
     experience: "",
     notes: ""
@@ -22,22 +30,27 @@ export default function CoachSignUpPage() {
 
   useEffect(() => {
     loadSettings();
+    loadDivisions();
   }, []);
 
   const loadSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from("app_settings")
-        .select("*")
-        .eq("id", 1)
-        .single();
-
-      if (error) throw error;
-      setSettings(data);
+      const active = await getActiveSeason();
+      setActiveSeason(active);
+      setSettings(active.settings);
     } catch (err) {
       console.error(err);
       setSettings({ coach_signups_open: true });
     }
+  };
+
+  const loadDivisions = async () => {
+    const { data, error } = await supabase
+      .from("divisions")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (!error) setDivisions(data || []);
   };
 
   /* ================= SUBMIT ================= */
@@ -56,7 +69,9 @@ export default function CoachSignUpPage() {
         password: form.password
       });
 
-      if (authError) throw authError;
+      if (authError && !String(authError.message || "").toLowerCase().includes("already")) {
+        throw authError;
+      }
 
       const { data: loginData, error: loginError } =
         await supabase.auth.signInWithPassword({
@@ -77,29 +92,61 @@ export default function CoachSignUpPage() {
 
       if (uploadError) throw uploadError;
 
-      const { error: insertError } = await supabase
+      const coachNotes = [
+        form.notes,
+        "",
+        "Coach signup details:",
+        `Requested assistant: ${form.requestedAssistantName || "Assign one"}`,
+        form.requestedAssistantEmail ? `Assistant email: ${form.requestedAssistantEmail}` : "",
+        form.requestedAssistantPhone ? `Assistant phone: ${form.requestedAssistantPhone}` : "",
+        form.hasPlayers ? `Coach children/player names: ${form.playerNames || "Not listed"}` : "Coach children/player names: None listed",
+      ].filter(Boolean).join("\n");
+
+      const baseCoach = withSeasonPayload({
+        auth_id: user.id,
+        first_name: form.firstName,
+        last_name: form.lastName,
+        phone: form.phone,
+        email: form.email,
+        age: Number(form.age || 0),
+        role: form.role,
+        experience: form.experience,
+        notes: coachNotes,
+        profile_image: fileName,
+        division_preference: form.division,
+        assistant_coach: form.role === "Assistant Coach",
+        has_coached_before: form.coachedBefore,
+        status: "pending"
+      }, activeSeason);
+
+      const structuredCoach = {
+        ...baseCoach,
+        requested_assistant_name: form.requestedAssistantName,
+        requested_assistant_email: form.requestedAssistantEmail,
+        requested_assistant_phone: form.requestedAssistantPhone,
+        has_players: form.hasPlayers,
+        player_names: form.playerNames,
+      };
+
+      const { data: existingCoaches } = await supabase
         .from("coaches")
-        .insert([
-          {
-            auth_id: user.id,
-            first_name: form.firstName,
-            last_name: form.lastName,
-            phone: form.phone,
-            email: form.email,
-            age: Number(form.age || 0),
-            experience: form.experience,
-            notes: form.notes,
-            profile_image: fileName,
-            division_preference: form.division,
-            assistant_coach: form.assistant,
-            has_coached_before: form.coachedBefore,
-            status: "pending"
-          }
-        ]);
+        .select("id")
+        .ilike("email", form.email)
+        .limit(1);
 
-      if (insertError) throw insertError;
+      const existingCoach = existingCoaches?.[0];
+      const { error: insertError } = existingCoach
+        ? await supabase.from("coaches").update(structuredCoach).eq("id", existingCoach.id)
+        : await supabase.from("coaches").insert([structuredCoach]);
 
-      alert("Coach Registered!");
+      if (insertError) {
+        const { error: fallbackError } = existingCoach
+          ? await supabase.from("coaches").update(baseCoach).eq("id", existingCoach.id)
+          : await supabase.from("coaches").insert([baseCoach]);
+        if (fallbackError) throw fallbackError;
+      }
+
+      alert(existingCoach ? "Coach profile updated for this season!" : "Coach Registered!");
 
     } catch (err) {
       console.error(err);
@@ -118,7 +165,7 @@ export default function CoachSignUpPage() {
       {/* 🔥 MATCH REF STYLE BOX */}
       <Card>
         <div style={payBox}>
-          Coaches help lead teams and support player development.
+          Coaches help lead teams and support player development. Assistant coaches are required. If you do not request one by name, the league will assign one. Every assistant must complete this coach form too, and each coach may only coach one team.
         </div>
       </Card>
 
@@ -159,18 +206,38 @@ export default function CoachSignUpPage() {
           {/* COACH SETTINGS */}
           <Card>
             <Section title="Coaching Info">
-              <Input
-                placeholder="Division Preference"
-                onChange={(v)=>setForm({...form, division:v})}
-              />
+              <select
+                value={form.role}
+                onChange={(e)=>setForm({...form, role:e.target.value})}
+                style={input}
+              >
+                <option>Head Coach</option>
+                <option>Assistant Coach</option>
+              </select>
 
-              <label>
-                <input
-                  type="checkbox"
-                  onChange={(e)=>setForm({...form, assistant:e.target.checked})}
-                />
-                Assistant Coach
-              </label>
+              <select
+                value={form.division}
+                onChange={(e)=>setForm({...form, division:e.target.value})}
+                style={input}
+              >
+                <option value="">Select Division</option>
+                {divisions.map((division) => (
+                  <option key={division.id} value={division.name}>{division.name}</option>
+                ))}
+              </select>
+
+              <Input
+                placeholder="Requested Assistant Name (optional)"
+                onChange={(v)=>setForm({...form, requestedAssistantName:v})}
+              />
+              <Input
+                placeholder="Requested Assistant Email (optional)"
+                onChange={(v)=>setForm({...form, requestedAssistantEmail:v})}
+              />
+              <Input
+                placeholder="Requested Assistant Phone (optional)"
+                onChange={(v)=>setForm({...form, requestedAssistantPhone:v})}
+              />
 
               <label>
                 <input
@@ -179,6 +246,24 @@ export default function CoachSignUpPage() {
                 />
                 Coached Before
               </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.hasPlayers}
+                  onChange={(e)=>setForm({...form, hasPlayers:e.target.checked})}
+                />
+                I have children playing this season
+              </label>
+
+              {form.hasPlayers && (
+                <textarea
+                  placeholder="List player names. Players are only attached for auto-roster if they are in your coaching division."
+                  value={form.playerNames}
+                  onChange={(e)=>setForm({...form, playerNames:e.target.value})}
+                  style={textarea}
+                />
+              )}
             </Section>
           </Card>
 

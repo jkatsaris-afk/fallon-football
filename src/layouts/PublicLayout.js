@@ -7,7 +7,8 @@ import {
   LogIn,
   Users,
   Shield,
-  Flag
+  Flag,
+  AlertTriangle
 } from "lucide-react";
 import { useState } from "react";
 
@@ -68,6 +69,12 @@ export default function PublicLayout({ children }) {
               icon={<Flag size={20} />}
               label="Referee"
               onClick={() => goTo("/ref-signup")}
+            />
+
+            <PopupItem
+              icon={<AlertTriangle size={20} />}
+              label="Report Concern"
+              onClick={() => goTo("/complaint")}
             />
 
           </div>
@@ -140,7 +147,8 @@ export default function PublicLayout({ children }) {
             showSignupMenu ||
             currentPath === "/signup" ||
             currentPath === "/coach-signup" ||
-            currentPath === "/ref-signup"
+            currentPath === "/ref-signup" ||
+            currentPath === "/complaint"
           }
           onClick={() => {
             setShowLoginMenu(false);

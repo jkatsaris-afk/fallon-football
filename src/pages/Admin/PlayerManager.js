@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { applyPersonSeasonFilter, getActiveSeason } from "../../utils/season";
 
 /* ================= MASTER DIVISIONS ================= */
 const MASTER_DIVISIONS = [
@@ -17,6 +18,9 @@ export default function PlayerManager() {
 
   const [selectedDivision, setSelectedDivision] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [status, setStatus] = useState("");
 
   // 🔥 NEW
   const [unassignedCounts, setUnassignedCounts] = useState({});
@@ -26,14 +30,16 @@ export default function PlayerManager() {
   }, []);
 
   const loadData = async () => {
-    const { data: playerData } = await supabase
+    const active = await getActiveSeason();
+
+    const { data: playerData } = await applyPersonSeasonFilter(supabase
       .from("players")
       .select("*")
-      .order("last_name");
+      .order("last_name"), active);
 
-    const { data: teamData } = await supabase
+    const { data: teamData } = await applyPersonSeasonFilter(supabase
       .from("teams")
-      .select("*");
+      .select("*"), active);
 
     const { data: divisionData } = await supabase
       .from("divisions")
@@ -75,6 +81,25 @@ export default function PlayerManager() {
       .update({ [field]: value })
       .eq("id", id);
 
+    loadData();
+  };
+
+  const deletePlayer = async () => {
+    if (!pendingDelete) return;
+
+    const { error } = await supabase
+      .from("players")
+      .delete()
+      .eq("id", pendingDelete.id);
+
+    if (error) {
+      console.error("Player delete failed:", error);
+      setStatus(`Player could not be deleted: ${error.message}`);
+      return;
+    }
+
+    setStatus(`${pendingDelete.first_name} ${pendingDelete.last_name} was deleted.`);
+    setPendingDelete(null);
     loadData();
   };
 
@@ -127,7 +152,9 @@ export default function PlayerManager() {
 
   const filteredPlayers = players
     .filter(p =>
-      selectedDivision === "ALL"
+      showUnassignedOnly
+        ? !p.team_id
+        : selectedDivision === "ALL"
         ? true
         : divisionMap[p.division_id] === selectedDivision
     )
@@ -145,6 +172,7 @@ export default function PlayerManager() {
   return (
     <div style={{ padding: 20 }}>
       <h2>Player Manager</h2>
+      {status && <div style={statusBox}>{status}</div>}
 
       {/* 🔥 NEW TILE ROW */}
       <div style={tileGrid}>
@@ -157,6 +185,17 @@ export default function PlayerManager() {
             <div style={tileSub}>Unassigned</div>
           </div>
         ))}
+        <button
+          type="button"
+          style={{ ...tile, ...(showUnassignedOnly ? activeTile : {}) }}
+          onClick={() => setShowUnassignedOnly((current) => !current)}
+        >
+          <div style={tileTitle}>All Divisions</div>
+          <div style={tileValue}>
+            {players.filter((player) => !player.team_id).length}
+          </div>
+          <div style={tileSub}>Unassigned List</div>
+        </button>
       </div>
 
       {/* ================= TOP BAR ================= */}
@@ -171,7 +210,10 @@ export default function PlayerManager() {
         {["ALL", ...divisions].map(d => (
           <button
             key={d}
-            onClick={() => setSelectedDivision(d)}
+            onClick={() => {
+              setSelectedDivision(d);
+              setShowUnassignedOnly(false);
+            }}
             style={{
               padding: "6px 12px",
               borderRadius: 20,
@@ -185,7 +227,36 @@ export default function PlayerManager() {
             {d}
           </button>
         ))}
+
+        {showUnassignedOnly && (
+          <button
+            type="button"
+            onClick={() => setShowUnassignedOnly(false)}
+            style={clearBtn}
+          >
+            Clear Unassigned
+          </button>
+        )}
       </div>
+
+      {showUnassignedOnly && (
+        <div style={unassignedBanner}>
+          Showing players with no team assignment. Delete is available here so old or duplicate signups can be cleaned up.
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div style={confirmBox}>
+          <div>
+            <strong>Delete {pendingDelete.first_name} {pendingDelete.last_name}?</strong>
+            <div style={confirmText}>This removes the player record from the active player list.</div>
+          </div>
+          <div style={confirmActions}>
+            <button type="button" style={deleteConfirmBtn} onClick={deletePlayer}>Delete Player</button>
+            <button type="button" style={cancelBtn} onClick={() => setPendingDelete(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* ================= TABLE ================= */}
       <div style={tileWrapper}>
@@ -197,6 +268,7 @@ export default function PlayerManager() {
   <div style={cell}>Shirt</div>
   <div style={cell}>Payment</div>
   <div style={cellLast}>Team</div>
+  <div style={cellLast}>Actions</div>
 </div>
 
         <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
@@ -295,6 +367,20 @@ export default function PlayerManager() {
                     {playerTeam?.name || "No team"}
                   </div>
                 </div>
+
+                <div style={cellLast}>
+                  {!p.team_id ? (
+                    <button
+                      type="button"
+                      style={deleteBtn}
+                      onClick={() => setPendingDelete(p)}
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <span style={lockedText}>Assigned</span>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -312,6 +398,17 @@ const searchInput = {
   border: "1px solid #e5e7eb"
 };
 
+const statusBox = {
+  background: "#eff6ff",
+  border: "1px solid #bfdbfe",
+  borderRadius: 12,
+  color: "#1e3a8a",
+  fontSize: 13,
+  fontWeight: 800,
+  marginTop: 10,
+  padding: 12,
+};
+
 const tileGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
@@ -321,10 +418,17 @@ const tileGrid = {
 
 const tile = {
   background: "#fff",
+  border: "none",
   borderRadius: 12,
   padding: 15,
   boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-  textAlign: "center"
+  textAlign: "center",
+  cursor: "pointer"
+};
+
+const activeTile = {
+  outline: "2px solid #16a34a",
+  boxShadow: "0 10px 24px rgba(22,163,74,0.14)",
 };
 
 const tileTitle = { fontSize: 13, color: "#64748b" };
@@ -339,15 +443,81 @@ const tileWrapper = {
   boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
 };
 
+const clearBtn = {
+  background: "#0f172a",
+  border: "none",
+  borderRadius: 20,
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 850,
+  padding: "6px 12px",
+};
+
+const unassignedBanner = {
+  background: "#fffbeb",
+  border: "1px solid #fde68a",
+  borderRadius: 12,
+  color: "#92400e",
+  fontSize: 13,
+  fontWeight: 800,
+  marginTop: 12,
+  padding: 12,
+};
+
+const confirmBox = {
+  alignItems: "center",
+  background: "#fff",
+  border: "1px solid #fecaca",
+  borderRadius: 14,
+  boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
+  display: "flex",
+  gap: 12,
+  justifyContent: "space-between",
+  marginTop: 12,
+  padding: 12,
+};
+
+const confirmText = {
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 750,
+  marginTop: 3,
+};
+
+const confirmActions = {
+  display: "flex",
+  gap: 8,
+};
+
+const deleteConfirmBtn = {
+  background: "#dc2626",
+  border: "none",
+  borderRadius: 10,
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 900,
+  padding: "9px 11px",
+};
+
+const cancelBtn = {
+  background: "#e2e8f0",
+  border: "none",
+  borderRadius: 10,
+  color: "#0f172a",
+  cursor: "pointer",
+  fontWeight: 900,
+  padding: "9px 11px",
+};
+
 const gridHeader = {
   display: "grid",
-  gridTemplateColumns: "180px 60px 160px 90px 120px 140px 1fr",
+  gridTemplateColumns: "180px 60px 160px 90px 120px 140px 1fr 100px",
   borderBottom: "1px solid #e5e7eb"
 };
 
 const gridRow = {
   display: "grid",
-  gridTemplateColumns: "180px 60px 160px 90px 120px 140px 1fr",
+  gridTemplateColumns: "180px 60px 160px 90px 120px 140px 1fr 100px",
   alignItems: "center",
   borderBottom: "1px solid #f1f5f9"
 };
@@ -384,4 +554,20 @@ const teamSelect = {
 const teamLabel = {
   fontSize: 11,
   color: "#64748b"
+};
+
+const deleteBtn = {
+  background: "#fee2e2",
+  border: "none",
+  borderRadius: 9,
+  color: "#991b1b",
+  cursor: "pointer",
+  fontWeight: 900,
+  padding: "8px 10px",
+};
+
+const lockedText = {
+  color: "#94a3b8",
+  fontSize: 12,
+  fontWeight: 800,
 };

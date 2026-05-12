@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Info } from "lucide-react";
 import { supabase } from "../../../supabase";
+import { applyPersonSeasonFilter, applyUuidSeasonFilter, getActiveSeason } from "../../../utils/season";
 
 export default function ChampionshipMatchupsPage() {
   const [scores, setScores] = useState([]);
@@ -8,35 +9,65 @@ export default function ChampionshipMatchupsPage() {
   const [teams, setTeams] = useState([]);
   const [nflTeams, setNflTeams] = useState([]);
   const [players, setPlayers] = useState([]);
+  const [fields, setFields] = useState([]);
+  const [fieldTimeBlocks, setFieldTimeBlocks] = useState([]);
+  const [championshipSchedule, setChampionshipSchedule] = useState([]);
   const [selectedDivision, setSelectedDivision] = useState("all");
   const [eliminationType, setEliminationType] = useState("single");
   const [matchupDrafts, setMatchupDrafts] = useState({});
   const [manualOverride, setManualOverride] = useState(false);
+  const [scheduleWeek, setScheduleWeek] = useState("");
+  const [newScheduleDate, setNewScheduleDate] = useState("");
+  const [activeScheduleDate, setActiveScheduleDate] = useState("");
+  const [championshipDates, setChampionshipDates] = useState([]);
+  const [scheduleStatus, setScheduleStatus] = useState(null);
+  const [activeView, setActiveView] = useState("overview");
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
+    const active = await getActiveSeason();
     const { data: scoreData } = await supabase.from("game_scores").select("*");
-    const { data: scheduleData } = await supabase
+    const { data: scheduleData } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
-      .select("id, division, event_type");
-    const { data: teamData } = await supabase
+      .select("id, division, event_type"), active);
+    const { data: teamData } = await applyPersonSeasonFilter(supabase
       .from("teams")
-      .select("id, division, nfl_team_id");
+      .select("id, division, nfl_team_id"), active);
     const { data: nflTeamData } = await supabase
       .from("nfl_teams")
       .select("id, short_name, full_name");
-    const { data: playerData } = await supabase
+    const { data: playerData } = await applyPersonSeasonFilter(supabase
       .from("players")
-      .select("id, team_id, rating, rank_score");
+      .select("id, team_id, rating, rank_score"), active);
+    const { data: fieldData } = await supabase
+      .from("fields")
+      .select("*")
+      .eq("is_active", true)
+      .order("field_number", { ascending: true });
+    const { data: blockData } = await supabase
+      .from("field_time_blocks")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    const { data: championshipRows } = await applyUuidSeasonFilter(supabase
+      .from("schedule_master_auto")
+      .select("*")
+      .ilike("event_type", "%champ%")
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true }), active);
 
-    setScores(scoreData || []);
+    const currentScheduleIds = new Set((scheduleData || []).map((game) => game.id));
+    setScores((scoreData || []).filter((score) => currentScheduleIds.has(score.schedule_id)));
     setSchedule(scheduleData || []);
     setTeams(teamData || []);
     setNflTeams(nflTeamData || []);
     setPlayers(playerData || []);
+    setFields(fieldData || []);
+    setFieldTimeBlocks(blockData || []);
+    setChampionshipSchedule(championshipRows || []);
   };
 
   const scheduleById = useMemo(() => {
@@ -168,6 +199,22 @@ export default function ChampionshipMatchupsPage() {
   ), [teams, nflTeams, players]);
 
   const plannerUnlocked = regularGameStatus.ready || manualOverride;
+  const scheduleFields = useMemo(() => {
+    const gameFields = fields.filter((field) => field.type === "game");
+    const championshipFields = gameFields.filter((field) => (field.season_phase || "regular") === "championship");
+    return championshipFields.length ? championshipFields : gameFields;
+  }, [fields]);
+
+  const activeDateBlocks = useMemo(() => {
+    if (!activeScheduleDate) return [];
+    return scheduleFields.map((field) => ({
+      field,
+      times: fieldTimeBlocks
+        .filter((block) => block.field_id === field.id)
+        .map((block) => block.time)
+        .sort((a, b) => timeToMinutes(a) - timeToMinutes(b)),
+    }));
+  }, [activeScheduleDate, fieldTimeBlocks, scheduleFields]);
 
   const addMatchup = (division, rows) => {
     setMatchupDrafts((current) => ({
@@ -215,16 +262,197 @@ export default function ChampionshipMatchupsPage() {
     }));
   };
 
+  const createSuggestedMatchupsForAll = () => {
+    const nextDrafts = {};
+    Object.entries(grouped).forEach(([division, rows]) => {
+      const suggestions = [];
+      for (let left = 0, right = rows.length - 1; left < right; left += 1, right -= 1) {
+        suggestions.push({
+          homeParticipant: getSeedValue(rows[left].seed),
+          awayParticipant: getSeedValue(rows[right].seed),
+          winnerParticipant: "",
+        });
+      }
+      if (suggestions.length) nextDrafts[division] = suggestions;
+    });
+
+    setMatchupDrafts((current) => ({ ...current, ...nextDrafts }));
+  };
+
+  const addChampionshipDate = () => {
+    setScheduleStatus(null);
+    if (!newScheduleDate) {
+      setScheduleStatus({ type: "error", message: "Choose a date before adding it." });
+      return;
+    }
+
+    setChampionshipDates((current) => {
+      const next = [...new Set([...current, newScheduleDate])].sort();
+      return next;
+    });
+    setActiveScheduleDate(newScheduleDate);
+    setNewScheduleDate("");
+  };
+
+  const removeChampionshipDate = (date) => {
+    setChampionshipDates((current) => current.filter((item) => item !== date));
+    if (activeScheduleDate === date) {
+      const remaining = championshipDates.filter((item) => item !== date);
+      setActiveScheduleDate(remaining[0] || "");
+    }
+  };
+
+  const createChampionshipSchedule = async () => {
+    setScheduleStatus(null);
+
+    if (!scheduleWeek) {
+      setScheduleStatus({ type: "error", message: "Set the championship week before creating games." });
+      return;
+    }
+
+    if (!championshipDates.length) {
+      setScheduleStatus({ type: "error", message: "Add at least one championship date first." });
+      return;
+    }
+
+    if (!scheduleFields.length) {
+      setScheduleStatus({ type: "error", message: "No game fields are available. Add championship fields or regular game fields first." });
+      return;
+    }
+
+    const availableBlocks = championshipDates.flatMap((date) => (
+      scheduleFields.flatMap((field) => (
+        fieldTimeBlocks
+          .filter((block) => block.field_id === field.id)
+          .map((block) => ({ date, field, time: block.time }))
+      ))
+    )).sort((a, b) => (
+      a.date.localeCompare(b.date) ||
+      timeToMinutes(a.time) - timeToMinutes(b.time) ||
+      String(a.field.field_number || "").localeCompare(String(b.field.field_number || ""))
+    ));
+
+    if (!availableBlocks.length) {
+      setScheduleStatus({ type: "error", message: "Add time blocks to your championship fields in Field Manager before creating the schedule." });
+      return;
+    }
+
+    const divisionsToSchedule = selectedDivision === "all"
+      ? Object.keys(matchupDrafts)
+      : [selectedDivision];
+
+    const rowsToInsert = [];
+
+    divisionsToSchedule.forEach((division) => {
+      const drafts = matchupDrafts[division] || [];
+      const seededRows = grouped[division] || [];
+
+      drafts.forEach((draft, index) => {
+        if (!draft.homeParticipant || !draft.awayParticipant) return;
+
+        const block = availableBlocks[rowsToInsert.length];
+        if (!block) return;
+
+        const homeLabel = resolveParticipantLabel(draft.homeParticipant, seededRows, drafts);
+        const awayLabel = resolveParticipantLabel(draft.awayParticipant, seededRows, drafts);
+
+        rowsToInsert.push({
+          week: Number(scheduleWeek),
+          field_id: block.field.id,
+          time: block.time,
+          event_time: block.time,
+          field: block.field.name,
+          event_date: block.date,
+          division,
+          team: homeLabel,
+          opponent: awayLabel,
+          event_type: "championship game",
+          source: "championship",
+        });
+      });
+    });
+
+    if (!rowsToInsert.length) {
+      setScheduleStatus({ type: "error", message: "Add at least one seed matchup before creating the championship schedule." });
+      return;
+    }
+
+    const active = await getActiveSeason();
+    const { error } = await supabase.from("schedule_master_auto").insert(rowsToInsert.map((row) => ({
+      ...row,
+      season_id: active.seasonId,
+    })));
+
+    if (error) {
+      console.error("Championship schedule create failed:", error);
+      setScheduleStatus({ type: "error", message: `Could not create championship schedule: ${error.message}` });
+      return;
+    }
+
+    setScheduleStatus({ type: "success", message: `${rowsToInsert.length} championship game${rowsToInsert.length === 1 ? "" : "s"} added to the schedule.` });
+    loadData();
+  };
+
   return (
     <div style={wrap}>
       <div>
-        <h2 style={title}>Championship Seeding</h2>
+        <h2 style={title}>Championships</h2>
         <div style={subtitle}>
-          Current seeds are calculated by wins, point differential, points for, then team name.
+          Review standings, build seed matchups, and create championship schedule rows from one place.
         </div>
       </div>
 
-      <div style={statusPanel}>
+      <div style={toolGrid}>
+        <ToolTile
+          title="Overview"
+          text="See readiness, setup status, and next steps."
+          active={activeView === "overview"}
+          onClick={() => setActiveView("overview")}
+        />
+        <ToolTile
+          title="Championship Seeding"
+          text="Review current seeds by division with team ranking details."
+          active={activeView === "seeding"}
+          onClick={() => setActiveView("seeding")}
+        />
+        <ToolTile
+          title="Create Matchups"
+          text="Choose single or double elimination and build seed pairings."
+          active={activeView === "matchups"}
+          onClick={() => setActiveView("matchups")}
+        />
+        <ToolTile
+          title="Create Championship Schedule"
+          text="Post championship games into the schedule for scoring and live scoreboard."
+          active={activeView === "schedule"}
+          onClick={() => setActiveView("schedule")}
+        />
+      </div>
+
+      {activeView === "overview" && (
+        <section style={section}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={divisionTitle}>Championship Overview</div>
+              <div style={sectionSub}>Use these steps from left to right once regular season scoring is complete.</div>
+            </div>
+          </div>
+
+          <div style={overviewGrid}>
+            <OverviewCard title="Scoring Progress" value={`${regularGameStatus.scored}/${regularGameStatus.total}`} text={`${regularGameStatus.missing} games still need scores.`} good={regularGameStatus.ready} />
+            <OverviewCard title="Seeded Divisions" value={Math.max(visibleDivisions.length - 1, 0)} text="Divisions with completed score data." good={visibleDivisions.length > 1} />
+            <OverviewCard title="Planned Matchups" value={Object.values(matchupDrafts).reduce((total, rows) => total + rows.length, 0)} text="Seed matchups currently drafted." />
+            <OverviewCard title="Scheduled Championships" value={championshipSchedule.length} text="Championship games already on the schedule." />
+          </div>
+
+          <div style={overviewCopy}>
+            Start with <strong>Championship Seeding</strong> to confirm rankings. Use <strong>Create Matchups</strong> to pair seeds and set placeholders. Then use <strong>Create Championship Schedule</strong> to post those games into the regular schedule so they can be scored and run on the live scoreboard.
+          </div>
+        </section>
+      )}
+
+      {activeView === "matchups" && (
+        <div style={statusPanel}>
         <div>
           <div style={statusTitle}>
             Regular season scoring: {regularGameStatus.scored} of {regularGameStatus.total} games complete
@@ -275,9 +503,19 @@ export default function ChampionshipMatchupsPage() {
               {manualOverride ? "Override On" : "Override Missing Games"}
             </button>
           )}
+          <button
+            type="button"
+            style={{ ...toggleBtn, ...(!plannerUnlocked ? disabledBtn : {}) }}
+            disabled={!plannerUnlocked}
+            onClick={createSuggestedMatchupsForAll}
+          >
+            Suggest All Divisions
+          </button>
         </div>
       </div>
+      )}
 
+      {activeView !== "overview" && (
       <div style={filterGrid}>
         {visibleDivisions.map((division) => (
           <button
@@ -292,12 +530,13 @@ export default function ChampionshipMatchupsPage() {
           </button>
         ))}
       </div>
+      )}
 
-      {Object.keys(grouped).length === 0 && (
+      {(activeView === "seeding" || activeView === "matchups") && Object.keys(grouped).length === 0 && (
         <div style={empty}>No completed game scores available for seeding yet.</div>
       )}
 
-      {Object.entries(grouped).map(([division, rows]) => {
+      {(activeView === "seeding" || activeView === "matchups") && Object.entries(grouped).map(([division, rows]) => {
         const divisionDrafts = matchupDrafts[division] || [];
 
         return (
@@ -319,6 +558,7 @@ export default function ChampionshipMatchupsPage() {
               ))}
             </div>
 
+            {activeView === "matchups" && (
             <div style={{
               ...matchupPanel,
               ...(!plannerUnlocked ? lockedPanel : {}),
@@ -388,9 +628,147 @@ export default function ChampionshipMatchupsPage() {
                 </div>
               )}
             </div>
+            )}
           </section>
         );
       })}
+
+      {activeView === "schedule" && (
+      <section style={section}>
+        <div style={sectionHeader}>
+          <div>
+            <div style={divisionTitle}>Championship Schedule Creator</div>
+            <div style={sectionSub}>
+              Creates championship games from the seed matchup planner and adds them to the regular schedule, score management, referee scheduling, and live scoreboard.
+            </div>
+          </div>
+        </div>
+
+        {scheduleStatus && (
+          <div style={{ ...scheduleStatusBox, ...(scheduleStatus.type === "error" ? scheduleErrorBox : scheduleSuccessBox) }}>
+            {scheduleStatus.message}
+          </div>
+        )}
+
+        <div style={creatorGrid}>
+          <label style={creatorField}>
+            <span style={creatorLabel}>Schedule Week</span>
+            <input
+              type="number"
+              value={scheduleWeek}
+              onChange={(event) => setScheduleWeek(event.target.value)}
+              style={creatorInput}
+            />
+          </label>
+        </div>
+
+        <div style={scheduleSetupGrid}>
+          <div style={setupCard}>
+            <div style={setupTitle}>1. Championship Dates</div>
+            <div style={sectionSub}>Create the dates first, then build field time blocks for each day.</div>
+
+            <div style={dateAddRow}>
+              <input
+                type="date"
+                value={newScheduleDate}
+                onChange={(event) => setNewScheduleDate(event.target.value)}
+                style={{ ...creatorInput, flex: "1 1 160px" }}
+              />
+              <button type="button" style={addSmallBtn} onClick={addChampionshipDate}>
+                Add Date
+              </button>
+            </div>
+
+            <div style={dateTileGrid}>
+              {championshipDates.map((date) => {
+                const blockCount = scheduleFields.reduce((total, field) => (
+                  total + fieldTimeBlocks.filter((block) => block.field_id === field.id).length
+                ), 0);
+
+                return (
+                  <div
+                    key={date}
+                    style={{
+                      ...dateTileRow,
+                      ...(activeScheduleDate === date ? activeDateTile : {}),
+                    }}
+                  >
+                    <button type="button" style={dateSelectBtn} onClick={() => setActiveScheduleDate(date)}>
+                      {formatDisplayDate(date)}
+                      <span style={dateTileSub}>{blockCount} field block{blockCount === 1 ? "" : "s"}</span>
+                    </button>
+                    <button type="button" style={dateRemoveBtn} onClick={() => removeChampionshipDate(date)}>
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+
+              {!championshipDates.length && (
+                <div style={plannerEmpty}>No championship dates added yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div style={setupCard}>
+            <div style={setupTitle}>2. Championship Field Time Blocks</div>
+            <div style={sectionSub}>
+              {scheduleFields.length
+                ? `${scheduleFields.length} championship field${scheduleFields.length === 1 ? "" : "s"} loaded from Field Manager`
+                : "No championship fields found"}
+            </div>
+
+            {activeScheduleDate ? (
+              <>
+                <div style={fieldBlockGrid}>
+                  {activeDateBlocks.map(({ field, times }) => (
+                    <div key={field.id} style={fieldBlockCard}>
+                      <div style={fieldBlockTitle}>
+                        {field.name}
+                        {field.field_number ? ` #${field.field_number}` : ""}
+                      </div>
+                      <div style={timeChipRow}>
+                        {times.map((time) => (
+                          <span key={`${field.id}-${time}`} style={timeChip}>
+                            {time}
+                          </span>
+                        ))}
+                      </div>
+                      {!times.length && <div style={mutedSmall}>No time blocks set in Field Manager yet.</div>}
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={plannerEmpty}>Add or select a championship date to set field time blocks.</div>
+            )}
+          </div>
+        </div>
+
+        <div style={creatorHint}>
+          Dates are created here. Fields and field time blocks come from Field Manager. Games are saved as championship games so they appear in the public schedule, score management, ref scheduling, and field live scoreboard.
+        </div>
+
+        <button type="button" style={wideCreateScheduleBtn} onClick={createChampionshipSchedule}>
+          Create Championship Schedule
+        </button>
+
+        {!!championshipSchedule.length && (
+          <div style={existingScheduleList}>
+            {championshipSchedule.map((game) => (
+              <div key={game.id} style={existingScheduleRow}>
+                <div>
+                  <strong>{game.team}</strong> vs <strong>{game.opponent}</strong>
+                  <div style={sectionSub}>
+                    {game.division} • Week {game.week || "-"} • {game.event_date || "Date TBD"} • {game.event_time || game.time || "Time TBD"} • {game.field || "Field TBD"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+      )}
     </div>
   );
 }
@@ -398,6 +776,18 @@ export default function ChampionshipMatchupsPage() {
 const wrap = { display: "flex", flexDirection: "column", gap: 18 };
 const title = { fontSize: 24, fontWeight: 800, margin: 0 };
 const subtitle = { color: "#64748b", fontSize: 13, marginTop: 4 };
+const toolGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px,1fr))", gap: 12 };
+const toolTile = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 24px rgba(0,0,0,0.06)", cursor: "pointer", padding: 16, textAlign: "left" };
+const activeToolTile = { background: "#ecfdf3", borderColor: "#16a34a", boxShadow: "0 8px 24px rgba(22,163,74,0.14)" };
+const toolTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900 };
+const toolText = { color: "#64748b", fontSize: 12, fontWeight: 700, marginTop: 6 };
+const overviewGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px,1fr))", gap: 12 };
+const overviewCard = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 14 };
+const overviewGoodCard = { background: "#f0fdf4", borderColor: "#86efac" };
+const overviewTitle = { color: "#64748b", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
+const overviewValue = { color: "#0f172a", fontSize: 30, fontWeight: 900, marginTop: 4 };
+const overviewText = { color: "#64748b", fontSize: 12, fontWeight: 700, marginTop: 4 };
+const overviewCopy = { background: "#f8fafc", borderRadius: 12, color: "#334155", fontSize: 13, fontWeight: 700, lineHeight: 1.5, marginTop: 14, padding: 14 };
 const filterGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))", gap: 10 };
 const filterTile = { background: "#fff", border: "none", borderRadius: 12, padding: 12, cursor: "pointer", fontWeight: 700 };
 const activeFilterTile = { outline: "2px solid #16a34a" };
@@ -436,6 +826,35 @@ const vsText = { color: "#64748b", fontSize: 12, fontWeight: 800 };
 const removeBtn = { background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 10, color: "#be123c", cursor: "pointer", fontWeight: 800, padding: "8px 10px" };
 const doubleNote = { background: "#fff7ed", borderRadius: 10, color: "#9a3412", fontSize: 12, fontWeight: 700, marginTop: 12, padding: 10 };
 const overrideNote = { background: "#fffbeb", borderRadius: 10, color: "#92400e", fontSize: 12, fontWeight: 800, marginTop: 12, padding: 10 };
+const creatorGrid = { alignItems: "end", display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginTop: 14 };
+const creatorField = { display: "grid", gap: 6 };
+const creatorLabel = { color: "#334155", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
+const creatorInput = { background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 10, color: "#0f172a", fontWeight: 800, minHeight: 42, padding: "9px 10px" };
+const createScheduleBtn = { background: "#16a34a", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 900, minHeight: 42, padding: "10px 12px" };
+const wideCreateScheduleBtn = { ...createScheduleBtn, marginTop: 14, width: "100%" };
+const creatorHint = { background: "#f8fafc", borderRadius: 10, color: "#64748b", fontSize: 12, fontWeight: 700, marginTop: 12, padding: 10 };
+const scheduleSetupGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", marginTop: 14 };
+const setupCard = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 14 };
+const setupTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900, marginBottom: 4 };
+const dateAddRow = { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 };
+const addSmallBtn = { background: "#0f172a", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 900, minHeight: 42, padding: "10px 12px" };
+const dateTileGrid = { display: "grid", gap: 8, marginTop: 12 };
+const dateTileRow = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, display: "flex", gap: 8, justifyContent: "space-between", padding: 8 };
+const activeDateTile = { background: "#ecfdf3", borderColor: "#16a34a" };
+const dateSelectBtn = { background: "transparent", border: "none", color: "#0f172a", cursor: "pointer", flex: "1 1 auto", fontWeight: 900, minWidth: 0, padding: 2, textAlign: "left" };
+const dateTileSub = { color: "#64748b", display: "block", fontSize: 11, fontWeight: 800, marginTop: 2 };
+const dateRemoveBtn = { background: "#fee2e2", border: "none", borderRadius: 8, color: "#991b1b", cursor: "pointer", fontWeight: 800, padding: "7px 8px" };
+const fieldBlockGrid = { display: "grid", gap: 10, marginTop: 12 };
+const fieldBlockCard = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 };
+const fieldBlockTitle = { color: "#0f172a", fontWeight: 900 };
+const timeChipRow = { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 };
+const timeChip = { alignItems: "center", background: "#e0f2fe", borderRadius: 999, color: "#0369a1", display: "inline-flex", fontSize: 12, fontWeight: 900, gap: 5, padding: "6px 8px" };
+const mutedSmall = { color: "#94a3b8", fontSize: 12, fontWeight: 800, marginTop: 8 };
+const scheduleStatusBox = { borderRadius: 10, fontSize: 13, fontWeight: 800, marginTop: 12, padding: 10 };
+const scheduleSuccessBox = { background: "#dcfce7", color: "#166534" };
+const scheduleErrorBox = { background: "#fee2e2", color: "#991b1b" };
+const existingScheduleList = { display: "grid", gap: 10, marginTop: 14 };
+const existingScheduleRow = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 };
 const gameLabel = { color: "#334155", flex: "0 0 70px", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
 const participantCell = { flex: "1 1 180px", minWidth: 0 };
 const winnerCell = { display: "flex", flex: "1 1 190px", flexDirection: "column", gap: 4, minWidth: 0 };
@@ -444,6 +863,53 @@ const resolvedText = { color: "#166534", flex: "1 0 100%", fontSize: 12, fontWei
 const rankingRow = { alignItems: "center", display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" };
 const rankingPill = { background: "#eef2ff", borderRadius: 999, color: "#3730a3", fontSize: 11, fontWeight: 900, padding: "5px 8px" };
 const rankingMuted = { color: "#94a3b8", fontSize: 11, fontWeight: 800, marginTop: 8 };
+
+function timeToMinutes(value) {
+  if (!value) return 0;
+  const text = value.toString().trim().toUpperCase();
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
+  if (!match) return 0;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  const meridiem = match[3];
+
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+
+  return hour * 60 + minute;
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "Date TBD";
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function ToolTile({ title, text, active, onClick }) {
+  return (
+    <button type="button" style={{ ...toolTile, ...(active ? activeToolTile : {}) }} onClick={onClick}>
+      <div style={toolTitle}>{title}</div>
+      <div style={toolText}>{text}</div>
+    </button>
+  );
+}
+
+function OverviewCard({ title, value, text, good = false }) {
+  return (
+    <div style={{ ...overviewCard, ...(good ? overviewGoodCard : {}) }}>
+      <div style={overviewTitle}>{title}</div>
+      <div style={overviewValue}>{value}</div>
+      <div style={overviewText}>{text}</div>
+    </div>
+  );
+}
 
 function SeedCard({ row, ranking }) {
   return (

@@ -13,6 +13,8 @@ import RefSignUpPage from "./pages/Public/RefSignUpPage";
 import SignUpSelectPage from "./pages/Public/SignUpSelectPage";
 import TeamSchedulesPage from "./pages/Public/TeamSchedulesPage";
 import CoachRankingsPage from "./pages/Public/CoachRankingsPage";
+import ComplaintFormPage from "./pages/Public/ComplaintFormPage";
+import BoardMembersPage from "./pages/Public/BoardMembersPage";
 import FieldScoreboardPage from "./pages/Public/FieldScoreboardPage";
 import FieldScoreboardMasterPage from "./pages/Public/FieldScoreboardMasterPage";
 
@@ -65,6 +67,8 @@ export default function App() {
       else if (path === "/coach-signup") setPage("coachSignup");
       else if (path === "/ref-signup") setPage("refSignup");
       else if (path === "/coach-rankings") setPage("coachRankings");
+      else if (path === "/complaint") setPage("complaintForm");
+      else if (path === "/board") setPage("boardMembers");
       else if (path === "/scoreboard-master") setPage("scoreboardMaster");
       else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display/home")) setPage("fieldScoreDisplayHome");
       else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display/away")) setPage("fieldScoreDisplayAway");
@@ -174,6 +178,8 @@ export default function App() {
     if (page === "coachSignup") window.history.pushState({}, "", "/coach-signup");
     if (page === "refSignup") window.history.pushState({}, "", "/ref-signup");
     if (page === "coachRankings") window.history.pushState({}, "", "/coach-rankings");
+    if (page === "complaintForm") window.history.pushState({}, "", "/complaint");
+    if (page === "boardMembers") window.history.pushState({}, "", "/board");
     if (page === "scoreboardMaster") window.history.pushState({}, "", "/scoreboard-master");
     if (page === "loginSelect") window.history.pushState({}, "", "/login");
 
@@ -281,6 +287,8 @@ export default function App() {
             {page === "coachSignup" && <CoachSignUpPage />}
             {page === "refSignup" && <RefSignUpPage />}
             {page === "coachRankings" && <CoachRankingsPage />}
+            {page === "complaintForm" && <ComplaintFormPage />}
+            {page === "boardMembers" && <BoardMembersPage />}
           </PublicLayout>
         )}
     </>

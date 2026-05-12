@@ -5,6 +5,17 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+  const [newUser, setNewUser] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    is_admin: false,
+    is_coach: false,
+    is_parent: false,
+    is_referee: false,
+  });
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     loadUsers();
@@ -13,6 +24,42 @@ export default function UserManagement() {
   const loadUsers = async () => {
     const { data } = await supabase.from("users").select("*");
     setUsers(data || []);
+  };
+
+  const addUser = async () => {
+    setStatus("");
+
+    if (!newUser.email.trim()) {
+      setStatus("Email is required.");
+      return;
+    }
+
+    const { error } = await supabase.from("users").insert({
+      ...newUser,
+      email: newUser.email.trim(),
+      first_name: newUser.first_name.trim() || null,
+      last_name: newUser.last_name.trim() || null,
+      phone: newUser.phone.trim() || null,
+    });
+
+    if (error) {
+      console.error("User add error:", error);
+      setStatus(`Could not add user: ${error.message}`);
+      return;
+    }
+
+    setStatus("User added. Use password reset to invite them to set a password.");
+    setNewUser({
+      first_name: "",
+      last_name: "",
+      email: "",
+      phone: "",
+      is_admin: false,
+      is_coach: false,
+      is_parent: false,
+      is_referee: false,
+    });
+    loadUsers();
   };
 
   const filtered = users.filter(u =>
@@ -140,8 +187,50 @@ export default function UserManagement() {
 
   /* ================= LIST VIEW ================= */
   return (
-    <div style={{ padding: 10 }}>
-      <h2>User Management</h2>
+    <div style={listPage}>
+      <div>
+        <h2 style={title}>User Management</h2>
+        <div style={sub}>Add users, edit contact details, and manage portal roles.</div>
+      </div>
+
+      {status && <div style={statusBox}>{status}</div>}
+
+      <div style={card}>
+        <SectionTitle title="Add User" />
+        <div style={formGrid}>
+          <input
+            placeholder="First name"
+            value={newUser.first_name}
+            onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
+            style={searchBox}
+          />
+          <input
+            placeholder="Last name"
+            value={newUser.last_name}
+            onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
+            style={searchBox}
+          />
+          <input
+            placeholder="Email"
+            value={newUser.email}
+            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+            style={searchBox}
+          />
+          <input
+            placeholder="Phone"
+            value={newUser.phone}
+            onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+            style={searchBox}
+          />
+        </div>
+        <div style={roleGrid}>
+          <RoleToggle label="Admin" value={newUser.is_admin} onChange={(v) => setNewUser({ ...newUser, is_admin: v })} />
+          <RoleToggle label="Coach" value={newUser.is_coach} onChange={(v) => setNewUser({ ...newUser, is_coach: v })} />
+          <RoleToggle label="Parent" value={newUser.is_parent} onChange={(v) => setNewUser({ ...newUser, is_parent: v })} />
+          <RoleToggle label="Referee" value={newUser.is_referee} onChange={(v) => setNewUser({ ...newUser, is_referee: v })} />
+        </div>
+        <button style={addBtn} onClick={addUser}>Add User</button>
+      </div>
 
       <input
         placeholder="Search users..."
@@ -225,6 +314,52 @@ const page = {
   padding: 20,
   background: "#f3f4f6",
   minHeight: "100vh"
+};
+
+const listPage = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+};
+
+const title = {
+  color: "#0f172a",
+  fontSize: 22,
+  fontWeight: 900,
+  margin: 0,
+};
+
+const statusBox = {
+  background: "#ecfdf3",
+  borderRadius: 10,
+  color: "#166534",
+  fontSize: 13,
+  fontWeight: 800,
+  padding: "10px 12px",
+};
+
+const formGrid = {
+  display: "grid",
+  gap: 10,
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+};
+
+const roleGrid = {
+  display: "grid",
+  gap: 10,
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  marginTop: 12,
+};
+
+const addBtn = {
+  background: "#16a34a",
+  border: "none",
+  borderRadius: 10,
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 900,
+  marginTop: 12,
+  padding: "10px 14px",
 };
 
 const header = {

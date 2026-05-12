@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../../supabase";
+import { applyPersonSeasonFilter, applyUuidSeasonFilter, getActiveSeason } from "../../../utils/season";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 
@@ -142,37 +143,45 @@ export default function AutoAssignPage() {
 
   /* ---------------- LOAD ---------------- */
 
-  // 🔥 FIXED WEEKS (NOW INCLUDES WEEK 8)
   const loadWeeks = async () => {
-    const { data } = await supabase
+    const active = await getActiveSeason();
+    const { data } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
-      .select("week,event_date,event_type");
+      .select("week,event_date,event_type"), active);
 
-    const fullWeeks = [1, 2, 3, 4, 5, 6, 7, 8, "Championship"];
+    const scheduledWeeks = [...new Set((data || [])
+      .filter((game) => {
+        const eventType = (game.event_type || "").toLowerCase();
+        return eventType.includes("game") || eventType.includes("champ");
+      })
+      .map((game) => game.week)
+      .filter(Boolean))]
+      .sort((a, b) => Number(a) - Number(b));
     const dateMap = {};
 
     (data || []).forEach((game) => {
       const eventType = game.event_type?.toLowerCase() || "";
       if (!eventType.includes("game") && !eventType.includes("champ")) return;
 
-      const key = game.event_type?.toLowerCase().includes("champ")
-        ? "Championship"
-        : game.week;
+      const key = game.week;
 
-      if (!key || !fullWeeks.includes(key)) return;
+      if (!key || !scheduledWeeks.includes(key)) return;
       if (!dateMap[key]) dateMap[key] = [];
       if (game.event_date) dateMap[key].push(game.event_date);
     });
 
-    setWeeks(fullWeeks);
+    setWeeks(scheduledWeeks);
     setWeekDates(dateMap);
+    if (!selectedWeek && scheduledWeeks.length) setSelectedWeek(scheduledWeeks[0]);
+    if (selectedWeek && !scheduledWeeks.includes(selectedWeek)) setSelectedWeek(scheduledWeeks[0] || null);
   };
 
   const loadRefs = async () => {
-    const { data } = await supabase
+    const active = await getActiveSeason();
+    const { data } = await applyPersonSeasonFilter(supabase
       .from("referees")
       .select("*")
-      .eq("status", "approved");
+      .eq("status", "approved"), active);
 
     setRefs(data || []);
   };
@@ -181,13 +190,11 @@ export default function AutoAssignPage() {
     let query = supabase
       .from("schedule_master_auto")
       .select("*")
-      .ilike("event_type", "%game%");
+      .or("event_type.ilike.%game%,event_type.ilike.%champ%");
+    const active = await getActiveSeason();
+    query = applyUuidSeasonFilter(query, active);
 
-    if (selectedWeek === "Championship") {
-      query = query.ilike("event_type", "%champ%");
-    } else {
-      query = query.eq("week", selectedWeek);
-    }
+    query = query.eq("week", selectedWeek);
 
     const { data } = await query;
 
@@ -199,11 +206,7 @@ export default function AutoAssignPage() {
       .from("ref_availability")
       .select("*");
 
-    if (selectedWeek === "Championship") {
-      query = query.eq("week", 9); // 👈 Championship now moved to week 9
-    } else {
-      query = query.eq("week", selectedWeek);
-    }
+    query = query.eq("week", selectedWeek);
 
     const { data } = await query;
 
@@ -239,7 +242,7 @@ export default function AutoAssignPage() {
         const { error } = await supabase.from("ref_availability").upsert(
           {
             referee_id: refId,
-            week: selectedWeek === "Championship" ? 9 : selectedWeek,
+            week: selectedWeek,
             time_block: time,
             available: availability[refId]?.[time] || false,
           },

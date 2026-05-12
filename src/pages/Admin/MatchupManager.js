@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { applyPersonSeasonFilter, getActiveSeason } from "../../utils/season";
 
 /* ================= LOGOS ================= */
 
@@ -44,7 +45,8 @@ export default function MatchupManager() {
   }, [selectedDivision]);
 
   const loadDivisions = async () => {
-    const { data } = await supabase.from("teams").select("division");
+    const active = await getActiveSeason();
+    const { data } = await applyPersonSeasonFilter(supabase.from("teams").select("division"), active);
 
     let unique = [...new Set(data.map(t => t.division).filter(Boolean))];
 
@@ -63,19 +65,22 @@ export default function MatchupManager() {
   };
 
   const loadTeams = async () => {
-    const { data } = await supabase
+    const active = await getActiveSeason();
+    const { data } = await applyPersonSeasonFilter(supabase
       .from("teams")
       .select("*")
-      .eq("division", selectedDivision);
+      .eq("division", selectedDivision), active);
 
     setTeams(data || []);
   };
 
   const loadMatchups = async () => {
+    const active = await getActiveSeason();
     const { data } = await supabase
       .from("matchups")
       .select("*")
       .eq("division", selectedDivision)
+      .eq("season_year", active.seasonYear || 0)
       .order("week", { ascending: true });
 
     setMatchups(data || []);
@@ -86,7 +91,8 @@ export default function MatchupManager() {
   const generateMatchups = async () => {
     if (teams.length < 2) return alert("Not enough teams");
 
-    await supabase.from("matchups").delete().eq("division", selectedDivision);
+    const active = await getActiveSeason();
+    await supabase.from("matchups").delete().eq("division", selectedDivision).eq("season_year", active.seasonYear || 0);
 
     let list = [...teams];
     const isOdd = list.length % 2 !== 0;
@@ -138,7 +144,7 @@ export default function MatchupManager() {
 
       weekGames.forEach(g => {
         final.push({
-          season_year: 2026,
+          season_year: active.seasonYear,
           week: i + 1,
           division: selectedDivision,
           home_team_id: g.home_team_id,

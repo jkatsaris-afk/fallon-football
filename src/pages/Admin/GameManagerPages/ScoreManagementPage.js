@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../../utils/season";
 
 /* TEAM LOGOS */
 import Logo49ers from "../../../resources/San Francisco 49ers.png";
@@ -36,10 +37,13 @@ export default function ScoreManagementPage() {
   const [games, setGames] = useState([]);
   const [finalGames, setFinalGames] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState("all");
+  const [selectedTeam, setSelectedTeam] = useState(null);
 
   const [modalGame, setModalGame] = useState(null);
+  const [modalScore, setModalScore] = useState(null);
   const [homeScore, setHomeScore] = useState("");
   const [awayScore, setAwayScore] = useState("");
+  const [status, setStatus] = useState(null);
 
   useEffect(() => {
     loadGames();
@@ -47,10 +51,11 @@ export default function ScoreManagementPage() {
   }, []);
 
   const loadGames = async () => {
-    const { data } = await supabase
+    const active = await getActiveSeason();
+    const { data } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
       .select("*")
-      .ilike("event_type", "%game%");
+      .or("event_type.ilike.%game%,event_type.ilike.%champ%"), active);
 
     setGames(data || []);
   };
@@ -64,36 +69,45 @@ export default function ScoreManagementPage() {
   };
 
   const openModal = (game) => {
+    const final = isFinal(game);
     setModalGame(game);
-    setHomeScore("");
-    setAwayScore("");
+    setModalScore(final || null);
+    setHomeScore(final?.home_score ?? "");
+    setAwayScore(final?.away_score ?? "");
+    setStatus(null);
   };
 
   const saveScore = async () => {
-    const home = parseInt(homeScore);
-    const away = parseInt(awayScore);
+    const home = Number(homeScore);
+    const away = Number(awayScore);
 
-    if (isNaN(home) || isNaN(away)) {
-      alert("Enter valid scores");
+    if (!Number.isFinite(home) || !Number.isFinite(away)) {
+      setStatus({ type: "error", message: "Enter valid scores before saving." });
       return;
     }
 
-    const { error } = await supabase.from("game_scores").insert({
+    const scorePayload = {
       schedule_id: modalGame.id,
       home_team: modalGame.team,
       away_team: modalGame.opponent,
       home_score: home,
-      away_score: away
-    });
+      away_score: away,
+    };
+
+    const { error } = modalScore?.id
+      ? await supabase.from("game_scores").update(scorePayload).eq("id", modalScore.id)
+      : await supabase.from("game_scores").insert(scorePayload);
 
     if (error) {
       console.error("SAVE ERROR:", error);
-      alert("Error saving score: " + error.message);
+      setStatus({ type: "error", message: `Could not save score: ${error.message}` });
       return;
     }
 
     setModalGame(null);
-    loadFinalGames();
+    setModalScore(null);
+    setStatus({ type: "success", message: modalScore?.id ? "Score updated." : "Score saved." });
+    await loadFinalGames();
   };
 
   const isFinal = (game) => {
@@ -102,7 +116,7 @@ export default function ScoreManagementPage() {
 
   const weeks = useMemo(() => {
     const unique = [...new Set(games.map(g => g.week).filter(Boolean))];
-    return ["all", ...unique.sort((a,b)=>a-b), "championship"];
+    return ["all", ...unique.sort((a,b)=>Number(a)-Number(b))];
   }, [games]);
 
   const parseDate = (date) => {
@@ -121,9 +135,6 @@ export default function ScoreManagementPage() {
     const dates = games
       .filter((game) => {
         if (weekValue === "all") return false;
-        if (weekValue === "championship") {
-          return (game.event_type || "").toLowerCase().includes("champ") && game.event_date;
-        }
         return String(game.week) === String(weekValue) && game.event_date;
       })
       .map((game) => parseDate(game.event_date))
@@ -138,20 +149,51 @@ export default function ScoreManagementPage() {
       : `${formatDate(first)} - ${formatDate(last)}`;
   };
 
-  const filteredGames = useMemo(() => {
+  const weekFilteredGames = useMemo(() => {
     if (selectedWeek === "all") return games;
-
-    if (selectedWeek === "championship") {
-      return games.filter(g =>
-        (g.event_type || "").toLowerCase().includes("champ")
-      );
-    }
 
     return games.filter(g => String(g.week) === String(selectedWeek));
   }, [games, selectedWeek]);
 
+  const teamTiles = useMemo(() => {
+    const teams = new Map();
+    weekFilteredGames.forEach((game) => {
+      const division = getGameDivision(game);
+      [game.team, game.opponent].forEach((name) => {
+        const team = cleanTeamName(name);
+        if (!team) return;
+        const key = `${team}__${division}`;
+        if (!teams.has(key)) teams.set(key, { key, team, division });
+      });
+    });
+
+    return [
+      { key: "all", team: "all", division: "" },
+      ...Array.from(teams.values()).sort((a, b) => (
+        a.division.localeCompare(b.division) || a.team.localeCompare(b.team)
+      )),
+    ];
+  }, [weekFilteredGames]);
+
+  const filteredGames = useMemo(() => {
+    if (!selectedTeam || selectedTeam.key === "all") return weekFilteredGames;
+
+    return weekFilteredGames.filter((game) => (
+      getGameDivision(game) === selectedTeam.division &&
+      (
+        cleanTeamName(game.team) === selectedTeam.team ||
+        cleanTeamName(game.opponent) === selectedTeam.team
+      )
+    ));
+  }, [weekFilteredGames, selectedTeam]);
+
   return (
     <div style={wrap}>
+      {status && (
+        <div style={{ ...statusBox, ...(status.type === "error" ? errorBox : successBox) }}>
+          {status.message}
+        </div>
+      )}
 
       {/* WEEK FILTER */}
       <div style={weekTileGrid}>
@@ -161,13 +203,25 @@ export default function ScoreManagementPage() {
             label={
               w === "all"
                 ? "All Weeks"
-                : w === "championship"
-                ? "Championships"
                 : `Week ${w}`
             }
             date={getWeekDateRange(w)}
             active={selectedWeek === w}
-            onClick={() => setSelectedWeek(w)}
+            onClick={() => {
+              setSelectedWeek(w);
+              setSelectedTeam(null);
+            }}
+          />
+        ))}
+      </div>
+
+      <div style={teamTileGrid}>
+        {teamTiles.map((team) => (
+          <TeamTile
+            key={team.key}
+            team={team}
+            active={(selectedTeam?.key || "all") === team.key}
+            onClick={() => setSelectedTeam(team)}
           />
         ))}
       </div>
@@ -234,8 +288,16 @@ export default function ScoreManagementPage() {
               )}
 
               {final && (
-                <div style={finalBadge}>
-                  Final: {final.home_score} - {final.away_score}
+                <div style={finalBlock}>
+                  <div style={finalBadge}>
+                    Final: {final.home_score} - {final.away_score}
+                  </div>
+                  <button
+                    style={editScoreBtn}
+                    onClick={() => openModal(g)}
+                  >
+                    Edit Score
+                  </button>
                 </div>
               )}
 
@@ -250,29 +312,41 @@ export default function ScoreManagementPage() {
           <div style={modal}>
 
             <h2>{modalGame.team} vs {modalGame.opponent}</h2>
+            <div style={modalSub}>
+              {modalScore ? "Edit final score" : "Enter final score"}
+            </div>
 
             <div style={scoreRow}>
+              <label style={scoreLabel}>
+                <span>{modalGame.team || "Home"}</span>
               <input
                 type="number"
                 value={homeScore}
                 onChange={(e)=>setHomeScore(e.target.value)}
                 style={scoreInput}
               />
+              </label>
               <span>-</span>
+              <label style={scoreLabel}>
+                <span>{modalGame.opponent || "Away"}</span>
               <input
                 type="number"
                 value={awayScore}
                 onChange={(e)=>setAwayScore(e.target.value)}
                 style={scoreInput}
               />
+              </label>
             </div>
 
             <div style={modalBtns}>
               <button style={saveBtn} onClick={saveScore}>
-                Save Score
+                {modalScore ? "Update Score" : "Save Score"}
               </button>
 
-              <button style={cancelBtn} onClick={()=>setModalGame(null)}>
+              <button style={cancelBtn} onClick={() => {
+                setModalGame(null);
+                setModalScore(null);
+              }}>
                 Cancel
               </button>
             </div>
@@ -298,6 +372,35 @@ function WeekTile({ label, date, active, onClick }) {
   );
 }
 
+function TeamTile({ team, active, onClick }) {
+  const logo = TEAM_LOGOS[team.team];
+  const allTeams = team.key === "all";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ ...teamTile, ...(active ? activeTeamTile : {}) }}
+    >
+      {allTeams ? (
+        <div style={allTeamsIcon}>All</div>
+      ) : (
+        logo && <img src={logo} alt="" style={teamTileLogo} />
+      )}
+      <span>{allTeams ? "All Teams" : team.team}</span>
+      {!allTeams && <span style={teamTileDivision}>{team.division}</span>}
+    </button>
+  );
+}
+
+function cleanTeamName(value) {
+  return (value || "").toString().replace(/\s+/g, " ").trim();
+}
+
+function getGameDivision(game) {
+  return game?.division || game?.divisions?.name || game?.division_name || "No Division";
+}
+
 /* STYLES */
 const wrap = { padding:20, display:"flex", flexDirection:"column", gap:20 };
 
@@ -318,6 +421,12 @@ const weekTile = {
 
 const activeWeekTile = { outline:"2px solid #2563eb" };
 const weekDate = { color:"#64748b", fontSize:11, fontWeight:600, marginTop:4 };
+const teamTileGrid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(92px,1fr))", gap:10 };
+const teamTile = { alignItems:"center", background:"#fff", border:"1px solid #e2e8f0", borderRadius:14, color:"#334155", cursor:"pointer", display:"flex", flexDirection:"column", fontSize:12, fontWeight:800, gap:6, minHeight:84, padding:10 };
+const activeTeamTile = { background:"#ecfdf3", borderColor:"#16a34a", color:"#0f7a3b", boxShadow:"inset 0 0 0 1px rgba(22,163,74,0.18)" };
+const teamTileLogo = { height:34, objectFit:"contain", width:34 };
+const teamTileDivision = { color:"#64748b", fontSize:10, fontWeight:800, lineHeight:1 };
+const allTeamsIcon = { alignItems:"center", background:"#0f172a", borderRadius:999, color:"#fff", display:"flex", fontSize:12, fontWeight:900, height:34, justifyContent:"center", width:34 };
 
 const grid = {
   display:"grid",
@@ -361,6 +470,11 @@ const finalBadge = {
   background:"#e5e7eb",
   textAlign:"center"
 };
+const finalBlock = { alignItems:"center", display:"flex", flexDirection:"column", gap:10, marginTop:10 };
+const editScoreBtn = { background:"#0f172a", border:"none", borderRadius:999, color:"#fff", cursor:"pointer", fontWeight:800, padding:"9px 16px" };
+const statusBox = { borderRadius:12, fontWeight:800, padding:"12px 14px" };
+const successBox = { background:"#dcfce7", color:"#166534" };
+const errorBox = { background:"#fee2e2", color:"#991b1b" };
 
 const overlay = {
   position:"fixed",
@@ -378,15 +492,17 @@ const modal = {
   background:"#fff",
   padding:30,
   borderRadius:18,
-  width:300,
+  width:"min(360px, calc(100vw - 32px))",
   textAlign:"center"
 };
+const modalSub = { color:"#64748b", fontSize:14, fontWeight:700, marginBottom:16 };
 
-const scoreRow = { display:"flex", justifyContent:"center", gap:10 };
+const scoreRow = { alignItems:"end", display:"flex", justifyContent:"center", gap:10 };
+const scoreLabel = { color:"#475569", display:"grid", fontSize:12, fontWeight:800, gap:6, minWidth:0 };
 
-const scoreInput = { width:60, padding:10, textAlign:"center" };
+const scoreInput = { border:"1px solid #cbd5e1", borderRadius:10, fontSize:22, fontWeight:900, padding:10, textAlign:"center", width:76 };
 
 const modalBtns = { marginTop:20, display:"flex", gap:10, justifyContent:"center" };
 
-const saveBtn = { background:"#16a34a", color:"#fff", padding:"8px 12px", borderRadius:8 };
-const cancelBtn = { background:"#e5e7eb", padding:"8px 12px", borderRadius:8 };
+const saveBtn = { background:"#16a34a", border:"none", color:"#fff", cursor:"pointer", fontWeight:800, padding:"10px 14px", borderRadius:10 };
+const cancelBtn = { background:"#e5e7eb", border:"none", color:"#111827", cursor:"pointer", fontWeight:800, padding:"10px 14px", borderRadius:10 };

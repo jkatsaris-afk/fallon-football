@@ -9,12 +9,15 @@ const PHASES = {
 export default function Fields() {
   const [fields, setFields] = useState([]);
   const [divisions, setDivisions] = useState([]);
+  const [timeBlocks, setTimeBlocks] = useState([]);
+  const [newTimeBlock, setNewTimeBlock] = useState("");
   const [activeField, setActiveField] = useState(null);
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
     loadFields();
     loadDivisions();
+    loadTimeBlocks();
   }, []);
 
   const loadFields = async () => {
@@ -33,6 +36,26 @@ export default function Fields() {
     }
 
     setFields(data || []);
+  };
+
+  const loadTimeBlocks = async () => {
+    const { data, error } = await supabase
+      .from("field_time_blocks")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.warn("Field time block load error:", error);
+      setStatus({
+        type: "error",
+        message: getTimeBlockErrorMessage(error, "Could not load field time blocks."),
+      });
+      setTimeBlocks([]);
+      return;
+    }
+
+    setTimeBlocks(data || []);
   };
 
   const loadDivisions = async () => {
@@ -61,6 +84,11 @@ export default function Fields() {
 
   const regularFields = fields.filter((field) => getPhase(field) === PHASES.regular);
   const championshipFields = fields.filter((field) => getPhase(field) === PHASES.championship);
+  const activeTimeBlocks = activeField
+    ? timeBlocks
+      .filter((block) => block.field_id === activeField.id)
+      .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+    : [];
 
   const saveField = async () => {
     setStatus(null);
@@ -86,6 +114,65 @@ export default function Fields() {
     setStatus({ type: "success", message: "Field saved." });
     setActiveField(null);
     loadFields();
+  };
+
+  const addTimeBlock = async () => {
+    setStatus(null);
+
+    if (!activeField?.id) return;
+
+    const formattedTime = formatTimeBlock(newTimeBlock);
+    if (!formattedTime) {
+      setStatus({ type: "error", message: "Choose a time before adding a block." });
+      return;
+    }
+
+    const alreadyExists = activeTimeBlocks.some((block) => normalizeTime(block.time) === normalizeTime(formattedTime));
+    if (alreadyExists) {
+      setStatus({ type: "error", message: "That time block is already on this field." });
+      return;
+    }
+
+    const { error } = await supabase.from("field_time_blocks").insert({
+      field_id: activeField.id,
+      time: formattedTime,
+      sort_order: timeToMinutes(formattedTime),
+      is_active: true,
+    });
+
+    if (error) {
+      console.error("Time block add error:", error);
+      setStatus({
+        type: "error",
+        message: getTimeBlockErrorMessage(error, "Time block could not be added."),
+      });
+      return;
+    }
+
+    setNewTimeBlock("");
+    setStatus({ type: "success", message: "Time block added." });
+    loadTimeBlocks();
+  };
+
+  const deleteTimeBlock = async (blockId) => {
+    setStatus(null);
+
+    const { error } = await supabase
+      .from("field_time_blocks")
+      .delete()
+      .eq("id", blockId);
+
+    if (error) {
+      console.error("Time block delete error:", error);
+      setStatus({
+        type: "error",
+        message: getTimeBlockErrorMessage(error, "Time block could not be deleted."),
+      });
+      return;
+    }
+
+    setStatus({ type: "success", message: "Time block removed." });
+    loadTimeBlocks();
   };
 
   const addField = async (phase) => {
@@ -163,7 +250,7 @@ export default function Fields() {
       season_phase: PHASES.championship,
     }));
 
-    const { error } = await supabase.from("fields").insert(copies);
+    const { data: copiedFields, error } = await supabase.from("fields").insert(copies).select("*");
 
     if (error) {
       console.error("Championship field copy error:", error);
@@ -171,8 +258,42 @@ export default function Fields() {
       return;
     }
 
+    const copiedBlocks = [];
+    (copiedFields || []).forEach((championshipField) => {
+      const sourceField = regularFields.find((field) => (
+        field.name === championshipField.name &&
+        String(field.field_number || "") === String(championshipField.field_number || "") &&
+        (field.division || "") === (championshipField.division || "")
+      ));
+
+      if (!sourceField) return;
+
+      timeBlocks
+        .filter((block) => block.field_id === sourceField.id)
+        .forEach((block) => {
+          copiedBlocks.push({
+            field_id: championshipField.id,
+            time: block.time,
+            sort_order: block.sort_order || timeToMinutes(block.time),
+            is_active: true,
+          });
+        });
+    });
+
+    if (copiedBlocks.length) {
+      const { error: blockError } = await supabase.from("field_time_blocks").insert(copiedBlocks);
+      if (blockError) {
+        console.error("Championship time block copy error:", blockError);
+        setStatus({ type: "error", message: `Fields copied, but time blocks could not be copied: ${blockError.message}` });
+        loadFields();
+        loadTimeBlocks();
+        return;
+      }
+    }
+
     setStatus({ type: "success", message: "Championship fields now match regular season fields." });
     loadFields();
+    loadTimeBlocks();
   };
 
   if (activeField) {
@@ -183,6 +304,12 @@ export default function Fields() {
         </button>
 
         <h2 style={title}>{activeField.name}</h2>
+
+        {status && (
+          <div style={{ ...statusBox, ...(status.type === "error" ? errorBox : successBox) }}>
+            {status.message}
+          </div>
+        )}
 
         <div style={card}>
           <div style={grid}>
@@ -242,6 +369,45 @@ export default function Fields() {
                 <option value={PHASES.championship}>Championship</option>
               </select>
             </div>
+          </div>
+
+          <div style={timeBlockPanel}>
+            <div>
+              <h3 style={sectionTitle}>Field Time Blocks</h3>
+              <div style={sectionDesc}>
+                These blocks are used when schedules assign games to this field.
+              </div>
+            </div>
+
+            <div style={timeAddRow}>
+              <input
+                type="time"
+                style={{ ...input, maxWidth: 180 }}
+                value={newTimeBlock}
+                onChange={(event) => setNewTimeBlock(event.target.value)}
+              />
+              <button style={addBtn} onClick={addTimeBlock}>Add Time</button>
+            </div>
+
+            <div style={chipRow}>
+              {activeTimeBlocks.map((block) => (
+                <span key={block.id} style={timeChip}>
+                  {block.time}
+                  <button
+                    type="button"
+                    style={chipRemove}
+                    onClick={() => deleteTimeBlock(block.id)}
+                    aria-label={`Remove ${block.time}`}
+                  >
+                    x
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {!activeTimeBlocks.length && (
+              <div style={empty}>No time blocks set for this field.</div>
+            )}
           </div>
 
           <div style={actionRow}>
@@ -321,6 +487,55 @@ function FieldSection({ title, description, fields, onAdd, onOpen, action }) {
   );
 }
 
+function formatTimeBlock(value) {
+  if (!value) return "";
+  const raw = value.toString().trim();
+  if (!raw) return "";
+
+  if (raw.toUpperCase().includes("AM") || raw.toUpperCase().includes("PM")) {
+    return raw.replace(/\s+/g, " ");
+  }
+
+  const [hourText, minuteText = "00"] = raw.split(":");
+  let hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function timeToMinutes(value) {
+  if (!value) return 0;
+  const text = value.toString().trim().toUpperCase();
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
+  if (!match) return 0;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  const meridiem = match[3];
+
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+
+  return hour * 60 + minute;
+}
+
+function normalizeTime(value) {
+  return formatTimeBlock(value).toLowerCase().replace(/\s+/g, "");
+}
+
+function getTimeBlockErrorMessage(error, fallback) {
+  const message = error?.message || "";
+  if (message.includes("field_time_blocks") || message.includes("relation") || error?.code === "42P01") {
+    return `${fallback} Run the field_time_blocks SQL first.`;
+  }
+
+  return `${fallback} ${message}`.trim();
+}
+
 const grid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))",
@@ -390,6 +605,50 @@ const input = {
 };
 
 const actionRow = { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 };
+
+const timeBlockPanel = {
+  marginTop: 16,
+  background: "#f8fafc",
+  padding: 14,
+  borderRadius: 12,
+};
+
+const timeAddRow = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 12,
+};
+
+const chipRow = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 12,
+};
+
+const timeChip = {
+  alignItems: "center",
+  background: "#e0f2fe",
+  borderRadius: 999,
+  color: "#0369a1",
+  display: "inline-flex",
+  fontSize: 13,
+  fontWeight: 800,
+  gap: 7,
+  padding: "7px 9px",
+};
+
+const chipRemove = {
+  background: "transparent",
+  border: "none",
+  color: "#0369a1",
+  cursor: "pointer",
+  fontWeight: 900,
+  lineHeight: 1,
+  padding: 0,
+};
 
 const saveBtn = {
   padding: "10px 14px",

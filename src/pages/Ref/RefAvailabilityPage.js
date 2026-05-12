@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 
@@ -31,40 +32,37 @@ export default function RefAvailabilityPage() {
 
   // ✅ FIXED FUNCTION
   const loadWeeks = async () => {
-    const { data } = await supabase
+    const active = await getActiveSeason();
+    const { data } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
-      .select("week,event_date,event_type");
+      .select("week,event_date,event_type"), active);
 
     const dbWeeks = [...new Set((data || [])
-      .filter((g) => (g.event_type || "").toLowerCase().includes("game"))
-      .map((g) => g.week))];
+      .filter((g) => {
+        const eventType = (g.event_type || "").toLowerCase();
+        return eventType.includes("game") || eventType.includes("champ");
+      })
+      .map((g) => g.week)
+      .filter(Boolean))];
     const dateMap = {};
 
     (data || []).forEach((game) => {
       const eventType = game.event_type?.toLowerCase() || "";
       if (!eventType.includes("game") && !eventType.includes("champ")) return;
 
-      const key = eventType.includes("champ") ? "Championships" : game.week;
+      const key = game.week;
       if (!key) return;
       if (!dateMap[key]) dateMap[key] = [];
       if (game.event_date) dateMap[key].push(game.event_date);
     });
 
-    // Add missing weeks
-    const extraWeeks = [7, 8, "Championships"];
-
-    const combined = [...new Set([...dbWeeks, ...extraWeeks])];
-
-    const sorted = combined.sort((a, b) => {
-      if (a === "Championships") return 1;
-      if (b === "Championships") return -1;
-      return a - b;
-    });
+    const sorted = dbWeeks.sort((a, b) => Number(a) - Number(b));
 
     setWeeks(sorted);
     setWeekDates(dateMap);
 
     if (!selectedWeek && sorted.length) setSelectedWeek(sorted[0]);
+    if (selectedWeek && !sorted.includes(selectedWeek)) setSelectedWeek(sorted[0] || null);
   };
 
   const getRefId = async () => {
@@ -87,7 +85,7 @@ export default function RefAvailabilityPage() {
       .from("ref_availability")
       .select("*")
       .eq("referee_id", refId)
-      .eq("week", selectedWeek === "Championships" ? 9 : selectedWeek);
+      .eq("week", selectedWeek);
 
     const map = {};
     data?.forEach((a) => {
@@ -112,11 +110,11 @@ export default function RefAvailabilityPage() {
 
     await supabase.from("ref_availability").upsert(
       [
-        {
-          referee_id: refId,
-          week: selectedWeek === "Championships" ? 9 : selectedWeek,
-          time_block: normalizeTime(time),
-          available: newValue,
+          {
+            referee_id: refId,
+            week: selectedWeek,
+            time_block: normalizeTime(time),
+            available: newValue,
         },
       ],
       {
@@ -137,7 +135,7 @@ export default function RefAvailabilityPage() {
         [
           {
             referee_id: refId,
-            week: selectedWeek === "Championships" ? 9 : selectedWeek,
+            week: selectedWeek,
             time_block: t,
             available: value,
           },

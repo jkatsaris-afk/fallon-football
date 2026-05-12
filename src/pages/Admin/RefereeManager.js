@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabase";
+import { applyPersonSeasonFilter, getActiveSeason } from "../../utils/season";
 
 import RefereeStaffPage from "./RefereeManagerPages/RefereeStaffPage";
 import RefereeSchedulePage from "./RefereeManagerPages/RefereeSchedulePage";
@@ -20,10 +21,11 @@ export default function RefereeManager() {
   const loadRefs = async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
+    const active = await getActiveSeason();
+    const { data, error } = await applyPersonSeasonFilter(supabase
       .from("referees")
       .select("*")
-      .order("first_name", { ascending: true });
+      .order("first_name", { ascending: true }), active);
 
     if (error) {
       console.error("Error loading referees:", error);

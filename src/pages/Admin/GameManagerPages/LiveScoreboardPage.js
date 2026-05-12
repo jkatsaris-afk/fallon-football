@@ -9,6 +9,7 @@ export default function LiveScoreboardPage() {
   const [liveGames, setLiveGames] = useState([]);
   const [settings, setSettings] = useState(null);
   const [showParentSign, setShowParentSign] = useState(false);
+  const [view, setView] = useState("overview");
 
   useEffect(() => {
     loadData();
@@ -103,77 +104,150 @@ export default function LiveScoreboardPage() {
   return (
     <div style={wrap}>
       <div>
-        <h2 style={title}>Live Scoreboard Links</h2>
+        <h2 style={title}>Scoreboard</h2>
         <div style={subtitle}>
-          Each active field has one iPad controller link. The controller can open the score-only display when needed.
+          Set up field controllers, live displays, parent score links, and the live scoreboard defaults.
         </div>
       </div>
 
-      <div style={topQrGrid}>
-      <div style={masterPanel}>
-        <div>
-          <div style={settingsTitle}>Master iPad</div>
-          <div style={settingsHint}>Scan this first to monitor every field and add controller/display iPads from one screen.</div>
-          <a href={masterIpadLink} target="_blank" rel="noreferrer" style={masterLink}>
-            Open Master Scoreboard
-          </a>
-        </div>
-        <div style={masterQrFrame}>
-          <QRCodeSVG value={masterIpadLink} size={150} level="M" includeMargin />
-        </div>
-      </div>
-
-      <div style={masterPanel}>
-        <div>
-          <div style={settingsTitle}>Parent Live Scores</div>
-          <div style={settingsHint}>Print this sign for tents so parents can scan directly into the public live scores page.</div>
-          <a href={publicScoreboardLink} target="_blank" rel="noreferrer" style={masterLink}>
-            Open Live Scores
-          </a>
-          <button type="button" style={printSignBtn} onClick={printParentSign}>
-            Print / Save PDF Sign
-          </button>
-        </div>
-        <div style={masterQrFrame}>
-          <QRCodeSVG key={publicScoreboardLink} value={publicScoreboardLink} size={150} level="M" includeMargin />
-        </div>
-      </div>
-      </div>
-
-      <div style={settingsPanel}>
-        <div style={toggleRow}>
-          <div>
-            <div style={settingsTitle}>Live Scoreboards</div>
-            <div style={settingsHint}>One switch controls every field master, controller, and display link.</div>
-          </div>
-          <button
-            type="button"
-            style={{ ...toggleButton, ...(scoreboardsOpen ? toggleOn : toggleOff) }}
-            onClick={() => updateSetting("live_scoreboards_open", !scoreboardsOpen)}
-          >
-            {scoreboardsOpen ? "On" : "Off"}
-          </button>
-        </div>
-
-        <div style={settingsDivider} />
-
-        <div style={settingsTitle}>Live Scoreboard Defaults</div>
-        <PeriodFormatToggle
-          value={settings?.scoreboard_period_format || "half"}
-          onChange={(value) => updateSetting("scoreboard_period_format", value)}
+      <div style={tileGrid}>
+        <ManagerTile
+          title="Overview"
+          desc={`${liveGames.length} live boards running`}
+          active={view === "overview"}
+          onClick={() => setView("overview")}
         />
-        <div style={settingsGrid}>
-          <SettingInput label={getPeriodLengthLabel(settings)} suffix="min" value={settings?.scoreboard_game_minutes || 24} onChange={(value) => updateSetting("scoreboard_game_minutes", value)} />
-          <SettingInput label="Halftime" suffix="min" value={settings?.scoreboard_halftime_minutes || 5} onChange={(value) => updateSetting("scoreboard_halftime_minutes", value)} />
-          <SettingInput label="Timeout" suffix="sec" value={getTimeoutSettingValue(settings)} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
-          <SettingInput label="Timeouts" suffix="/half" value={settings?.scoreboard_timeouts_per_half || 3} onChange={(value) => updateSetting("scoreboard_timeouts_per_half", value)} />
-          <SettingInput label="Touchdown" suffix="pts" value={settings?.scoreboard_touchdown_points || 6} onChange={(value) => updateSetting("scoreboard_touchdown_points", value)} />
-          <SettingInput label="Extra 1" suffix="pt" value={settings?.scoreboard_extra_one_points || 1} onChange={(value) => updateSetting("scoreboard_extra_one_points", value)} />
-          <SettingInput label="Extra 2" suffix="pts" value={settings?.scoreboard_extra_two_points || 2} onChange={(value) => updateSetting("scoreboard_extra_two_points", value)} />
-        </div>
+        <ManagerTile
+          title="Settings"
+          desc="Clock, period, timeout, and scoring defaults"
+          active={view === "settings"}
+          onClick={() => setView("settings")}
+        />
+        <ManagerTile
+          title="Devices"
+          desc={`${fields.length} field controller groups`}
+          active={view === "devices"}
+          onClick={() => setView("devices")}
+        />
       </div>
 
-      <div style={fieldGrid}>
+      {view === "overview" && (
+        <>
+          <div style={overviewPanel}>
+            <div>
+              <div style={settingsTitle}>Live Scoreboard Control</div>
+              <div style={settingsHint}>
+                One switch controls every field controller and display link. Devices show "Live scoreboard is turned off" when this is off.
+              </div>
+            </div>
+            <button
+              type="button"
+              style={{ ...toggleButton, ...(scoreboardsOpen ? toggleOn : toggleOff) }}
+              onClick={() => updateSetting("live_scoreboards_open", !scoreboardsOpen)}
+            >
+              {scoreboardsOpen ? "All Boards On" : "All Boards Off"}
+            </button>
+          </div>
+
+          <div style={topQrGrid}>
+            <div style={masterPanel}>
+              <div>
+                <div style={settingsTitle}>Master iPad</div>
+                <div style={settingsHint}>Scan this first to monitor every field and add controller/display iPads from one screen.</div>
+                <a href={masterIpadLink} target="_blank" rel="noreferrer" style={masterLink}>
+                  Open Master Scoreboard
+                </a>
+              </div>
+              <div style={masterQrFrame}>
+                <QRCodeSVG value={masterIpadLink} size={150} level="M" includeMargin />
+              </div>
+            </div>
+
+            <div style={masterPanel}>
+              <div>
+                <div style={settingsTitle}>Parent Live Scores</div>
+                <div style={settingsHint}>Print this sign for tents so parents can scan directly into the public live scores page.</div>
+                <a href={publicScoreboardLink} target="_blank" rel="noreferrer" style={masterLink}>
+                  Open Live Scores
+                </a>
+                <button type="button" style={printSignBtn} onClick={printParentSign}>
+                  Print / Save PDF Sign
+                </button>
+              </div>
+              <div style={masterQrFrame}>
+                <QRCodeSVG key={publicScoreboardLink} value={publicScoreboardLink} size={150} level="M" includeMargin />
+              </div>
+            </div>
+          </div>
+
+          <div style={liveSummaryGrid}>
+            {fields.map((field) => {
+              const liveGame = getFieldLiveGame(field);
+              return (
+                <div key={field.id} style={summaryCard}>
+                  <div style={summaryTop}>
+                    <div>
+                      <div style={fieldName}>{field.name}</div>
+                      <div style={fieldMeta}>Field {field.field_number || "-"} - {field.type}</div>
+                    </div>
+                    <div style={{ ...statusBadge, ...(liveGame ? liveBadge : idleBadge) }}>
+                      {!scoreboardsOpen ? "Off" : liveGame ? "Live" : "Idle"}
+                    </div>
+                  </div>
+                  {liveGame ? (
+                    <div style={summaryGame}>
+                      <strong>{liveGame.schedule_master_auto?.team || "Home"}</strong>
+                      <span>{liveGame.home_score} - {liveGame.away_score}</span>
+                      <strong>{liveGame.schedule_master_auto?.opponent || "Away"}</strong>
+                      <span>{liveGame.clock}</span>
+                    </div>
+                  ) : (
+                    <div style={settingsHint}>No live game on this field right now.</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {view === "settings" && (
+        <div style={settingsPanel}>
+          <div style={toggleRow}>
+            <div>
+              <div style={settingsTitle}>Live Scoreboards</div>
+              <div style={settingsHint}>One switch controls every field master, controller, and display link.</div>
+            </div>
+            <button
+              type="button"
+              style={{ ...toggleButton, ...(scoreboardsOpen ? toggleOn : toggleOff) }}
+              onClick={() => updateSetting("live_scoreboards_open", !scoreboardsOpen)}
+            >
+              {scoreboardsOpen ? "On" : "Off"}
+            </button>
+          </div>
+
+          <div style={settingsDivider} />
+
+          <div style={settingsTitle}>Live Scoreboard Defaults</div>
+          <PeriodFormatToggle
+            value={settings?.scoreboard_period_format || "half"}
+            onChange={(value) => updateSetting("scoreboard_period_format", value)}
+          />
+          <div style={settingsGrid}>
+            <SettingInput label={getPeriodLengthLabel(settings)} suffix="min" value={settings?.scoreboard_game_minutes || 24} onChange={(value) => updateSetting("scoreboard_game_minutes", value)} />
+            <SettingInput label="Halftime" suffix="min" value={settings?.scoreboard_halftime_minutes || 5} onChange={(value) => updateSetting("scoreboard_halftime_minutes", value)} />
+            <SettingInput label="Timeout" suffix="sec" value={getTimeoutSettingValue(settings)} onChange={(value) => updateSetting("scoreboard_timeout_seconds", value)} />
+            <SettingInput label="Timeouts" suffix="/half" value={settings?.scoreboard_timeouts_per_half || 3} onChange={(value) => updateSetting("scoreboard_timeouts_per_half", value)} />
+            <SettingInput label="Touchdown" suffix="pts" value={settings?.scoreboard_touchdown_points || 6} onChange={(value) => updateSetting("scoreboard_touchdown_points", value)} />
+            <SettingInput label="Extra 1" suffix="pt" value={settings?.scoreboard_extra_one_points || 1} onChange={(value) => updateSetting("scoreboard_extra_one_points", value)} />
+            <SettingInput label="Extra 2" suffix="pts" value={settings?.scoreboard_extra_two_points || 2} onChange={(value) => updateSetting("scoreboard_extra_two_points", value)} />
+          </div>
+        </div>
+      )}
+
+      {view === "devices" && (
+        <div style={fieldGrid}>
         {fields.map((field) => {
           const liveGame = getFieldLiveGame(field);
           const masterLink = `${origin}/field-scoreboard/${field.id}`;
@@ -189,7 +263,7 @@ export default function LiveScoreboardPage() {
               <div style={fieldHeader}>
                 <div>
                   <div style={fieldName}>{field.name}</div>
-                  <div style={fieldMeta}>Field {field.field_number || "—"} • {field.type}</div>
+                  <div style={fieldMeta}>Field {field.field_number || "-"} - {field.type}</div>
                   <div style={phaseRow}>
                     {hasRegular && <span style={regularPill}>Regular Season</span>}
                     {hasChampionship && <span style={champPill}>Championship Setup</span>}
@@ -206,7 +280,7 @@ export default function LiveScoreboardPage() {
                     {liveGame.schedule_master_auto?.team} vs {liveGame.schedule_master_auto?.opponent}
                   </div>
                   <div style={liveScore}>
-                    {liveGame.home_score} - {liveGame.away_score} • {liveGame.clock}
+                    {liveGame.home_score} - {liveGame.away_score} - {liveGame.clock}
                   </div>
                   <button style={closeBtn} onClick={() => closeGame(liveGame)}>
                     Close Live Game
@@ -225,7 +299,8 @@ export default function LiveScoreboardPage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
       <style>
         {`
@@ -333,6 +408,22 @@ function SettingInput({ label, suffix, value, onChange }) {
   );
 }
 
+function ManagerTile({ title, desc, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...tile,
+        ...(active ? activeTile : {}),
+      }}
+    >
+      <div style={tileTitle}>{title}</div>
+      <div style={tileDesc}>{desc}</div>
+    </button>
+  );
+}
+
 function getPeriodLengthLabel(settings) {
   return settings?.scoreboard_period_format === "quarter" ? "Quarter Length" : "Half Length";
 }
@@ -412,7 +503,13 @@ function cleanKey(value) {
 const wrap = { display: "flex", flexDirection: "column", gap: 18 };
 const title = { color: "#0f172a", fontSize: 24, fontWeight: 900, margin: 0 };
 const subtitle = { color: "#64748b", fontSize: 14, marginTop: 4 };
+const tileGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" };
+const tile = { background: "#fff", border: "none", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", cursor: "pointer", minHeight: 96, padding: 16, textAlign: "left" };
+const activeTile = { outline: "2px solid #16a34a", boxShadow: "0 10px 28px rgba(22,163,74,0.16)" };
+const tileTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900 };
+const tileDesc = { color: "#64748b", fontSize: 13, fontWeight: 700, lineHeight: 1.35, marginTop: 6 };
 const topQrGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" };
+const overviewPanel = { alignItems: "center", background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", display: "flex", justifyContent: "space-between", gap: 16, padding: 16 };
 const masterPanel = { alignItems: "center", background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", display: "flex", justifyContent: "space-between", gap: 16, padding: 16 };
 const masterLink = { color: "#2563eb", display: "inline-block", fontSize: 13, fontWeight: 900, marginTop: 10, textDecoration: "none" };
 const printSignBtn = { background: "#16a34a", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", display: "block", fontSize: 13, fontWeight: 900, marginTop: 10, padding: "9px 11px" };
@@ -426,6 +523,10 @@ const toggleOn = { background: "#16a34a" };
 const toggleOff = { background: "#dc2626" };
 const settingsDivider = { background: "#e2e8f0", height: 1, margin: "16px 0" };
 const settingsGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" };
+const liveSummaryGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" };
+const summaryCard = { background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", padding: 16 };
+const summaryTop = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 };
+const summaryGame = { alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, color: "#0f172a", display: "grid", gap: 8, gridTemplateColumns: "1fr auto 1fr auto", padding: 12 };
 const formatToggleWrap = { display: "grid", gap: 8, margin: "12px 0 14px" };
 const formatToggle = { background: "#e2e8f0", borderRadius: 14, display: "grid", gap: 4, gridTemplateColumns: "1fr 1fr", maxWidth: 360, padding: 4 };
 const formatBtn = { background: "transparent", border: "none", borderRadius: 11, color: "#475569", cursor: "pointer", fontSize: 15, fontWeight: 900, padding: "11px 14px" };
