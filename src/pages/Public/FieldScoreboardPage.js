@@ -60,6 +60,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const [clockEditorOpen, setClockEditorOpen] = useState(false);
   const [hornReady, setHornReady] = useState(false);
   const [timeouts, setTimeouts] = useState(createTimeoutState(DEFAULT_SETTINGS.scoreboard_timeouts_per_half));
+  const [liveGameLoaded, setLiveGameLoaded] = useState(false);
   const lastServerClockRef = useRef(null);
   const displaySyncKeyRef = useRef("");
   const displayClockAnchorRef = useRef({ seconds: DEFAULT_SETTINGS.scoreboard_game_minutes * 60, syncedAt: Date.now() });
@@ -137,6 +138,12 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     return () => clearInterval(interval);
   }, [scoreOnly, liveGame?.id, displayClockRunning]);
+
+  useEffect(() => {
+    if (!scoreOnly || displaySideMode !== "ref" || !liveGameLoaded) return;
+    if (liveGame && liveGame.status !== "final_display") return;
+    window.location.replace("/scoreboard/ref");
+  }, [scoreOnly, displaySideMode, liveGameLoaded, liveGame?.id, liveGame?.status]);
 
   useEffect(() => {
     if (!scoreOnly || !liveGame?.horn_signal) return;
@@ -319,6 +326,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     if (error) {
       console.error("Live game load failed:", error);
+      setLiveGameLoaded(true);
       return;
     }
 
@@ -329,6 +337,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       displayClockAnchorRef.current = { seconds: 0, syncedAt: Date.now() };
       setDisplayClockRunning(false);
       setLiveGame(null);
+      setLiveGameLoaded(true);
       return;
     }
 
@@ -361,6 +370,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       displayClockAnchorRef.current = { seconds: 0, syncedAt: Date.now() };
       setDisplayClockRunning(false);
       setLiveGame(null);
+      setLiveGameLoaded(true);
       return;
     }
 
@@ -404,6 +414,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     }
 
     setLiveGame(active);
+    setLiveGameLoaded(true);
   };
 
   const weeks = useMemo(() => (
