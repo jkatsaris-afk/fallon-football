@@ -17,6 +17,7 @@ import ComplaintFormPage from "./pages/Public/ComplaintFormPage";
 import BoardMembersPage from "./pages/Public/BoardMembersPage";
 import FieldScoreboardPage from "./pages/Public/FieldScoreboardPage";
 import FieldScoreboardMasterPage from "./pages/Public/FieldScoreboardMasterPage";
+import RefLiveGamesPage from "./pages/Public/RefLiveGamesPage";
 
 // LOGIN
 import LoginSelectPage from "./pages/Public/LoginSelectPage";
@@ -61,6 +62,7 @@ export default function App() {
 
       if (path === "/") setPage("home");
       else if (path === "/schedule") setPage("schedule");
+      else if (path === "/scoreboard/ref") setPage("scoreboardRef");
       else if (path === "/scoreboard/live") setPage("scoreboardLive");
       else if (path === "/scoreboard") setPage("scoreboard");
       else if (path === "/signup") setPage("signup");
@@ -70,6 +72,7 @@ export default function App() {
       else if (path === "/complaint") setPage("complaintForm");
       else if (path === "/board") setPage("boardMembers");
       else if (path === "/scoreboard-master") setPage("scoreboardMaster");
+      else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display/ref")) setPage("fieldScoreDisplayRef");
       else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display/home")) setPage("fieldScoreDisplayHome");
       else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display/away")) setPage("fieldScoreDisplayAway");
       else if (path.startsWith("/field-scoreboard/") && path.endsWith("/display")) setPage("fieldScoreDisplay");
@@ -256,7 +259,9 @@ export default function App() {
       {page === "fieldScoreDisplay" && <FieldScoreboardPage mode="display" />}
       {page === "fieldScoreDisplayHome" && <FieldScoreboardPage mode="displayHome" />}
       {page === "fieldScoreDisplayAway" && <FieldScoreboardPage mode="displayAway" />}
+      {page === "fieldScoreDisplayRef" && <FieldScoreboardPage mode="displayRef" />}
       {page === "scoreboardMaster" && <FieldScoreboardMasterPage />}
+      {page === "scoreboardRef" && <RefLiveGamesPage />}
 
       {page !== "dashboard" &&
         page !== "adminLogin" &&
@@ -270,7 +275,9 @@ export default function App() {
         page !== "fieldScoreDisplay" &&
         page !== "fieldScoreDisplayHome" &&
         page !== "fieldScoreDisplayAway" &&
+        page !== "fieldScoreDisplayRef" &&
         page !== "scoreboardMaster" &&
+        page !== "scoreboardRef" &&
         (!page.startsWith("ref") ||
           page === "refSignup") && (
           <PublicLayout page={page} setPage={setPage}>

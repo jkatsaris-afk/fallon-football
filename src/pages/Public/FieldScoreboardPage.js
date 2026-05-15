@@ -32,16 +32,20 @@ const DEFAULT_SETTINGS = {
   scoreboard_touchdown_points: 6,
   scoreboard_extra_one_points: 1,
   scoreboard_extra_two_points: 2,
+  scoreboard_schedule_theme: "light",
+  scoreboard_field_themes: {},
 };
 const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
 const FINAL_DISPLAY_SECONDS = 120;
 const SCOREBOARD_CLOSED_MESSAGE = "Live scoreboard is turned off.";
+const DISPLAY_THEME_STORAGE_KEY = "field-scoreboard-display-theme";
+const FIELD_THEME_STORAGE_PREFIX = "field-scoreboard-display-theme-";
 
 export default function FieldScoreboardPage({ mode = "control" }) {
   const fieldId = getFieldIdFromPath();
   const masterPage = mode === "master";
-  const scoreOnly = mode === "display" || mode === "displayHome" || mode === "displayAway";
-  const displaySideMode = mode === "displayHome" ? "home" : mode === "displayAway" ? "away" : "both";
+  const scoreOnly = mode === "display" || mode === "displayHome" || mode === "displayAway" || mode === "displayRef";
+  const displaySideMode = mode === "displayHome" ? "home" : mode === "displayAway" ? "away" : mode === "displayRef" ? "ref" : "both";
   const [field, setField] = useState(null);
   const [scoreboardFieldIds, setScoreboardFieldIds] = useState([fieldId]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -106,7 +110,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         }
         if (next === 0) {
           setRunning(false);
-          updateLiveGame({ clock: formatClock(next) }, false);
+          updateLiveGame({ clock: formatClock(next), timeout_state: buildClockTimeoutState(next, false) }, false);
           return;
         }
         updateLiveGame({ clock: formatClock(next) }, false);
@@ -291,7 +295,16 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       .eq("id", 1)
       .maybeSingle();
 
-    const mergedSettings = { ...DEFAULT_SETTINGS, ...(settingsData || {}) };
+    const savedDisplayTheme = loadSavedFieldDisplayTheme(fieldId) || loadSavedDisplayTheme();
+    const fieldThemes = normalizeFieldThemes(settingsData?.scoreboard_field_themes);
+    const mergedSettings = {
+      ...DEFAULT_SETTINGS,
+      ...(settingsData || {}),
+      scoreboard_field_themes: {
+        ...fieldThemes,
+        ...(savedDisplayTheme ? { [fieldId]: savedDisplayTheme } : {}),
+      },
+    };
     setSettings(mergedSettings);
     return mergedSettings;
   };
@@ -351,7 +364,10 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       return;
     }
 
-    const serverClockSeconds = clockToSeconds(active.clock || formatClock(settings.scoreboard_game_minutes * 60));
+    const serverClockSeconds = getAnchoredClockSeconds(
+      active,
+      clockToSeconds(active.clock || formatClock(settings.scoreboard_game_minutes * 60))
+    );
     if (
       scoreOnly &&
       liveGame?.id === active.id &&
@@ -370,11 +386,12 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       const previousServerClock = lastServerClockRef.current;
       const serverClockMoving = previousServerClock !== null && serverClockSeconds < previousServerClock;
       const breakClockRunning = isBreakStatus(active.status) && serverClockSeconds > 0;
-      setDisplayClockRunning(serverClockMoving || breakClockRunning);
+      const anchoredClockRunning = isClockAnchorRunning(active);
+      setDisplayClockRunning(serverClockMoving || breakClockRunning || anchoredClockRunning);
       const syncKey = `${active.id}-${active.status}`;
       const { seconds, syncedAt } = displayClockAnchorRef.current;
       const localEstimate = Math.max(0, seconds - Math.floor((Date.now() - syncedAt) / 1000));
-      const shouldHardSync = displaySyncKeyRef.current !== syncKey || Math.abs(localEstimate - serverClockSeconds) > 2 || (!serverClockMoving && !breakClockRunning);
+      const shouldHardSync = displaySyncKeyRef.current !== syncKey || Math.abs(localEstimate - serverClockSeconds) > 2 || (!serverClockMoving && !breakClockRunning && !anchoredClockRunning);
       if (shouldHardSync) {
         displayClockAnchorRef.current = { seconds: serverClockSeconds, syncedAt: Date.now() };
         displaySyncKeyRef.current = syncKey;
@@ -383,6 +400,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       lastServerClockRef.current = serverClockSeconds;
     } else {
       setClockSeconds(serverClockSeconds);
+      setRunning(isClockAnchorRunning(active));
     }
 
     setLiveGame(active);
@@ -420,6 +438,11 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     }
 
     await closeLiveGamesForCurrentField(game.id);
+    const initialTheme = getFieldDisplayTheme(settings, fieldId);
+    const initialTimeoutState = createTimeoutStateWithTheme(
+      Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half),
+      initialTheme
+    );
 
     const row = {
       schedule_id: game.id,
@@ -429,6 +452,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       status: "live",
       quarter: 1,
       half: 1,
+      timeout_state: initialTimeoutState,
     };
 
     const existingLive = await supabase
@@ -455,7 +479,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
       setLiveGame({ ...data, schedule_master_auto: normalizeScoreboardGame(game) });
       setClockSeconds(clockToSeconds(row.clock));
-      await resetTimeoutsForLiveGame(data.id);
+      await resetTimeoutsForLiveGame(data.id, initialTheme);
       setRunning(false);
       return;
     }
@@ -474,7 +498,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
     setLiveGame({ ...data, schedule_master_auto: normalizeScoreboardGame(game) });
     setClockSeconds(clockToSeconds(row.clock));
-    await resetTimeoutsForLiveGame(data.id);
+    await resetTimeoutsForLiveGame(data.id, initialTheme);
     setRunning(false);
   };
 
@@ -535,7 +559,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const seconds = type === "halftime"
       ? Number(settings.scoreboard_halftime_minutes || 5) * 60
       : getTimeoutSeconds(settings);
-    let timeoutStateUpdate = null;
+    let timeoutStateUpdate = normalizeTimeoutState(liveGame.timeout_state, Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half));
 
     if (type === "timeout") {
       const halfKey = getHalfKey(liveGame);
@@ -559,20 +583,21 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       gameClockBeforeBreakRef.current = gameClock;
     }
 
+    const nextTimeoutState = buildClockTimeoutState(seconds, true, statusValue, timeoutStateUpdate);
     setRunning(false);
     setClockSeconds(seconds);
     await updateLiveGame({
       status: statusValue,
       clock: formatClock(seconds),
       quarter: type === "timeout" ? gameClock : liveGame.quarter,
-      ...(timeoutStateUpdate ? { timeout_state: timeoutStateUpdate } : {}),
+      timeout_state: nextTimeoutState,
     });
     setRunning(true);
   };
 
-  const resetTimeoutsForLiveGame = async (liveGameId) => {
+  const resetTimeoutsForLiveGame = async (liveGameId, theme = getFieldDisplayTheme(settings, fieldId)) => {
     const count = Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
-    const nextTimeouts = createTimeoutState(count);
+    const nextTimeouts = createTimeoutStateWithTheme(count, theme);
     setTimeouts(nextTimeouts);
     saveTimeoutState(liveGameId, nextTimeouts);
     await supabase.from("games_live").update({ timeout_state: nextTimeouts }).eq("id", liveGameId);
@@ -597,6 +622,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       half: liveGame.status === "halftime" ? 2 : liveGame.half,
       quarter: liveGame.status === "halftime" ? 2 : 1,
       horn_signal: hornSignal,
+      timeout_state: buildClockTimeoutState(nextClock, false, "live"),
     });
   };
 
@@ -608,6 +634,9 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
   const openClockEditor = () => {
     setRunning(false);
+    if (liveGame) {
+      updateLiveGame({ clock: formatClock(clockSeconds), timeout_state: buildClockTimeoutState(clockSeconds, false) });
+    }
     setClockEditorOpen(true);
   };
 
@@ -615,7 +644,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const safeSeconds = Math.max(0, Number(seconds || 0));
     setRunning(false);
     setClockSeconds(safeSeconds);
-    await updateLiveGame({ clock: formatClock(safeSeconds) });
+    await updateLiveGame({ clock: formatClock(safeSeconds), timeout_state: buildClockTimeoutState(safeSeconds, false) });
     setClockEditorOpen(false);
     setStatus({ type: "success", message: `Clock updated to ${formatClock(safeSeconds)}.` });
   };
@@ -624,6 +653,107 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const team = side === "home" ? liveGame?.schedule_master_auto?.team : liveGame?.schedule_master_auto?.opponent;
     const usage = getTimeoutUsage(side);
     return `${cleanTeamName(team) || (side === "home" ? "Home" : "Away")} Timeout (${usage.remaining})`;
+  };
+
+  const buildClockTimeoutState = (seconds, clockRunning, status = liveGame?.status, sourceTimeoutState = liveGame?.timeout_state) => {
+    const total = Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+    const currentTimeoutState = normalizeTimeoutState(sourceTimeoutState, total);
+    return {
+      ...currentTimeoutState,
+      clock_anchor: {
+        running: Boolean(clockRunning),
+        seconds: Math.max(0, Number(seconds || 0)),
+        started_at: Date.now(),
+        status,
+      },
+    };
+  };
+
+  const setLiveClockRunning = async (nextRunning) => {
+    if (!liveGame) return;
+
+    let nextSeconds = clockSeconds;
+    if (!nextRunning && running) {
+      const { seconds, startedAt } = controllerClockAnchorRef.current;
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      nextSeconds = Math.max(0, seconds - elapsed);
+    }
+
+    controllerClockAnchorRef.current = { seconds: nextSeconds, startedAt: Date.now() };
+    lastControllerClockPersistRef.current = nextSeconds;
+    setClockSeconds(nextSeconds);
+    setRunning(nextRunning);
+    await updateLiveGame({
+      clock: formatClock(nextSeconds),
+      timeout_state: buildClockTimeoutState(nextSeconds, nextRunning),
+    });
+  };
+
+  const setDisplayTheme = async (theme) => {
+    const safeTheme = theme === "dark" ? "dark" : "light";
+    saveFieldDisplayThemePreference(fieldId, safeTheme);
+    setSettings((current) => ({
+      ...current,
+      scoreboard_field_themes: {
+        ...normalizeFieldThemes(current.scoreboard_field_themes),
+        [fieldId]: safeTheme,
+      },
+    }));
+
+    if (liveGame) {
+      const total = Number(settings.scoreboard_timeouts_per_half || DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+      const currentTimeoutState = normalizeTimeoutState(liveGame.timeout_state, total);
+      const nextTimeoutState = {
+        ...currentTimeoutState,
+        display_theme: safeTheme,
+      };
+
+      setTimeouts(nextTimeoutState);
+      saveTimeoutState(liveGame.id, nextTimeoutState);
+      await updateLiveGame({ timeout_state: nextTimeoutState });
+      await saveFieldDisplayTheme(safeTheme, false);
+      return;
+    }
+
+    await saveFieldDisplayTheme(safeTheme, true);
+  };
+
+  const saveFieldDisplayTheme = async (theme, showError = true) => {
+    const currentFieldThemes = normalizeFieldThemes(settings.scoreboard_field_themes);
+    const nextFieldThemes = {
+      ...currentFieldThemes,
+      [fieldId]: theme,
+    };
+
+    const { data, error } = await supabase
+      .from("app_settings")
+      .update({
+        scoreboard_field_themes: nextFieldThemes,
+        scoreboard_schedule_theme: theme,
+      })
+      .eq("id", 1)
+      .select("id");
+
+    if (error) {
+      console.error("Field display theme update failed:", error);
+      if (showError) {
+        setStatus({ type: "error", message: "Could not save this field's display theme. Add scoreboard_field_themes to app_settings, then try again." });
+      }
+      return;
+    }
+
+    if (!data?.length) {
+      const { error: insertError } = await supabase
+        .from("app_settings")
+        .insert({ id: 1, scoreboard_field_themes: nextFieldThemes, scoreboard_schedule_theme: theme });
+
+      if (insertError) {
+        console.error("Field display theme insert failed:", insertError);
+        if (showError) {
+          setStatus({ type: "error", message: "Could not save this field's display theme. Add scoreboard_field_themes to app_settings, then try again." });
+        }
+      }
+    }
   };
 
   const finishFinalDisplay = async () => {
@@ -838,7 +968,11 @@ export default function FieldScoreboardPage({ mode = "control" }) {
 
   const showFinalDisplay = async (message) => {
     const finalClock = formatClock(FINAL_DISPLAY_SECONDS);
-    await supabase.from("games_live").update({ status: "final_display", clock: finalClock }).eq("id", liveGame.id);
+    await updateLiveGame({
+      status: "final_display",
+      clock: finalClock,
+      timeout_state: buildClockTimeoutState(FINAL_DISPLAY_SECONDS, true, "final_display"),
+    });
     setClockSeconds(FINAL_DISPLAY_SECONDS);
     setRunning(true);
     setLiveGame((current) => current ? { ...current, status: "final_display", clock: finalClock } : current);
@@ -942,6 +1076,24 @@ export default function FieldScoreboardPage({ mode = "control" }) {
           <button style={displayLink} onClick={() => setDeviceFlow({ type: null })}>
             Add Displays
           </button>
+          <button
+            style={{
+              ...themeToggleBtn,
+              ...(getActiveDisplayTheme(liveGame, settings, fieldId) === "light" ? themeToggleActive : {}),
+            }}
+            onClick={() => setDisplayTheme("light")}
+          >
+            Light
+          </button>
+          <button
+            style={{
+              ...themeToggleBtn,
+              ...(getActiveDisplayTheme(liveGame, settings, fieldId) === "dark" ? themeToggleActive : {}),
+            }}
+            onClick={() => setDisplayTheme("dark")}
+          >
+            Dark
+          </button>
         </div>
       </div>
 
@@ -1026,7 +1178,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
                       style={primaryBtn}
                       onClick={() => {
                         primeClockTone();
-                        setRunning((current) => !current);
+                        setLiveClockRunning(!running);
                       }}
                     >
                       {running ? "Pause" : getGameClockButtonLabel(liveGame, clockSeconds, settings)}
@@ -1192,12 +1344,16 @@ function TeamControls({ team, score, timeoutUsage, onAdd, onRemove, settings, di
   );
 }
 
-function DisplayScheduleTeam({ team }) {
+function DisplayScheduleTeam({ team, dark = false }) {
   const logo = getLogo(team);
 
   return (
     <span style={displayScheduleTeam}>
-      {logo && <img src={logo} alt="" style={displayScheduleLogo} />}
+      {logo && (
+        <span style={dark ? displayScheduleLogoPillDark : displayScheduleLogoPill}>
+          <img src={logo} alt="" style={displayScheduleLogo} />
+        </span>
+      )}
       <span>{cleanTeamName(team)}</span>
     </span>
   );
@@ -1227,6 +1383,7 @@ function ScoreOnlyBoard({
 }) {
   const game = liveGame?.schedule_master_auto;
   const weekLabel = games[0]?.week ? `Week ${games[0].week}` : "Scheduled Games";
+  const refMode = sideMode === "ref";
   const singleSide = sideMode === "home" || sideMode === "away";
   const singleTeam = sideMode === "home" ? game?.team : game?.opponent;
   const singleScore = sideMode === "home" ? liveGame?.home_score : liveGame?.away_score;
@@ -1236,10 +1393,11 @@ function ScoreOnlyBoard({
   const awayTimeouts = getTimeoutUsageForGame(liveGame, "away", settings);
   const breakMode = isBreakStatus(liveGame?.status);
   const finalMode = liveGame?.status === "final_display";
+  const scheduleDark = getFieldDisplayTheme(settings, field?.id || game?.field_id) === "dark";
 
   return (
     <div style={singleSide ? displaySingleWrap : displayWrap}>
-      {scoreboardsOpen && liveGame && (
+      {scoreboardsOpen && liveGame && !refMode && (
         <div style={displayFieldCorner}>{field?.name || game?.field || "Field"}</div>
       )}
 
@@ -1257,47 +1415,61 @@ function ScoreOnlyBoard({
       )}
 
       {scoreboardsOpen && !liveGame && (
-        <div style={displaySchedule}>
-          <div style={displayFieldName}>{field?.name || "Field"}</div>
-          <div style={displayWeekLabel}>{weekLabel}</div>
+        <div style={{ ...displaySchedule, ...(scheduleDark ? displayDarkSurface : {}) }}>
+          <div style={{ ...displayFieldName, ...(scheduleDark ? combinedTextDark : {}) }}>{field?.name || "Field"}</div>
+          <div style={{ ...displayWeekLabel, ...(scheduleDark ? mutedTextDark : {}) }}>{weekLabel}</div>
           <div style={displayGameList}>
             {games.length ? games.map((scheduledGame) => (
-              <div key={scheduledGame.id} style={displayGameRow}>
-                <div style={displayGameTime}>{scheduledGame.event_time || scheduledGame.time || "Time TBD"}</div>
+              <div key={scheduledGame.id} style={{ ...displayGameRow, ...(scheduleDark ? displayGameRowDark : {}) }}>
+                <div style={{ ...displayGameTime, ...(scheduleDark ? combinedTextDark : {}) }}>{scheduledGame.event_time || scheduledGame.time || "Time TBD"}</div>
                 <div style={displayGameMain}>
-                  <div style={displayGameTeamsRow}>
-                    <DisplayScheduleTeam team={scheduledGame.team} />
-                    <span style={displayGameVs}>vs</span>
-                    <DisplayScheduleTeam team={scheduledGame.opponent} />
+                  <div style={{ ...displayGameTeamsRow, ...(scheduleDark ? combinedTextDark : {}) }}>
+                    <DisplayScheduleTeam team={scheduledGame.team} dark={scheduleDark} />
+                    <span style={{ ...displayGameVs, ...(scheduleDark ? mutedTextDark : {}) }}>vs</span>
+                    <DisplayScheduleTeam team={scheduledGame.opponent} dark={scheduleDark} />
                   </div>
-                  <div style={displayGameRefs}>
+                  <div style={{ ...displayGameRefs, ...(scheduleDark ? mutedTextDark : {}) }}>
                     Refs: {formatAssignedRefs(scheduledGame.assigned_refs)}
                   </div>
                 </div>
                 <div style={displayGameMetaBlock}>
-                  <div style={displayGameDivision}>{scheduledGame.division || "Division TBD"}</div>
-                  <div style={displayGameField}>{scheduledGame.field || field?.name || "Field TBD"}</div>
+                  <div style={{ ...displayGameDivision, ...(scheduleDark ? combinedTextDark : {}) }}>{scheduledGame.division || "Division TBD"}</div>
+                  <div style={{ ...displayGameField, ...(scheduleDark ? mutedTextDark : {}) }}>{scheduledGame.field || field?.name || "Field TBD"}</div>
                 </div>
               </div>
             )) : (
-              <div style={displayNoGames}>No scheduled games found for this field.</div>
+              <div style={{ ...displayNoGames, ...(scheduleDark ? mutedTextDark : {}) }}>No scheduled games found for this field.</div>
             )}
           </div>
         </div>
       )}
 
-      {scoreboardsOpen && liveGame && breakMode && (
+      {scoreboardsOpen && liveGame && breakMode && !refMode && (
         <BreakClockDisplay
           label={getBreakLabel(liveGame)}
           clock={liveClock || liveGame.clock}
           game={game}
           liveGame={liveGame}
           settings={settings}
+          theme={getDisplayTheme(liveGame)}
         />
       )}
 
       {scoreboardsOpen && liveGame && finalMode && (
-        <FinalScoreDisplay game={game} liveGame={liveGame} />
+        <FinalScoreDisplay game={game} liveGame={liveGame} theme={getDisplayTheme(liveGame)} />
+      )}
+
+      {scoreboardsOpen && liveGame && refMode && !finalMode && (
+        <RefScoreboardDisplay
+          field={field}
+          game={game}
+          liveGame={liveGame}
+          clock={liveClock || liveGame.clock}
+          homeTimeouts={homeTimeouts}
+          awayTimeouts={awayTimeouts}
+          statusLabel={breakMode ? getBreakLabel(liveGame) : "Live"}
+          theme={getDisplayTheme(liveGame)}
+        />
       )}
 
       {scoreboardsOpen && liveGame && singleSide && (
@@ -1315,13 +1487,14 @@ function ScoreOnlyBoard({
       )}
 
       {scoreboardsOpen && liveGame && !singleSide && (
-        !breakMode && !finalMode && (
+        !refMode && !breakMode && !finalMode && (
           <CombinedScoreboardDisplay
             game={game}
             liveGame={liveGame}
             clock={liveClock || liveGame.clock}
             homeTimeouts={homeTimeouts}
             awayTimeouts={awayTimeouts}
+            theme={getDisplayTheme(liveGame)}
           />
         )
       )}
@@ -1329,43 +1502,114 @@ function ScoreOnlyBoard({
   );
 }
 
-function CombinedScoreboardDisplay({ game, liveGame, clock, homeTimeouts, awayTimeouts }) {
+function CombinedScoreboardDisplay({ game, liveGame, clock, homeTimeouts, awayTimeouts, theme = "light" }) {
+  const dark = theme === "dark";
+
   return (
-    <div style={combinedDisplay}>
-      <div style={combinedClock}>{clock || "0:00"}</div>
+    <div style={{ ...combinedDisplay, ...(dark ? combinedDisplayDark : {}) }}>
+      <div style={{ ...combinedClock, ...(dark ? combinedTextDark : {}) }}>{clock || "0:00"}</div>
       <div style={combinedTeams}>
         <CombinedTeamPanel
           team={game?.team}
           score={liveGame?.home_score}
           timeoutUsage={homeTimeouts}
+          dark={dark}
         />
         <CombinedTeamPanel
           team={game?.opponent}
           score={liveGame?.away_score}
           timeoutUsage={awayTimeouts}
           divider
+          dark={dark}
         />
       </div>
     </div>
   );
 }
 
-function CombinedTeamPanel({ team, score, timeoutUsage, divider = false }) {
+function CombinedTeamPanel({ team, score, timeoutUsage, divider = false, dark = false }) {
   const logo = getLogo(team);
 
   return (
-    <div style={{ ...combinedTeamPanel, ...(divider ? combinedTeamDivider : {}) }}>
+    <div style={{ ...combinedTeamPanel, ...(divider ? (dark ? combinedTeamDividerDark : combinedTeamDivider) : {}) }}>
       <div style={combinedTeamHeader}>
-        {logo && <img src={logo} alt="" style={combinedLogo} />}
-        <div style={combinedTeamName}>{cleanTeamName(team)}</div>
+        {logo && (
+          <span style={dark ? combinedLogoPillDark : combinedLogoPill}>
+            <img src={logo} alt="" style={combinedLogo} />
+          </span>
+        )}
+        <div style={{ ...combinedTeamName, ...(dark ? combinedTextDark : {}) }}>{cleanTeamName(team)}</div>
       </div>
-      <div style={combinedScore}>{Number(score || 0)}</div>
-      <TimeoutDots total={timeoutUsage?.total} used={timeoutUsage?.used} display />
+      <div style={{ ...combinedScore, ...(dark ? combinedTextDark : {}) }}>{Number(score || 0)}</div>
+      <TimeoutDots total={timeoutUsage?.total} used={timeoutUsage?.used} display dark={dark} />
     </div>
   );
 }
 
-function BreakClockDisplay({ label, clock, game, liveGame, settings }) {
+function RefScoreboardDisplay({ field, game, liveGame, clock, homeTimeouts, awayTimeouts, statusLabel, theme = "light" }) {
+  const dark = theme === "dark";
+
+  return (
+    <div style={{ ...refDisplay, ...(dark ? refDisplayDark : {}) }}>
+      <a href="/scoreboard/ref" style={{ ...refBackButton, ...(dark ? refBackButtonDark : {}) }}>
+        Back to Live Games
+      </a>
+
+      <div style={refTop}>
+        <div>
+          <div style={{ ...refField, ...(dark ? mutedTextDark : {}) }}>{field?.name || game?.field || "Field"}</div>
+          <div style={{ ...refStatus, ...(dark ? refStatusDark : {}) }}>{statusLabel}</div>
+        </div>
+        <div style={{ ...refClock, ...(dark ? combinedTextDark : {}) }}>{clock || "0:00"}</div>
+      </div>
+
+      <div style={refTeams}>
+        <RefTeamCard
+          label="Home"
+          team={game?.team}
+          score={liveGame?.home_score}
+          timeoutUsage={homeTimeouts}
+          dark={dark}
+        />
+        <RefTeamCard
+          label="Away"
+          team={game?.opponent}
+          score={liveGame?.away_score}
+          timeoutUsage={awayTimeouts}
+          dark={dark}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RefTeamCard({ label, team, score, timeoutUsage, dark = false }) {
+  const logo = getLogo(team);
+  const remaining = Number(timeoutUsage?.remaining ?? timeoutUsage?.total ?? 0);
+  const used = Number(timeoutUsage?.used || 0);
+
+  return (
+    <div style={{ ...refTeamCard, ...(dark ? refTeamCardDark : {}) }}>
+      <div style={refTeamHeader}>
+        <div style={{ ...refTeamLabel, ...(dark ? mutedTextDark : {}) }}>{label}</div>
+        {logo && (
+          <span style={dark ? refLogoPillDark : refLogoPill}>
+            <img src={logo} alt="" style={refLogo} />
+          </span>
+        )}
+      </div>
+      <div style={{ ...refTeamName, ...(dark ? combinedTextDark : {}) }}>{cleanTeamName(team)}</div>
+      <div style={{ ...refScore, ...(dark ? combinedTextDark : {}) }}>{Number(score || 0)}</div>
+      <div style={{ ...refTimeoutLine, ...(dark ? mutedTextDark : {}) }}>
+        Timeouts: <strong style={dark ? combinedTextDark : refTimeoutStrong}>{remaining}</strong> left
+        <span style={refTimeoutUsed}>({used} used)</span>
+      </div>
+    </div>
+  );
+}
+
+function BreakClockDisplay({ label, clock, game, liveGame, settings, theme = "light" }) {
+  const dark = theme === "dark";
   const timeoutTeam = liveGame?.status === "timeout_home"
     ? game?.team
     : liveGame?.status === "timeout_away"
@@ -1374,35 +1618,44 @@ function BreakClockDisplay({ label, clock, game, liveGame, settings }) {
   const timeoutLogo = getLogo(timeoutTeam);
 
   return (
-    <div style={breakDisplay}>
-      <div style={breakLabel}>
-        {timeoutLogo && <img src={timeoutLogo} alt="" style={breakHeaderLogo} />}
+    <div style={{ ...breakDisplay, ...(dark ? displayDarkSurface : {}) }}>
+      <div style={{ ...breakLabel, ...(dark ? combinedTextDark : {}) }}>
+        {timeoutLogo && (
+          <span style={dark ? breakLogoPillDark : breakLogoPill}>
+            <img src={timeoutLogo} alt="" style={breakHeaderLogo} />
+          </span>
+        )}
         <span>{label}</span>
       </div>
-      <div style={breakClock}>{clock || "0:00"}</div>
-      <div style={breakScoreLine}>
-        <BreakScoreTeam team={game?.team} />
+      <div style={{ ...breakClock, ...(dark ? combinedTextDark : {}) }}>{clock || "0:00"}</div>
+      <div style={{ ...breakScoreLine, ...(dark ? combinedTextDark : {}) }}>
+        <BreakScoreTeam team={game?.team} dark={dark} />
         <strong>{Number(liveGame?.home_score || 0)}</strong>
-        <span style={breakScoreDash}>-</span>
+        <span style={{ ...breakScoreDash, ...(dark ? mutedTextDark : {}) }}>-</span>
         <strong>{Number(liveGame?.away_score || 0)}</strong>
-        <BreakScoreTeam team={game?.opponent} right />
+        <BreakScoreTeam team={game?.opponent} right dark={dark} />
       </div>
     </div>
   );
 }
 
-function BreakScoreTeam({ team, right = false }) {
+function BreakScoreTeam({ team, right = false, dark = false }) {
   const logo = getLogo(team);
 
   return (
     <span style={{ ...breakScoreTeam, ...(right ? breakScoreTeamRight : {}) }}>
-      {logo && <img src={logo} alt="" style={breakScoreLogo} />}
+      {logo && (
+        <span style={dark ? breakScoreLogoPillDark : breakScoreLogoPill}>
+          <img src={logo} alt="" style={breakScoreLogo} />
+        </span>
+      )}
       <span>{cleanTeamName(team)}</span>
     </span>
   );
 }
 
-function FinalScoreDisplay({ game, liveGame }) {
+function FinalScoreDisplay({ game, liveGame, theme = "light" }) {
+  const dark = theme === "dark";
   const homeScore = Number(liveGame?.home_score || 0);
   const awayScore = Number(liveGame?.away_score || 0);
   const winner = homeScore === awayScore
@@ -1410,15 +1663,15 @@ function FinalScoreDisplay({ game, liveGame }) {
     : `${cleanTeamName(homeScore > awayScore ? game?.team : game?.opponent)} Wins`;
 
   return (
-    <div style={finalDisplay}>
+    <div style={{ ...finalDisplay, ...(dark ? displayDarkSurface : {}) }}>
       <div style={finalLabel}>Final</div>
-      <div style={finalWinner}>{winner}</div>
-      <div style={finalTeams}>
+      <div style={{ ...finalWinner, ...(dark ? combinedTextDark : {}) }}>{winner}</div>
+      <div style={{ ...finalTeams, ...(dark ? mutedTextDark : {}) }}>
         {cleanTeamName(game?.team)} vs {cleanTeamName(game?.opponent)}
       </div>
-      <div style={finalScoreLine}>
+      <div style={{ ...finalScoreLine, ...(dark ? combinedTextDark : {}) }}>
         <span>{homeScore}</span>
-        <span style={finalDash}>-</span>
+        <span style={{ ...finalDash, ...(dark ? mutedTextDark : {}) }}>-</span>
         <span>{awayScore}</span>
       </div>
     </div>
@@ -1445,7 +1698,7 @@ function ScoreOnlySide({ team, score, clock, timeoutUsage, opponentName, opponen
   );
 }
 
-function TimeoutDots({ total = 3, used = 0, display = false }) {
+function TimeoutDots({ total = 3, used = 0, display = false, dark = false }) {
   const safeTotal = Math.max(0, Number(total || 0));
   const safeUsed = Math.max(0, Number(used || 0));
 
@@ -1456,7 +1709,9 @@ function TimeoutDots({ total = 3, used = 0, display = false }) {
           key={index}
           style={{
             ...(display ? displayTimeoutDot : timeoutDot),
+            ...(display && dark ? displayTimeoutDotDark : {}),
             ...(index < safeUsed ? (display ? displayTimeoutDotUsed : timeoutDotUsed) : {}),
+            ...(index < safeUsed && display && dark ? displayTimeoutDotUsedDark : {}),
           }}
         />
       ))}
@@ -1466,8 +1721,9 @@ function TimeoutDots({ total = 3, used = 0, display = false }) {
 
 function DeviceOverlay({ field, fieldId, type, onSelect, onBack, onClose }) {
   const origin = window.location.origin;
-  const href = type ? `${origin}/field-scoreboard/${fieldId}/${type}` : "";
-  const label = type === "display" ? "Combined Display" : type === "display/home" ? "Home Display iPad" : type === "display/away" ? "Away Display iPad" : "Add Displays";
+  const fieldBasePath = getCurrentFieldScoreboardBasePath(fieldId);
+  const href = type === "display/ref" ? `${origin}/scoreboard/ref` : type ? `${origin}${fieldBasePath}/${type}` : "";
+  const label = type === "display" ? "Combined Display" : type === "display/home" ? "Home Display iPad" : type === "display/away" ? "Away Display iPad" : type === "display/ref" ? "Ref Display" : "Add Displays";
 
   return (
     <div style={deviceOverlay}>
@@ -1494,6 +1750,10 @@ function DeviceOverlay({ field, fieldId, type, onSelect, onBack, onClose }) {
               <div style={deviceChoiceTitle}>Away Display</div>
               <div style={deviceChoiceText}>Scan for the away-side scoreboard.</div>
             </button>
+            <button style={deviceChoiceBtn} onClick={() => onSelect("display/ref")}>
+              <div style={deviceChoiceTitle}>Ref Display</div>
+              <div style={deviceChoiceText}>Phone list where refs can pick any live game.</div>
+            </button>
           </div>
         ) : (
           <div style={deviceQrWrap}>
@@ -1512,6 +1772,12 @@ function DeviceOverlay({ field, fieldId, type, onSelect, onBack, onClose }) {
 function getFieldIdFromPath() {
   const parts = window.location.pathname.split("/").filter(Boolean);
   return parts[1] || "";
+}
+
+function getCurrentFieldScoreboardBasePath(fallbackFieldId) {
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  const currentFieldId = parts[0] === "field-scoreboard" && parts[1] ? parts[1] : fallbackFieldId;
+  return `/field-scoreboard/${currentFieldId || ""}`;
 }
 
 function cleanTeamName(value) {
@@ -1564,6 +1830,13 @@ function createTimeoutState(count = 3) {
   };
 }
 
+function createTimeoutStateWithTheme(count = 3, theme = "light") {
+  return {
+    ...createTimeoutState(count),
+    display_theme: theme === "dark" ? "dark" : "light",
+  };
+}
+
 function getTimeoutStorageKey(liveGameId) {
   return `field-scoreboard-timeouts-${liveGameId}`;
 }
@@ -1596,6 +1869,47 @@ function saveTimeoutState(liveGameId, timeouts) {
   }
 }
 
+function loadSavedDisplayTheme() {
+  try {
+    const theme = window.localStorage.getItem(DISPLAY_THEME_STORAGE_KEY);
+    return theme === "dark" ? "dark" : theme === "light" ? "light" : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadSavedFieldDisplayTheme(fieldId) {
+  if (!fieldId) return null;
+  try {
+    const theme = window.localStorage.getItem(`${FIELD_THEME_STORAGE_PREFIX}${fieldId}`);
+    return theme === "dark" ? "dark" : theme === "light" ? "light" : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveFieldDisplayThemePreference(fieldId, theme) {
+  if (!fieldId) return;
+  try {
+    window.localStorage.setItem(`${FIELD_THEME_STORAGE_PREFIX}${fieldId}`, theme === "dark" ? "dark" : "light");
+  } catch (error) {
+    console.warn("Field display theme preference could not be saved:", error);
+  }
+}
+
+function normalizeFieldThemes(value) {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === "object" ? value : {};
+}
+
 function normalizeTimeoutState(value, count) {
   const defaults = createTimeoutState(count);
   let parsed = value;
@@ -1614,6 +1928,44 @@ function normalizeTimeoutState(value, count) {
     home: { ...defaults.home, ...(parsed?.home || {}) },
     away: { ...defaults.away, ...(parsed?.away || {}) },
   };
+}
+
+function getDisplayTheme(liveGame) {
+  const timeoutState = normalizeTimeoutState(liveGame?.timeout_state, DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+  return timeoutState.display_theme === "dark" ? "dark" : "light";
+}
+
+function getFieldDisplayTheme(settings, fieldId) {
+  const fieldThemes = normalizeFieldThemes(settings?.scoreboard_field_themes);
+  const fieldTheme = fieldThemes?.[fieldId];
+  if (fieldTheme === "dark" || fieldTheme === "light") return fieldTheme;
+  return settings?.scoreboard_schedule_theme === "dark" ? "dark" : "light";
+}
+
+function getActiveDisplayTheme(liveGame, settings, fieldId) {
+  return liveGame ? getDisplayTheme(liveGame) : getFieldDisplayTheme(settings, fieldId);
+}
+
+function getClockAnchor(liveGame) {
+  const timeoutState = normalizeTimeoutState(liveGame?.timeout_state, DEFAULT_SETTINGS.scoreboard_timeouts_per_half);
+  return timeoutState.clock_anchor || null;
+}
+
+function isClockAnchorRunning(liveGame) {
+  const anchor = getClockAnchor(liveGame);
+  return Boolean(anchor?.running && anchor.status === liveGame?.status);
+}
+
+function getAnchoredClockSeconds(liveGame, fallbackSeconds) {
+  const anchor = getClockAnchor(liveGame);
+  if (!anchor?.running || anchor.status !== liveGame?.status) return fallbackSeconds;
+
+  const startedAt = Number(anchor.started_at || 0);
+  const anchorSeconds = Number(anchor.seconds || fallbackSeconds || 0);
+  if (!startedAt) return anchorSeconds;
+
+  const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+  return Math.max(0, anchorSeconds - elapsed);
 }
 
 function getTimeoutUsageForGame(liveGame, side, settings) {
@@ -1771,6 +2123,8 @@ const liveTopBar = { alignItems: "center", background: "#fff", borderRadius: 16,
 const pageTitle = { color: "#0f172a", fontSize: 34, fontWeight: 900, lineHeight: 1.05 };
 const pageSub = { color: "#64748b", fontSize: 16, fontWeight: 800, marginTop: 4 };
 const displayLinks = { display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "flex-end" };
+const themeToggleBtn = { background: "#e0f2fe", border: "2px solid transparent", borderRadius: 14, color: "#075985", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "12px 16px" };
+const themeToggleActive = { background: "#111827", borderColor: "#111827", color: "#fff" };
 const topExitBtn = { background: "#fee2e2", border: "none", borderRadius: 14, color: "#991b1b", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px" };
 const topEndBtn = { background: "#dc2626", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px" };
 const displayLink = { background: "#111827", border: "none", borderRadius: 14, color: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 900, minHeight: 48, padding: "14px 16px", textDecoration: "none" };
@@ -1834,6 +2188,8 @@ const displaySingleScore = { alignSelf: "center", color: "#111827", fontSize: "m
 const displayTimeoutDots = { alignItems: "center", alignSelf: "center", display: "flex", gap: "0.75vw", justifyContent: "center", minHeight: "4dvh" };
 const displayTimeoutDot = { background: "#e2e8f0", border: "0.16vw solid #cbd5e1", borderRadius: 999, display: "inline-block", height: "min(1.4vw, 2dvh)", width: "min(5.8vw, 8dvh)" };
 const displayTimeoutDotUsed = { background: "#111827", borderColor: "#111827" };
+const displayTimeoutDotDark = { background: "#27272a", borderColor: "#52525b" };
+const displayTimeoutDotUsedDark = { background: "#fff", borderColor: "#fff" };
 const displayClockLine = { alignItems: "baseline", alignSelf: "end", display: "flex", gap: "2vw", justifyContent: "center", maxWidth: "47vw", minWidth: 0 };
 const displaySingleClockLine = { alignItems: "baseline", alignSelf: "end", display: "flex", gap: "3vw", justifyContent: "center", maxWidth: "96vw", minWidth: 0 };
 const displayClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(9vw, 11dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.92, textAlign: "center" };
@@ -1841,14 +2197,43 @@ const displaySingleClock = { alignSelf: "end", color: "#2563eb", fontSize: "min(
 const displayOpponentScore = { color: "#64748b", fontSize: "min(7vw, 9dvh)", fontWeight: 900, lineHeight: 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const displaySingleOpponentScore = { color: "#64748b", fontSize: "min(10vw, 10dvh)", fontWeight: 900, lineHeight: 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const combinedDisplay = { alignItems: "stretch", background: "#fff", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 20dvh) minmax(0, 1fr)", height: "100dvh", overflow: "hidden", padding: "2dvh 2.2vw", width: "100vw" };
+const combinedDisplayDark = { background: "#000" };
 const combinedClock = { alignSelf: "center", color: "#111827", fontSize: "min(18vw, 20dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.8, textAlign: "center" };
+const combinedTextDark = { color: "#fff" };
+const mutedTextDark = { color: "#d4d4d8" };
+const displayDarkSurface = { background: "#000" };
 const combinedTeams = { alignItems: "stretch", display: "grid", gap: 0, gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", height: "100%", minHeight: 0 };
 const combinedTeamPanel = { alignItems: "center", boxSizing: "border-box", display: "grid", gridTemplateRows: "minmax(0, 15dvh) minmax(0, 1fr) minmax(0, 7dvh)", justifyItems: "center", minHeight: 0, overflow: "hidden", padding: "1.8dvh 2vw" };
 const combinedTeamDivider = { borderLeft: "0.22vw solid #e2e8f0" };
+const combinedTeamDividerDark = { borderLeft: "0.22vw solid #3f3f46" };
 const combinedTeamHeader = { alignItems: "center", display: "flex", flexWrap: "nowrap", gap: "1.2vw", justifyContent: "center", maxWidth: "100%", minWidth: 0 };
+const combinedLogoPill = { alignItems: "center", display: "inline-flex", flex: "0 0 auto", justifyContent: "center" };
+const combinedLogoPillDark = { ...combinedLogoPill, background: "#fff", borderRadius: 999, padding: "0.8dvh 1.2vw" };
 const combinedLogo = { flex: "0 0 auto", height: "min(11dvh, 9vw)", objectFit: "contain", width: "min(11dvh, 9vw)" };
 const combinedTeamName = { color: "#111827", fontSize: "min(5.6vw, 7.4dvh)", fontWeight: 900, lineHeight: 0.9, overflowWrap: "anywhere", textAlign: "center" };
 const combinedScore = { alignSelf: "center", color: "#111827", fontSize: "min(34vw, 56dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, letterSpacing: 0, lineHeight: 0.66, textAlign: "center" };
+const refDisplay = { background: "#f8fafc", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 14, gridColumn: "1 / -1", minHeight: "100dvh", padding: "max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom))", width: "100vw" };
+const refDisplayDark = { background: "#000" };
+const refBackButton = { alignSelf: "flex-start", background: "#e5e7eb", borderRadius: 999, color: "#111827", fontSize: 14, fontWeight: 900, padding: "10px 14px", textDecoration: "none" };
+const refBackButtonDark = { background: "#18181b", color: "#fff" };
+const refTop = { alignItems: "center", display: "flex", flexDirection: "column", gap: 10, textAlign: "center" };
+const refField = { color: "#64748b", fontSize: 13, fontWeight: 900, textTransform: "uppercase" };
+const refStatus = { background: "#dcfce7", borderRadius: 999, color: "#166534", display: "inline-flex", fontSize: 14, fontWeight: 900, marginTop: 6, padding: "6px 10px", textTransform: "uppercase" };
+const refStatusDark = { background: "#18181b", color: "#fff" };
+const refClock = { color: "#111827", fontSize: "clamp(64px, 24vw, 128px)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.86, textAlign: "center", width: "100%" };
+const refTeams = { display: "grid", gap: 12, flex: 1 };
+const refTeamCard = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, boxSizing: "border-box", display: "grid", gridTemplateRows: "auto auto minmax(0, 1fr) auto", minHeight: 0, padding: 16 };
+const refTeamCardDark = { background: "#09090b", borderColor: "#27272a" };
+const refTeamHeader = { alignItems: "center", display: "flex", justifyContent: "space-between", gap: 10 };
+const refTeamLabel = { color: "#64748b", fontSize: 13, fontWeight: 900, textTransform: "uppercase" };
+const refLogoPill = { alignItems: "center", display: "inline-flex", flex: "0 0 auto", justifyContent: "center" };
+const refLogoPillDark = { ...refLogoPill, background: "#fff", borderRadius: 999, padding: "6px 10px" };
+const refLogo = { height: 42, objectFit: "contain", width: 42 };
+const refTeamName = { color: "#111827", fontSize: "clamp(26px, 8vw, 48px)", fontWeight: 900, lineHeight: 0.95, marginTop: 10, overflowWrap: "anywhere" };
+const refScore = { alignSelf: "center", color: "#111827", fontSize: "clamp(96px, 34vw, 190px)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.72, textAlign: "center" };
+const refTimeoutLine = { color: "#64748b", fontSize: "clamp(18px, 5vw, 28px)", fontWeight: 900, lineHeight: 1.1 };
+const refTimeoutStrong = { color: "#111827" };
+const refTimeoutUsed = { marginLeft: 8 };
 const displayEmpty = { alignItems: "center", color: "#111827", display: "flex", flexDirection: "column", fontSize: "clamp(44px, 7vw, 112px)", fontWeight: 900, gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", textAlign: "center" };
 const displayIdleTitle = { fontSize: "clamp(72px, 12vw, 180px)", fontWeight: 900, lineHeight: 0.95 };
 const displayIdleSub = { color: "#64748b", fontSize: "clamp(34px, 5vw, 78px)", marginTop: "3vh" };
@@ -1857,24 +2242,31 @@ const displayFieldName = { color: "#111827", fontSize: "min(10vw, 12dvh)", fontW
 const displayWeekLabel = { color: "#2f6ea6", fontSize: "min(4.8vw, 6dvh)", fontWeight: 900, marginTop: "1dvh", textTransform: "uppercase" };
 const displayGameList = { display: "grid", gap: "1dvh", marginTop: "1.6dvh", maxHeight: "72dvh", maxWidth: "94vw", overflow: "hidden", width: "100%" };
 const displayGameRow = { alignItems: "center", border: "0.35vw solid #111827", borderRadius: "1.2vw", boxSizing: "border-box", display: "grid", gap: "1.5vw", gridTemplateColumns: "14vw 1fr 24vw", minHeight: "8.8dvh", padding: "0.85dvh 1.5vw" };
+const displayGameRowDark = { borderColor: "#3f3f46" };
 const displayGameTime = { color: "#111827", fontSize: "min(4.8vw, 7dvh)", fontWeight: 900, lineHeight: 0.95 };
 const displayGameMain = { display: "grid", gap: "0.7dvh", minWidth: 0 };
 const displayGameTeamsRow = { alignItems: "center", color: "#111827", display: "grid", fontSize: "min(3.8vw, 5.3dvh)", fontWeight: 900, gap: "0.9vw", gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)", lineHeight: 0.95, minWidth: 0 };
 const displayScheduleTeam = { alignItems: "center", display: "inline-flex", gap: "0.55vw", minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" };
+const displayScheduleLogoPill = { alignItems: "center", display: "inline-flex", flex: "0 0 auto", justifyContent: "center" };
+const displayScheduleLogoPillDark = { ...displayScheduleLogoPill, background: "#fff", borderRadius: 999, padding: "0.35dvh 0.5vw" };
 const displayScheduleLogo = { flex: "0 0 auto", height: "min(4.4dvh, 3.4vw)", objectFit: "contain", width: "min(4.4dvh, 3.4vw)" };
 const displayGameVs = { color: "#64748b", fontSize: "min(2.3vw, 3.1dvh)", fontWeight: 900, textTransform: "uppercase" };
-const displayGameRefs = { color: "#2563eb", fontSize: "min(2.6vw, 3.5dvh)", fontWeight: 900, lineHeight: 1, overflowWrap: "anywhere" };
+const displayGameRefs = { color: "#111827", fontSize: "min(2.6vw, 3.5dvh)", fontWeight: 900, lineHeight: 1, overflowWrap: "anywhere" };
 const displayGameMetaBlock = { display: "grid", gap: "0.6dvh", minWidth: 0, textAlign: "right" };
 const displayGameDivision = { color: "#111827", fontSize: "min(3.4vw, 4.8dvh)", fontWeight: 900, lineHeight: 1 };
 const displayGameField = { color: "#475569", fontSize: "min(2.8vw, 3.8dvh)", fontWeight: 900, lineHeight: 1 };
 const displayNoGames = { color: "#64748b", fontSize: "clamp(44px, 7vw, 108px)", fontWeight: 900, textAlign: "center" };
 const breakDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", padding: "4dvh 4vw", width: "100vw" };
 const breakHeaderLogo = { flex: "0 0 auto", height: "0.85em", objectFit: "contain", width: "0.85em" };
+const breakLogoPill = { alignItems: "center", display: "inline-flex", flex: "0 0 auto", justifyContent: "center" };
+const breakLogoPillDark = { ...breakLogoPill, background: "#fff", borderRadius: 999, padding: "0.13em 0.2em" };
 const breakLabel = { alignItems: "center", color: "#111827", display: "flex", fontSize: "clamp(34px, min(10vw, 13dvh), 150px)", fontWeight: 900, gap: "1.4vw", justifyContent: "center", lineHeight: 0.9, maxWidth: "96vw", overflow: "hidden", textAlign: "center", textOverflow: "ellipsis", textTransform: "uppercase", whiteSpace: "nowrap" };
 const breakClock = { color: "#111827", fontSize: "min(42vw, 48dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.8, marginTop: "4dvh" };
 const breakScoreLine = { alignItems: "center", color: "#111827", display: "flex", flexWrap: "wrap", fontSize: "min(7vw, 8dvh)", fontWeight: 900, gap: "1.8vw", justifyContent: "center", lineHeight: 0.9, marginTop: "4dvh", textAlign: "center" };
 const breakScoreTeam = { alignItems: "center", display: "inline-flex", gap: "1vw", whiteSpace: "nowrap" };
 const breakScoreTeamRight = { flexDirection: "row-reverse" };
+const breakScoreLogoPill = { alignItems: "center", display: "inline-flex", flex: "0 0 auto", justifyContent: "center" };
+const breakScoreLogoPillDark = { ...breakScoreLogoPill, background: "#fff", borderRadius: 999, padding: "0.5dvh 0.75vw" };
 const breakScoreLogo = { height: "min(8dvh, 7vw)", objectFit: "contain", width: "min(8dvh, 7vw)" };
 const breakScoreDash = { color: "#94a3b8" };
 const finalDisplay = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", gridColumn: "1 / -1", height: "100dvh", justifyContent: "center", overflow: "hidden", padding: "3dvh 4vw", textAlign: "center", width: "100vw" };
