@@ -63,6 +63,7 @@ export default function App() {
       if (path === "/") setPage("home");
       else if (path === "/schedule") setPage("schedule");
       else if (path === "/scoreboard/ref") setPage("scoreboardRef");
+      else if (path === "/scoreboard/brackets") setPage("scoreboardBrackets");
       else if (path === "/scoreboard/live") setPage("scoreboardLive");
       else if (path === "/scoreboard") setPage("scoreboard");
       else if (path === "/signup") setPage("signup");
@@ -175,6 +176,7 @@ export default function App() {
   useEffect(() => {
     if (page === "home") window.history.pushState({}, "", "/");
     if (page === "schedule") window.history.pushState({}, "", "/schedule");
+    if (page === "scoreboardBrackets") window.history.pushState({}, "", "/scoreboard/brackets");
     if (page === "scoreboardLive") window.history.pushState({}, "", "/scoreboard/live");
     if (page === "scoreboard") window.history.pushState({}, "", "/scoreboard");
     if (page === "signup") window.history.pushState({}, "", "/signup");
@@ -285,6 +287,7 @@ export default function App() {
             {page === "schedule" && <SchedulePage setPage={setPage} />}
             {page === "scoreboard" && <ScoreboardPage />}
             {page === "scoreboardLive" && <ScoreboardPage initialLive />}
+            {page === "scoreboardBrackets" && <ScoreboardPage initialBrackets />}
             {page === "teamSchedules" && <TeamSchedulesPage setPage={setPage} />}
 
             {page === "loginSelect" && <LoginSelectPage setPage={setPage} />}

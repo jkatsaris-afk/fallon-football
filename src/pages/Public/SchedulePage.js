@@ -42,6 +42,7 @@ export default function SchedulePage({ setPage }) {
   const [mode, setMode] = useState("week");
   const [selectedWeek, setSelectedWeek] = useState("all");
   const [selectedTeamKey, setSelectedTeamKey] = useState("all");
+  const [selectedChampionshipDivision, setSelectedChampionshipDivision] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -53,10 +54,12 @@ export default function SchedulePage({ setPage }) {
     sessionStorage.removeItem("publicScheduleType");
 
     load(requestedDate, requestedType);
+    const interval = setInterval(() => load(null, null, true), 10000);
+    return () => clearInterval(interval);
   }, []);
 
-  const load = async (requestedDate, requestedType) => {
-    setLoading(true);
+  const load = async (requestedDate, requestedType, silent = false) => {
+    if (!silent) setLoading(true);
     const active = await getActiveSeason();
     const [
       { data: scheduleData },
@@ -95,7 +98,7 @@ export default function SchedulePage({ setPage }) {
       }
     }
 
-    setLoading(false);
+    if (!silent) setLoading(false);
   };
 
   const teamCards = useMemo(() => {
@@ -155,9 +158,10 @@ export default function SchedulePage({ setPage }) {
         teamKey: teamKey(game.team, game.division),
         opponentKey: teamKey(game.opponent, game.division),
         division: normalizeDivision(game.division),
+        weekGroup: getWeekGroup(game),
       }))
       .sort((a, b) => (
-        Number(a.week || 0) - Number(b.week || 0) ||
+        sortWeekGroup(a.weekGroup, b.weekGroup) ||
         String(a.cleanDate || "").localeCompare(String(b.cleanDate || "")) ||
         toTime(a.event_time || a.time) - toTime(b.event_time || b.time)
       ))
@@ -166,28 +170,42 @@ export default function SchedulePage({ setPage }) {
   const weeks = useMemo(() => {
     const byWeek = {};
     scheduleRows.forEach((game) => {
-      if (!game.week) return;
-      if (!byWeek[game.week]) byWeek[game.week] = [];
-      if (game.cleanDate) byWeek[game.week].push(game.cleanDate);
+      const group = game.weekGroup;
+      if (!group) return;
+      if (!byWeek[group.value]) byWeek[group.value] = { label: group.label, dates: [] };
+      if (game.cleanDate) byWeek[group.value].dates.push(game.cleanDate);
     });
     return Object.entries(byWeek)
-      .map(([week, dates]) => ({ week, dateLabel: formatDateRange(dates), count: scheduleRows.filter((game) => String(game.week) === String(week)).length }))
-      .sort((a, b) => Number(a.week) - Number(b.week));
+      .map(([week, group]) => ({
+        week,
+        label: group.label,
+        dateLabel: formatDateRange(group.dates),
+        count: scheduleRows.filter((game) => game.weekGroup?.value === week).length,
+      }))
+      .sort((a, b) => sortWeekValue(a.week, b.week));
   }, [scheduleRows]);
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase();
 
     return scheduleRows.filter((game) => {
-      const weekMatch = mode !== "week" || selectedWeek === "all" || String(game.week) === String(selectedWeek);
+      const weekMatch = mode !== "week" || selectedWeek === "all" || game.weekGroup?.value === selectedWeek;
       const teamMatch = mode !== "team" || selectedTeamKey === "all" || game.teamKey === selectedTeamKey || game.opponentKey === selectedTeamKey;
+      const championshipMatch = mode !== "championship" || isChampionshipEvent(game);
+      const championshipDivisionMatch = mode !== "championship" || selectedChampionshipDivision === "all" || game.division === selectedChampionshipDivision;
       const searchMatch = !term || gameMatchesSearch(game, term, playerTermsByTeam, coachTermsByTeam);
-      return weekMatch && teamMatch && searchMatch;
+      return weekMatch && teamMatch && championshipMatch && championshipDivisionMatch && searchMatch;
     });
-  }, [coachTermsByTeam, mode, playerTermsByTeam, scheduleRows, search, selectedTeamKey, selectedWeek]);
+  }, [coachTermsByTeam, mode, playerTermsByTeam, scheduleRows, search, selectedChampionshipDivision, selectedTeamKey, selectedWeek]);
+
+  const championshipDivisions = useMemo(() => (
+    ["all", ...new Set(scheduleRows.filter(isChampionshipEvent).map((game) => game.division).filter(Boolean).sort(sortDivisions))]
+  ), [scheduleRows]);
 
   const selectedTitle = mode === "week"
-    ? selectedWeek === "all" ? "All Weeks" : `Week ${selectedWeek}`
+    ? selectedWeek === "all" ? "All Weeks" : weeks.find((week) => week.week === selectedWeek)?.label || `Week ${selectedWeek}`
+    : mode === "championship"
+    ? "Championship Schedule"
     : selectedTeamKey === "all" ? "All Teams" : `${teamByKey[selectedTeamKey]?.division || ""} ${teamByKey[selectedTeamKey]?.name || "Team"}`;
 
   if (loading) return <div style={wrap}>Loading schedule...</div>;
@@ -215,6 +233,7 @@ export default function SchedulePage({ setPage }) {
       <div style={modeGrid}>
         <ModeTile icon={<CalendarDays size={22} />} title="By Week" active={mode === "week"} onClick={() => setMode("week")} />
         <ModeTile icon={<Users size={22} />} title="By Team" active={mode === "team"} onClick={() => setMode("team")} />
+        <ModeTile icon={<Shield size={22} />} title="Championship" active={mode === "championship"} onClick={() => setMode("championship")} />
       </div>
 
       {mode === "week" && (
@@ -225,7 +244,7 @@ export default function SchedulePage({ setPage }) {
           </button>
           {weeks.map((week) => (
             <button key={week.week} style={selectorTile(String(selectedWeek) === String(week.week))} onClick={() => setSelectedWeek(String(week.week))}>
-              <div style={tileTitle}>Week {week.week}</div>
+              <div style={tileTitle}>{week.label}</div>
               <div style={tileSub}>{week.dateLabel}</div>
               <div style={tileMeta}>{week.count} events</div>
             </button>
@@ -247,6 +266,23 @@ export default function SchedulePage({ setPage }) {
                   <div style={tileTitle}>{team.name}</div>
                   <div style={tileSub}>{team.division}</div>
                 </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode === "championship" && (
+        <div style={tileGrid}>
+          {championshipDivisions.map((division) => (
+            <button
+              key={division}
+              style={selectorTile(selectedChampionshipDivision === division)}
+              onClick={() => setSelectedChampionshipDivision(division)}
+            >
+              <div style={tileTitle}>{division === "all" ? "All Divisions" : division}</div>
+              <div style={tileSub}>
+                {scheduleRows.filter((game) => isChampionshipEvent(game) && (division === "all" || game.division === division)).length} games
               </div>
             </button>
           ))}
@@ -293,7 +329,7 @@ function ScheduleRow({ game }) {
   return (
     <article className="public-schedule-row" style={rowCard}>
       <div style={rowTime}>
-        <div style={weekPill}>Week {game.week || "-"}</div>
+        <div style={weekPill}>{game.weekGroup?.label || "Schedule"}</div>
         <div style={dateText}>{game.cleanDate ? formatShortDate(game.cleanDate) : "Date TBD"}</div>
         <div style={timeText}>{game.event_time || game.time || "Time TBD"}</div>
       </div>
@@ -335,6 +371,7 @@ function gameMatchesSearch(game, term, playerTermsByTeam, coachTermsByTeam) {
     game.division,
     game.field,
     game.event_type,
+    game.weekGroup?.label,
     `week ${game.week}`,
   ].join(" ").toLowerCase();
 
@@ -353,6 +390,36 @@ function gameMatchesSearch(game, term, playerTermsByTeam, coachTermsByTeam) {
 function isPublicEvent(game) {
   const type = String(game.event_type || "").toLowerCase();
   return type.includes("game") || type.includes("champ") || type.includes("practice");
+}
+
+function isChampionshipEvent(game) {
+  const type = String(game.event_type || "").toLowerCase();
+  const source = String(game.source || "").toLowerCase();
+  return type.includes("champ") || source.startsWith("championship");
+}
+
+function getWeekGroup(game) {
+  if (isChampionshipEvent(game)) {
+    return { value: "championships", label: "Championships", order: 999 };
+  }
+
+  if (game.week) {
+    const week = String(game.week);
+    return { value: week, label: `Week ${week}`, order: Number(game.week) || 0 };
+  }
+
+  return { value: "unscheduled", label: "Schedule", order: 1000 };
+}
+
+function sortWeekGroup(a, b) {
+  return sortWeekValue(a?.value, b?.value);
+}
+
+function sortWeekValue(a, b) {
+  const orderA = a === "championships" ? 999 : a === "unscheduled" ? 1000 : Number(a) || 0;
+  const orderB = b === "championships" ? 999 : b === "unscheduled" ? 1000 : Number(b) || 0;
+  if (orderA !== orderB) return orderA - orderB;
+  return String(a || "").localeCompare(String(b || ""));
 }
 
 function normalizeDate(dateStr) {
@@ -442,7 +509,7 @@ const title = { fontSize: 32, fontWeight: 900, margin: "5px 0 0" };
 const heroText = { color: "#d1d5db", fontSize: 14, fontWeight: 700, marginTop: 8 };
 const searchShell = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 22px rgba(15,23,42,0.08)", display: "flex", gap: 10, padding: "11px 13px" };
 const searchInput = { border: "none", flex: 1, fontSize: 16, fontWeight: 700, minWidth: 0, outline: "none" };
-const modeGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" };
+const modeGrid = { display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" };
 const modeTile = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 22px rgba(15,23,42,0.08)", color: "#334155", cursor: "pointer", display: "flex", gap: 10, padding: 14, textAlign: "left" };
 const activeModeTile = { borderColor: "#86efac", color: "#166534" };
 const modeIcon = { alignItems: "center", background: "#ecfdf5", borderRadius: 12, display: "flex", height: 40, justifyContent: "center", width: 40 };

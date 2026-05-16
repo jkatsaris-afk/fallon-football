@@ -50,6 +50,8 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const [scoreboardFieldIds, setScoreboardFieldIds] = useState([fieldId]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [games, setGames] = useState([]);
+  const [championshipGames, setChampionshipGames] = useState([]);
+  const [championshipScores, setChampionshipScores] = useState([]);
   const [liveGame, setLiveGame] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState("");
   const [clockSeconds, setClockSeconds] = useState(DEFAULT_SETTINGS.scoreboard_game_minutes * 60);
@@ -222,9 +224,36 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     const gamesWithRefs = await attachRefAssignments(gameData || []);
     setGames(gamesWithRefs);
 
-    setSelectedWeek((currentWeek) => currentWeek || String(gamesWithRefs?.[0]?.week || ""));
+    setSelectedWeek((currentWeek) => currentWeek || getScoreboardGameGroup(gamesWithRefs?.[0])?.value || "");
+    await loadChampionshipBracket(active);
 
     await loadLiveGame(relatedIds);
+  };
+
+  const loadChampionshipBracket = async (activeSeason) => {
+    const active = activeSeason || await getActiveSeason();
+    const { data: bracketRows, error } = await applyUuidSeasonFilter(supabase
+      .from("schedule_master_auto")
+      .select("*")
+      .ilike("event_type", "%champ%")
+      .order("division", { ascending: true })
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true }), active);
+
+    if (error) {
+      console.error("Display championship bracket load failed:", error);
+      setChampionshipGames([]);
+      setChampionshipScores([]);
+      return;
+    }
+
+    const scheduleIds = (bracketRows || []).map((game) => game.id).filter(Boolean);
+    const { data: scoreRows } = scheduleIds.length
+      ? await supabase.from("game_scores").select("*").in("schedule_id", scheduleIds)
+      : { data: [] };
+
+    setChampionshipGames(bracketRows || []);
+    setChampionshipScores(dedupeScoresByScheduleId(scoreRows || []));
   };
 
   const attachRefAssignments = async (gameRows) => {
@@ -418,14 +447,25 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   };
 
   const weeks = useMemo(() => (
-    [...new Set(games.map((game) => game.week).filter(Boolean))]
-      .sort((a, b) => Number(a) - Number(b))
-      .map(String)
+    [...new Map(games.map((game) => {
+      const group = getScoreboardGameGroup(game);
+      return [group.value, group];
+    })).values()]
+      .sort((a, b) => a.order - b.order || String(a.value).localeCompare(String(b.value)))
   ), [games]);
 
-  const weekLabels = useMemo(() => getWeekLabels(games), [games]);
-  const weekGames = games.filter((game) => String(game.week || "") === String(selectedWeek));
+  const weekGames = games.filter((game) => getScoreboardGameGroup(game).value === selectedWeek);
   const displayWeekGames = useMemo(() => getDisplayWeekGames(games), [games]);
+  const championshipScoreByScheduleId = useMemo(() => {
+    const map = {};
+    championshipScores.forEach((score) => {
+      map[score.schedule_id] = score;
+    });
+    return map;
+  }, [championshipScores]);
+  const displayBracketGroups = useMemo(() => (
+    buildDisplayBracketGroups(championshipGames, championshipScoreByScheduleId)
+  ), [championshipGames, championshipScoreByScheduleId]);
   const scoreboardsOpen = settings.live_scoreboards_open !== false;
 
   const startGame = async (game) => {
@@ -974,6 +1014,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       return;
     }
 
+    await resolveChampionshipWinnerSlots(game, finalScore);
     await showFinalDisplay("Final score saved. Showing final score for 2 minutes.");
   };
 
@@ -1012,6 +1053,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         liveGame={scoreboardsOpen ? liveGame : null}
         liveClock={formatClock(clockSeconds)}
         games={displayWeekGames}
+        bracketGroups={displayBracketGroups}
         scoreboardsOpen={scoreboardsOpen}
         sideMode={displaySideMode}
         settings={settings}
@@ -1122,7 +1164,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
         <div style={setupPanel}>
           <h2 style={panelTitle}>Select Game</h2>
           <select value={selectedWeek} onChange={(e) => setSelectedWeek(e.target.value)} style={select}>
-            {weeks.map((week) => <option key={week} value={week}>{weekLabels[week] || `Week ${week}`}</option>)}
+            {weeks.map((week) => <option key={week.value} value={week.value}>{week.label}</option>)}
           </select>
 
           <div style={gameGrid}>
@@ -1140,7 +1182,10 @@ export default function FieldScoreboardPage({ mode = "control" }) {
             {weekGames.map((game) => (
               <button key={game.id} style={gameTile} onClick={() => startGame(game)}>
                 <div style={gameTeams}>{cleanTeamName(game.team)} vs {cleanTeamName(game.opponent)}</div>
-                <div style={gameMeta}>{game.event_time || game.time} • {game.division}</div>
+                <div style={gameMeta}>
+                  {isChampionshipGame(game) && game.event_date ? `${formatShortDate(game.event_date)} • ` : ""}
+                  {game.event_time || game.time} • {game.division}
+                </div>
                 <div style={startText}>Start Game</div>
               </button>
             ))}
@@ -1370,6 +1415,67 @@ function DisplayScheduleTeam({ team, dark = false }) {
   );
 }
 
+function DisplayBracketBoard({ groups, dark = false }) {
+  const visibleGroups = groups.slice(0, 4);
+
+  return (
+    <div style={displayBracketBoard}>
+      <div style={{ ...displayWeekLabel, ...(dark ? mutedTextDark : {}) }}>Championship Brackets</div>
+      <div style={displayBracketGrid}>
+        {visibleGroups.map((group) => (
+          <div key={group.division} style={{ ...displayBracketDivision, ...(dark ? displayGameRowDark : {}) }}>
+            <div style={{ ...displayBracketDivisionTitle, ...(dark ? combinedTextDark : {}) }}>{group.division}</div>
+            <div style={displayBracketGames}>
+              {group.games.slice(0, 4).map((game) => (
+                <DisplayBracketGame key={game.id} game={game} dark={dark} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DisplayBracketGame({ game, dark = false }) {
+  const score = game.score;
+  const hasScore = !!score;
+  const homeScore = Number(score?.home_score || 0);
+  const awayScore = Number(score?.away_score || 0);
+  const winner = hasScore && homeScore !== awayScore
+    ? homeScore > awayScore ? game.team : game.opponent
+    : "";
+
+  return (
+    <div style={{ ...displayBracketGame, ...(dark ? displayBracketGameDark : {}) }}>
+      <div style={{ ...displayBracketGameTop, ...(dark ? mutedTextDark : {}) }}>
+        <span>Game {game.gameNumber || "-"}</span>
+        <span>{hasScore ? "Final" : game.event_time || game.time || "TBD"}</span>
+      </div>
+      <DisplayBracketTeam team={game.team} score={hasScore ? homeScore : null} winner={winner === game.team} dark={dark} />
+      <DisplayBracketTeam team={game.opponent} score={hasScore ? awayScore : null} winner={winner === game.opponent} dark={dark} />
+    </div>
+  );
+}
+
+function DisplayBracketTeam({ team, score, winner, dark = false }) {
+  const logo = getLogo(team);
+
+  return (
+    <div style={{ ...displayBracketTeam, ...(winner ? displayBracketTeamWinner : {}), ...(dark ? combinedTextDark : {}) }}>
+      <span style={displayBracketTeamName}>
+        {logo && (
+          <span style={dark ? displayScheduleLogoPillDark : displayScheduleLogoPill}>
+            <img src={logo} alt="" style={displayBracketLogo} />
+          </span>
+        )}
+        <span>{cleanTeamName(team) || "TBD"}</span>
+      </span>
+      <span style={displayBracketScore}>{score === null ? "-" : score}</span>
+    </div>
+  );
+}
+
 function TestTileTeam({ team }) {
   const logo = getLogo(team);
 
@@ -1386,6 +1492,7 @@ function ScoreOnlyBoard({
   liveGame,
   liveClock,
   games = [],
+  bracketGroups = [],
   scoreboardsOpen = true,
   sideMode = "both",
   settings = DEFAULT_SETTINGS,
@@ -1405,6 +1512,7 @@ function ScoreOnlyBoard({
   const breakMode = isBreakStatus(liveGame?.status);
   const finalMode = liveGame?.status === "final_display";
   const scheduleDark = getFieldDisplayTheme(settings, field?.id || game?.field_id) === "dark";
+  const showIdleBrackets = bracketGroups.length > 0 && isChampionshipDisplayWindow(bracketGroups);
 
   return (
     <div style={singleSide ? displaySingleWrap : displayWrap}>
@@ -1428,30 +1536,36 @@ function ScoreOnlyBoard({
       {scoreboardsOpen && !liveGame && (
         <div style={{ ...displaySchedule, ...(scheduleDark ? displayDarkSurface : {}) }}>
           <div style={{ ...displayFieldName, ...(scheduleDark ? combinedTextDark : {}) }}>{field?.name || "Field"}</div>
-          <div style={{ ...displayWeekLabel, ...(scheduleDark ? mutedTextDark : {}) }}>{weekLabel}</div>
-          <div style={displayGameList}>
-            {games.length ? games.map((scheduledGame) => (
-              <div key={scheduledGame.id} style={{ ...displayGameRow, ...(scheduleDark ? displayGameRowDark : {}) }}>
-                <div style={{ ...displayGameTime, ...(scheduleDark ? combinedTextDark : {}) }}>{scheduledGame.event_time || scheduledGame.time || "Time TBD"}</div>
-                <div style={displayGameMain}>
-                  <div style={{ ...displayGameTeamsRow, ...(scheduleDark ? combinedTextDark : {}) }}>
-                    <DisplayScheduleTeam team={scheduledGame.team} dark={scheduleDark} />
-                    <span style={{ ...displayGameVs, ...(scheduleDark ? mutedTextDark : {}) }}>vs</span>
-                    <DisplayScheduleTeam team={scheduledGame.opponent} dark={scheduleDark} />
+          {showIdleBrackets ? (
+            <DisplayBracketBoard groups={bracketGroups} dark={scheduleDark} />
+          ) : (
+            <>
+              <div style={{ ...displayWeekLabel, ...(scheduleDark ? mutedTextDark : {}) }}>{weekLabel}</div>
+              <div style={displayGameList}>
+                {games.length ? games.map((scheduledGame) => (
+                  <div key={scheduledGame.id} style={{ ...displayGameRow, ...(scheduleDark ? displayGameRowDark : {}) }}>
+                    <div style={{ ...displayGameTime, ...(scheduleDark ? combinedTextDark : {}) }}>{scheduledGame.event_time || scheduledGame.time || "Time TBD"}</div>
+                    <div style={displayGameMain}>
+                      <div style={{ ...displayGameTeamsRow, ...(scheduleDark ? combinedTextDark : {}) }}>
+                        <DisplayScheduleTeam team={scheduledGame.team} dark={scheduleDark} />
+                        <span style={{ ...displayGameVs, ...(scheduleDark ? mutedTextDark : {}) }}>vs</span>
+                        <DisplayScheduleTeam team={scheduledGame.opponent} dark={scheduleDark} />
+                      </div>
+                      <div style={{ ...displayGameRefs, ...(scheduleDark ? mutedTextDark : {}) }}>
+                        Refs: {formatAssignedRefs(scheduledGame.assigned_refs)}
+                      </div>
+                    </div>
+                    <div style={displayGameMetaBlock}>
+                      <div style={{ ...displayGameDivision, ...(scheduleDark ? combinedTextDark : {}) }}>{scheduledGame.division || "Division TBD"}</div>
+                      <div style={{ ...displayGameField, ...(scheduleDark ? mutedTextDark : {}) }}>{scheduledGame.field || field?.name || "Field TBD"}</div>
+                    </div>
                   </div>
-                  <div style={{ ...displayGameRefs, ...(scheduleDark ? mutedTextDark : {}) }}>
-                    Refs: {formatAssignedRefs(scheduledGame.assigned_refs)}
-                  </div>
-                </div>
-                <div style={displayGameMetaBlock}>
-                  <div style={{ ...displayGameDivision, ...(scheduleDark ? combinedTextDark : {}) }}>{scheduledGame.division || "Division TBD"}</div>
-                  <div style={{ ...displayGameField, ...(scheduleDark ? mutedTextDark : {}) }}>{scheduledGame.field || field?.name || "Field TBD"}</div>
-                </div>
+                )) : (
+                  <div style={{ ...displayNoGames, ...(scheduleDark ? mutedTextDark : {}) }}>No scheduled games found for this field.</div>
+                )}
               </div>
-            )) : (
-              <div style={{ ...displayNoGames, ...(scheduleDark ? mutedTextDark : {}) }}>No scheduled games found for this field.</div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1810,6 +1924,85 @@ function isTestGame(game) {
   return game?.source === "scoreboard-test" || game?.is_scoreboard_test;
 }
 
+function isChampionshipGame(game) {
+  const eventType = String(game?.event_type || "").toLowerCase();
+  const source = String(game?.source || "").toLowerCase();
+  return eventType.includes("champ") || source.startsWith("championship");
+}
+
+function getChampionshipGameNumber(game) {
+  const sourceMatch = String(game?.source || "").match(/game:(\d+)/i);
+  return sourceMatch ? Number(sourceMatch[1]) : null;
+}
+
+async function inferChampionshipGameNumber(game) {
+  if (!game?.id || !isChampionshipGame(game)) return null;
+
+  const { data, error } = await supabase
+    .from("schedule_master_auto")
+    .select("id,event_date,event_time,time,field,field_id,source")
+    .eq("week", game.week)
+    .eq("division", game.division)
+    .ilike("event_type", "%champ%");
+
+  if (error) {
+    console.warn("Could not infer championship game number:", error);
+    return null;
+  }
+
+  const rows = (data || []).sort((a, b) => (
+    String(a.event_date || "").localeCompare(String(b.event_date || "")) ||
+    timeToMinutes(a.event_time || a.time) - timeToMinutes(b.event_time || b.time) ||
+    String(a.field || a.field_id || "").localeCompare(String(b.field || b.field_id || ""))
+  ));
+  const index = rows.findIndex((row) => row.id === game.id);
+  return index >= 0 ? index + 1 : null;
+}
+
+function getWinningTeamName(game, finalScore) {
+  const homeScore = Number(finalScore?.home_score || 0);
+  const awayScore = Number(finalScore?.away_score || 0);
+  if (homeScore === awayScore) return "";
+  return cleanTeamName(homeScore > awayScore ? game?.team : game?.opponent);
+}
+
+function isWinnerPlaceholder(value, gameNumber) {
+  return cleanTeamName(value).toLowerCase() === `winner of game ${gameNumber}`.toLowerCase();
+}
+
+async function resolveChampionshipWinnerSlots(game, finalScore) {
+  if (!isChampionshipGame(game)) return;
+
+  const winnerName = getWinningTeamName(game, finalScore);
+  if (!winnerName) return;
+
+  const gameNumber = getChampionshipGameNumber(game) || await inferChampionshipGameNumber(game);
+  if (!gameNumber) return;
+
+  const { data, error } = await supabase
+    .from("schedule_master_auto")
+    .select("id,team,opponent")
+    .eq("week", game.week)
+    .eq("division", game.division)
+    .ilike("event_type", "%champ%");
+
+  if (error) {
+    console.warn("Could not load championship follow-up games:", error);
+    return;
+  }
+
+  const updates = (data || [])
+    .map((row) => {
+      const next = {};
+      if (isWinnerPlaceholder(row.team, gameNumber)) next.team = winnerName;
+      if (isWinnerPlaceholder(row.opponent, gameNumber)) next.opponent = winnerName;
+      return Object.keys(next).length ? supabase.from("schedule_master_auto").update(next).eq("id", row.id) : null;
+    })
+    .filter(Boolean);
+
+  await Promise.all(updates);
+}
+
 function normalizeScoreboardGame(game) {
   if (!game) return game;
   if (!isTestGame(game)) return game;
@@ -2056,37 +2249,91 @@ function getDisplayWeekGames(games) {
   if (todaysGames.length) return todaysGames;
 
   const upcomingGame = sortedGames.find((game) => game.event_date && game.event_date >= today);
-  if (upcomingGame?.week) {
-    return sortedGames.filter((game) => String(game.week) === String(upcomingGame.week));
+  if (upcomingGame) {
+    const group = getScoreboardGameGroup(upcomingGame);
+    return sortedGames.filter((game) => getScoreboardGameGroup(game).value === group.value);
   }
 
-  const firstWeek = sortedGames.find((game) => game.week)?.week;
-  return firstWeek
-    ? sortedGames.filter((game) => String(game.week) === String(firstWeek))
-    : sortedGames;
+  const firstGroup = getScoreboardGameGroup(sortedGames[0]);
+  return firstGroup
+    ? sortedGames.filter((game) => getScoreboardGameGroup(game).value === firstGroup.value)
+    : [];
 }
 
-function getWeekLabels(games) {
-  return games.reduce((labels, game) => {
-    const week = String(game.week || "");
-    if (!week || labels[week]) return labels;
+function getScoreboardGameGroup(game) {
+  if (isChampionshipGame(game)) {
+    return { value: "championships", label: "Championships", order: 999 };
+  }
 
-    const weekGames = games
-      .filter((candidate) => String(candidate.week || "") === week && candidate.event_date)
-      .sort(sortGames);
+  const week = String(game?.week || "");
+  if (week) return { value: week, label: `Week ${week}`, order: Number(game.week) || 0 };
+  return { value: "schedule", label: "Schedule", order: 1000 };
+}
 
-    if (!weekGames.length) {
-      labels[week] = `Week ${week}`;
-      return labels;
+function buildDisplayBracketGroups(games, scoreByScheduleId) {
+  const groups = {};
+
+  games.forEach((game) => {
+    const division = normalizeDisplayDivision(game.division);
+    if (!groups[division]) groups[division] = [];
+    groups[division].push({
+      ...game,
+      gameNumber: getChampionshipGameNumber(game),
+      score: scoreByScheduleId[game.id],
+    });
+  });
+
+  return Object.entries(groups)
+    .sort(([a], [b]) => sortDisplayDivisions(a, b))
+    .map(([division, divisionGames]) => ({
+      division,
+      games: divisionGames.sort((a, b) => (
+        Number(a.gameNumber || 999) - Number(b.gameNumber || 999) ||
+        String(a.event_date || "").localeCompare(String(b.event_date || "")) ||
+        timeToMinutes(a.event_time || a.time) - timeToMinutes(b.event_time || b.time)
+      )),
+    }));
+}
+
+function isChampionshipDisplayWindow(groups) {
+  const dates = groups
+    .flatMap((group) => group.games || [])
+    .map((game) => game.event_date)
+    .filter(Boolean)
+    .sort();
+
+  if (!dates.length) return false;
+
+  const today = getLocalDateString(new Date());
+  return today >= dates[0] && today <= dates[dates.length - 1];
+}
+
+function normalizeDisplayDivision(value) {
+  return cleanTeamName(value) || "Unassigned";
+}
+
+function sortDisplayDivisions(a, b) {
+  const order = ["K-1", "K-1st", "2nd-3rd", "4th-5th", "6th-8th", "Unassigned"];
+  const indexA = order.indexOf(a);
+  const indexB = order.indexOf(b);
+  if (indexA !== -1 || indexB !== -1) {
+    return (indexA === -1 ? order.length : indexA) - (indexB === -1 ? order.length : indexB);
+  }
+  return String(a || "").localeCompare(String(b || ""));
+}
+
+function dedupeScoresByScheduleId(scores) {
+  const byScheduleId = new Map();
+
+  scores.forEach((score) => {
+    if (!score.schedule_id) return;
+    const existing = byScheduleId.get(score.schedule_id);
+    if (!existing || new Date(score.created_at || 0) > new Date(existing.created_at || 0)) {
+      byScheduleId.set(score.schedule_id, score);
     }
+  });
 
-    const dates = [...new Set(weekGames.map((candidate) => candidate.event_date))];
-    labels[week] = dates.length === 1
-      ? `Week ${week} - ${formatShortDate(dates[0])}`
-      : `Week ${week} - ${formatShortDate(dates[0])} to ${formatShortDate(dates[dates.length - 1])}`;
-
-    return labels;
-  }, {});
+  return [...byScheduleId.values()];
 }
 
 function formatShortDate(value) {
@@ -2261,6 +2508,19 @@ const displayScheduleTeam = { alignItems: "center", display: "inline-flex", gap:
 const displayScheduleLogoPill = { alignItems: "center", display: "inline-flex", flex: "0 0 auto", justifyContent: "center" };
 const displayScheduleLogoPillDark = { ...displayScheduleLogoPill, background: "#fff", borderRadius: 999, padding: "0.35dvh 0.5vw" };
 const displayScheduleLogo = { flex: "0 0 auto", height: "min(4.4dvh, 3.4vw)", objectFit: "contain", width: "min(4.4dvh, 3.4vw)" };
+const displayBracketBoard = { boxSizing: "border-box", display: "grid", gap: "1.4dvh", height: "calc(100dvh - 13dvh)", overflow: "hidden", width: "100%" };
+const displayBracketGrid = { display: "grid", gap: "1.3dvh 1.2vw", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", minHeight: 0 };
+const displayBracketDivision = { background: "rgba(248,250,252,0.92)", border: "0.2vw solid #111827", borderRadius: "1.1vw", boxSizing: "border-box", display: "grid", gap: "0.9dvh", minHeight: 0, overflow: "hidden", padding: "1dvh 1vw" };
+const displayBracketDivisionTitle = { color: "#111827", fontSize: "min(3.2vw, 4.3dvh)", fontWeight: 900, lineHeight: 1 };
+const displayBracketGames = { display: "grid", gap: "0.75dvh", minHeight: 0, overflow: "hidden" };
+const displayBracketGame = { background: "#fff", border: "0.12vw solid #cbd5e1", borderRadius: "0.8vw", boxSizing: "border-box", display: "grid", gap: "0.4dvh", padding: "0.65dvh 0.75vw" };
+const displayBracketGameDark = { background: "#09090b", borderColor: "#3f3f46" };
+const displayBracketGameTop = { alignItems: "center", display: "flex", fontSize: "min(1.35vw, 1.8dvh)", fontWeight: 900, justifyContent: "space-between", textTransform: "uppercase" };
+const displayBracketTeam = { alignItems: "center", borderRadius: "0.55vw", color: "#111827", display: "grid", gap: "0.6vw", gridTemplateColumns: "minmax(0, 1fr) auto", minHeight: "3.7dvh", padding: "0.3dvh 0.45vw" };
+const displayBracketTeamWinner = { background: "#dcfce7", boxShadow: "inset 0.35vw 0 0 #16a34a" };
+const displayBracketTeamName = { alignItems: "center", display: "inline-flex", fontSize: "min(2vw, 2.7dvh)", fontWeight: 900, gap: "0.45vw", minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" };
+const displayBracketLogo = { height: "min(2.8dvh, 2.2vw)", objectFit: "contain", width: "min(2.8dvh, 2.2vw)" };
+const displayBracketScore = { fontSize: "min(2.7vw, 3.7dvh)", fontVariantNumeric: "tabular-nums", fontWeight: 900 };
 const displayGameVs = { color: "#64748b", fontSize: "min(2.3vw, 3.1dvh)", fontWeight: 900, textTransform: "uppercase" };
 const displayGameRefs = { color: "#111827", fontSize: "min(2.6vw, 3.5dvh)", fontWeight: 900, lineHeight: 1, overflowWrap: "anywhere" };
 const displayGameMetaBlock = { display: "grid", gap: "0.6dvh", minWidth: 0, textAlign: "right" };

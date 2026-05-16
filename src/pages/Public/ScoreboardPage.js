@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Radio, Search, Users } from "lucide-react";
+import { CalendarDays, Radio, Search, Shield, Users } from "lucide-react";
 import { supabase } from "../../supabase";
 import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
@@ -24,15 +24,19 @@ const TEAM_LOGOS = {
   steelers, ravens, "49ers": niners,
 };
 
-export default function ScoreboardPage({ initialLive = false }) {
+export default function ScoreboardPage({ initialLive = false, initialBrackets = false }) {
   const [scores, setScores] = useState([]);
   const [liveGames, setLiveGames] = useState([]);
   const [scheduleById, setScheduleById] = useState({});
+  const [championshipGames, setChampionshipGames] = useState([]);
+  const [championshipScores, setChampionshipScores] = useState([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("week");
   const [selectedWeek, setSelectedWeek] = useState("all");
   const [selectedTeamKey, setSelectedTeamKey] = useState("all");
   const [showLive, setShowLive] = useState(initialLive);
+  const [showBrackets, setShowBrackets] = useState(initialBrackets);
+  const [selectedBracketDivision, setSelectedBracketDivision] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,7 +48,12 @@ export default function ScoreboardPage({ initialLive = false }) {
       sessionStorage.removeItem("publicScoreboardView");
     }
 
+    if (initialBrackets || params.get("view") === "brackets") {
+      setShowBrackets(true);
+    }
+
     loadData();
+    loadChampionshipBracket();
 
     const scoreChannel = supabase
       .channel("public-score-results")
@@ -56,12 +65,21 @@ export default function ScoreboardPage({ initialLive = false }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "games_live" }, loadData)
       .subscribe();
 
-    const interval = setInterval(loadData, 10000);
+    const scheduleChannel = supabase
+      .channel("public-championship-schedule")
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedule_master_auto" }, loadChampionshipBracket)
+      .subscribe();
+
+    const interval = setInterval(() => {
+      loadData();
+      loadChampionshipBracket();
+    }, 10000);
 
     return () => {
       clearInterval(interval);
       supabase.removeChannel(scoreChannel);
       supabase.removeChannel(liveChannel);
+      supabase.removeChannel(scheduleChannel);
     };
   }, []);
 
@@ -143,6 +161,25 @@ export default function ScoreboardPage({ initialLive = false }) {
     })));
     setScheduleById((current) => ({ ...current, ...liveScheduleById }));
     setLoading(false);
+  };
+
+  const loadChampionshipBracket = async () => {
+    const active = await getActiveSeason();
+    const { data: scheduleRows } = await applyUuidSeasonFilter(supabase
+      .from("schedule_master_auto")
+      .select("*")
+      .ilike("event_type", "%champ%")
+      .order("division", { ascending: true })
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true }), active);
+
+    const scheduleIds = (scheduleRows || []).map((game) => game.id).filter(Boolean);
+    const { data: scoreRows } = scheduleIds.length
+      ? await supabase.from("game_scores").select("*").in("schedule_id", scheduleIds)
+      : { data: [] };
+
+    setChampionshipGames(scheduleRows || []);
+    setChampionshipScores(dedupeScoresByScheduleId(scoreRows || []));
   };
 
   const scoreRows = useMemo(() => (
@@ -232,6 +269,19 @@ export default function ScoreboardPage({ initialLive = false }) {
   ), [filteredScores, search, selectedTeamKey, selectedWeek]);
 
   const liveCount = liveGames.length;
+  const bracketScoreByScheduleId = useMemo(() => {
+    const map = {};
+    championshipScores.forEach((score) => {
+      map[score.schedule_id] = score;
+    });
+    return map;
+  }, [championshipScores]);
+  const bracketDivisions = useMemo(() => (
+    ["all", ...new Set(championshipGames.map((game) => normalizeDivision(game.division)).filter(Boolean).sort(sortDivisions))]
+  ), [championshipGames]);
+  const bracketGroups = useMemo(() => (
+    buildChampionshipBracketGroups(championshipGames, bracketScoreByScheduleId, selectedBracketDivision)
+  ), [bracketScoreByScheduleId, championshipGames, selectedBracketDivision]);
 
   if (showLive) {
     return (
@@ -241,6 +291,22 @@ export default function ScoreboardPage({ initialLive = false }) {
         onBack={() => {
           window.history.replaceState({}, "", "/scoreboard");
           setShowLive(false);
+        }}
+      />
+    );
+  }
+
+  if (showBrackets) {
+    return (
+      <PublicChampionshipBracketView
+        groups={bracketGroups}
+        divisions={bracketDivisions}
+        selectedDivision={selectedBracketDivision}
+        onSelectDivision={setSelectedBracketDivision}
+        loading={loading}
+        onBack={() => {
+          window.history.replaceState({}, "", "/scoreboard");
+          setShowBrackets(false);
         }}
       />
     );
@@ -268,6 +334,21 @@ export default function ScoreboardPage({ initialLive = false }) {
         <div>
           <div style={liveTileTitle}>Live Scoreboard</div>
           <div style={liveTileSub}>{liveCount ? `${liveCount} live game${liveCount === 1 ? "" : "s"}` : "No games live right now"}</div>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        style={bracketTile}
+        onClick={() => {
+          window.history.pushState({}, "", "/scoreboard/brackets");
+          setShowBrackets(true);
+        }}
+      >
+        <div style={bracketTileIcon}><Shield size={22} /></div>
+        <div>
+          <div style={liveTileTitle}>Championship Brackets</div>
+          <div style={liveTileSub}>{championshipGames.length ? `${championshipGames.length} scheduled game${championshipGames.length === 1 ? "" : "s"}` : "No bracket games yet"}</div>
         </div>
       </button>
 
@@ -390,6 +471,116 @@ function LiveScoreboardView({ liveGames, loading, onBack }) {
       {!loading && liveGames.map((game) => (
         <LiveGameTile key={game.id} game={game} featured />
       ))}
+    </div>
+  );
+}
+
+function PublicChampionshipBracketView({ groups, divisions, selectedDivision, onSelectDivision, loading, onBack }) {
+  return (
+    <div style={livePage}>
+      <div style={livePageHeader}>
+        <button type="button" style={backButton} onClick={onBack}>
+          Scores
+        </button>
+        <div>
+          <div style={livePageTitle}>Championship Brackets</div>
+          <div style={livePageSub}>Brackets update as scores are posted.</div>
+        </div>
+      </div>
+
+      <div style={bracketFilterRow}>
+        {divisions.map((division) => (
+          <button
+            key={division}
+            type="button"
+            style={{
+              ...bracketFilterBtn,
+              ...(selectedDivision === division ? bracketFilterBtnActive : {}),
+            }}
+            onClick={() => onSelectDivision(division)}
+          >
+            {division === "all" ? "All Divisions" : division}
+          </button>
+        ))}
+      </div>
+
+      {loading && <div style={liveEmpty}>Loading brackets...</div>}
+
+      {!loading && !groups.length && (
+        <div style={liveEmpty}>No championship bracket games have been scheduled yet.</div>
+      )}
+
+      {!loading && groups.map((group) => (
+        <section key={group.division} style={publicBracketSection}>
+          <div style={publicBracketDivisionHeader}>
+            <div>
+              <div style={publicBracketTitle}>{group.division}</div>
+              <div style={publicBracketSubtitle}>{group.games.length} championship game{group.games.length === 1 ? "" : "s"}</div>
+            </div>
+          </div>
+          <div style={publicBracketScroll}>
+            <div style={publicBracketPath}>
+              {group.games.map((game, index) => (
+                <div key={game.id} style={publicBracketNode}>
+                  <PublicBracketCard game={game} />
+                  {index < group.games.length - 1 && (
+                    <div style={publicBracketConnector}>
+                      <span style={publicBracketConnectorDot} />
+                      <span style={publicBracketConnectorLine} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function PublicBracketCard({ game }) {
+  const score = game.score;
+  const hasScore = !!score;
+  const homeScore = Number(score?.home_score || 0);
+  const awayScore = Number(score?.away_score || 0);
+  const winner = hasScore && homeScore !== awayScore
+    ? homeScore > awayScore ? game.team : game.opponent
+    : "";
+
+  return (
+    <article style={publicBracketCard}>
+      <div style={publicBracketTop}>
+        <div>
+          <div style={publicBracketGame}>Game {game.gameNumber || "-"}</div>
+          <div style={publicBracketMeta}>
+            {formatDate(game.event_date)} • {game.event_time || game.time || "Time TBD"} • {game.field || "Field TBD"}
+          </div>
+        </div>
+        <span style={{ ...publicBracketStatus, ...(hasScore ? publicBracketFinal : publicBracketScheduled) }}>
+          {hasScore ? "Final" : "Scheduled"}
+        </span>
+      </div>
+
+      <PublicBracketTeam name={game.team || "Team TBD"} score={hasScore ? homeScore : null} winner={winner === game.team} />
+      <PublicBracketTeam name={game.opponent || "Opponent TBD"} score={hasScore ? awayScore : null} winner={winner === game.opponent} />
+
+      <div style={{ ...publicBracketWinner, ...(winner ? publicBracketWinnerReady : {}) }}>
+        {winner ? `Advances: ${winner}` : "Winner advances"}
+      </div>
+    </article>
+  );
+}
+
+function PublicBracketTeam({ name, score, winner }) {
+  const logo = getLogo(name);
+  return (
+    <div style={{ ...publicBracketTeam, ...(winner ? publicBracketTeamWinner : {}) }}>
+      <div style={publicBracketTeamName}>
+        {logo && <img src={logo} alt="" style={publicBracketLogo} />}
+        <span>{cleanTeamName(name)}</span>
+      </div>
+      <span style={publicBracketScore}>{score === null ? "-" : score}</span>
     </div>
   );
 }
@@ -557,6 +748,58 @@ function sortDivisions(a, b) {
   return a.localeCompare(b);
 }
 
+function buildChampionshipBracketGroups(games, scoreByScheduleId, selectedDivision) {
+  const groups = {};
+
+  games.forEach((game) => {
+    const division = normalizeDivision(game.division);
+    if (selectedDivision !== "all" && division !== selectedDivision) return;
+    if (!groups[division]) groups[division] = [];
+    groups[division].push({
+      ...game,
+      gameNumber: getChampionshipGameNumber(game),
+      score: scoreByScheduleId[game.id],
+    });
+  });
+
+  return Object.entries(groups)
+    .sort(([a], [b]) => sortDivisions(a, b))
+    .map(([division, divisionGames]) => ({
+      division,
+      games: divisionGames.sort((a, b) => (
+        Number(a.gameNumber || 999) - Number(b.gameNumber || 999) ||
+        String(a.event_date || "").localeCompare(String(b.event_date || "")) ||
+        toTime(a.event_time || a.time) - toTime(b.event_time || b.time)
+      )),
+    }));
+}
+
+function getChampionshipGameNumber(game) {
+  const sourceMatch = String(game?.source || "").match(/game:(\d+)/i);
+  return sourceMatch ? Number(sourceMatch[1]) : null;
+}
+
+function dedupeScoresByScheduleId(scores) {
+  const byScheduleId = new Map();
+  scores.forEach((score) => {
+    if (!score.schedule_id) return;
+    const existing = byScheduleId.get(score.schedule_id);
+    if (!existing || new Date(score.created_at || 0) > new Date(existing.created_at || 0)) {
+      byScheduleId.set(score.schedule_id, score);
+    }
+  });
+  return [...byScheduleId.values()];
+}
+
+function toTime(timeStr) {
+  if (!timeStr) return 99999;
+  const [time, mod] = String(timeStr).trim().split(" ");
+  let [h, m] = time.split(":").map(Number);
+  if (mod === "PM" && h !== 12) h += 12;
+  if (mod === "AM" && h === 12) h = 0;
+  return h * 60 + (m || 0);
+}
+
 const wrap = { display: "flex", flexDirection: "column", gap: 14, paddingBottom: 92 };
 const hero = { background: "#0f172a", borderRadius: 18, color: "#fff", padding: 20 };
 const eyebrow = { color: "#86efac", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
@@ -565,6 +808,8 @@ const heroText = { color: "#d1d5db", fontSize: 14, fontWeight: 700, marginTop: 8
 const liveTile = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 22px rgba(15,23,42,0.08)", color: "#334155", cursor: "pointer", display: "flex", gap: 12, padding: 14, textAlign: "left" };
 const liveTileActive = { borderColor: "#fecaca", boxShadow: "0 12px 24px rgba(220,38,38,0.14)" };
 const liveTileIcon = { alignItems: "center", background: "#fee2e2", borderRadius: 12, color: "#dc2626", display: "flex", height: 42, justifyContent: "center", width: 42 };
+const bracketTile = { ...liveTile };
+const bracketTileIcon = { alignItems: "center", background: "#ecfdf5", borderRadius: 12, color: "#166534", display: "flex", height: 42, justifyContent: "center", width: 42 };
 const liveTileTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900 };
 const liveTileSub = { color: "#64748b", fontSize: 12, fontWeight: 800, marginTop: 3 };
 const searchShell = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 8px 22px rgba(15,23,42,0.08)", display: "flex", gap: 10, padding: "11px 13px" };
@@ -618,3 +863,30 @@ const liveTeamName = { color: "#111827", fontSize: 15, fontWeight: 900, lineHeig
 const liveScoreNumber = { color: "#111827", fontSize: 72, fontVariantNumeric: "tabular-nums", fontWeight: 900, lineHeight: 0.9, marginTop: 10 };
 const liveVs = { alignSelf: "center", color: "#94a3b8", fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
 const liveDetailLine = { color: "#64748b", fontSize: 14, fontWeight: 800, marginTop: 14, textAlign: "center" };
+const bracketFilterRow = { display: "flex", flexWrap: "wrap", gap: 8 };
+const bracketFilterBtn = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 999, color: "#334155", cursor: "pointer", fontWeight: 900, padding: "9px 12px" };
+const bracketFilterBtnActive = { background: "#dcfce7", borderColor: "#16a34a", color: "#166534" };
+const publicBracketSection = { background: "#0f172a", borderRadius: 22, boxShadow: "0 16px 34px rgba(15,23,42,0.2)", display: "grid", gap: 14, overflow: "hidden", padding: 16 };
+const publicBracketDivisionHeader = { alignItems: "center", color: "#fff", display: "flex", justifyContent: "space-between", gap: 12 };
+const publicBracketTitle = { color: "#fff", fontSize: 24, fontWeight: 900, lineHeight: 1 };
+const publicBracketSubtitle = { color: "#cbd5e1", fontSize: 13, fontWeight: 800, marginTop: 5 };
+const publicBracketScroll = { margin: "0 -16px -16px", overflowX: "auto", padding: "0 16px 16px" };
+const publicBracketPath = { alignItems: "stretch", display: "flex", gap: 0, minWidth: "max-content" };
+const publicBracketNode = { alignItems: "center", display: "flex" };
+const publicBracketConnector = { alignItems: "center", display: "flex", flex: "0 0 auto", height: "100%", padding: "0 4px", width: 46 };
+const publicBracketConnectorDot = { background: "#86efac", border: "3px solid #14532d", borderRadius: 999, boxShadow: "0 0 0 4px rgba(134,239,172,0.16)", height: 10, width: 10 };
+const publicBracketConnectorLine = { background: "linear-gradient(90deg, #86efac, rgba(134,239,172,0.18))", borderRadius: 999, flex: 1, height: 4 };
+const publicBracketCard = { background: "linear-gradient(180deg, #ffffff, #f8fafc)", border: "1px solid rgba(226,232,240,0.95)", borderRadius: 18, boxShadow: "0 14px 28px rgba(0,0,0,0.18)", display: "grid", flex: "0 0 292px", gap: 9, minHeight: 214, padding: 14, position: "relative" };
+const publicBracketTop = { alignItems: "flex-start", display: "flex", gap: 10, justifyContent: "space-between" };
+const publicBracketGame = { color: "#0f172a", fontSize: 15, fontWeight: 900 };
+const publicBracketMeta = { color: "#64748b", fontSize: 12, fontWeight: 800, marginTop: 3 };
+const publicBracketStatus = { borderRadius: 999, fontSize: 11, fontWeight: 900, padding: "5px 8px", textTransform: "uppercase" };
+const publicBracketFinal = { background: "#dcfce7", color: "#166534" };
+const publicBracketScheduled = { background: "#dbeafe", color: "#1d4ed8" };
+const publicBracketTeam = { alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) auto", padding: "10px 11px" };
+const publicBracketTeamWinner = { background: "#ecfdf5", borderColor: "#16a34a", boxShadow: "inset 4px 0 0 #16a34a" };
+const publicBracketTeamName = { alignItems: "center", color: "#111827", display: "flex", fontSize: 15, fontWeight: 900, gap: 8, minWidth: 0, overflowWrap: "anywhere" };
+const publicBracketLogo = { height: 30, objectFit: "contain", width: 30 };
+const publicBracketScore = { color: "#111827", fontSize: 24, fontVariantNumeric: "tabular-nums", fontWeight: 900 };
+const publicBracketWinner = { background: "#f1f5f9", borderRadius: 999, color: "#64748b", fontSize: 12, fontWeight: 900, justifySelf: "start", padding: "7px 10px" };
+const publicBracketWinnerReady = { background: "#dcfce7", color: "#166534" };

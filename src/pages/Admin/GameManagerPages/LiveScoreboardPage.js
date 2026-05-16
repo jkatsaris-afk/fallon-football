@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../../supabase";
+import { applyUuidSeasonFilter, getActiveSeason } from "../../../utils/season";
 
 const LIVE_GAME_STATUSES = ["live", "halftime", "timeout", "timeout_home", "timeout_away", "final_display"];
 
@@ -10,10 +11,16 @@ export default function LiveScoreboardPage() {
   const [settings, setSettings] = useState(null);
   const [showParentSign, setShowParentSign] = useState(false);
   const [view, setView] = useState("overview");
+  const [championshipGames, setChampionshipGames] = useState([]);
+  const [championshipScores, setChampionshipScores] = useState([]);
+  const [championshipDivision, setChampionshipDivision] = useState("all");
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadLiveGames, 5000);
+    const interval = setInterval(() => {
+      loadLiveGames();
+      loadChampionshipBracket();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -33,6 +40,7 @@ export default function LiveScoreboardPage() {
 
     setSettings(settingsData || {});
     await loadLiveGames();
+    await loadChampionshipBracket();
   };
 
   const loadLiveGames = async () => {
@@ -70,6 +78,32 @@ export default function LiveScoreboardPage() {
     })));
   };
 
+  const loadChampionshipBracket = async () => {
+    const active = await getActiveSeason();
+    const { data: scheduleRows, error } = await applyUuidSeasonFilter(supabase
+      .from("schedule_master_auto")
+      .select("*")
+      .ilike("event_type", "%champ%")
+      .order("division", { ascending: true })
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true }), active);
+
+    if (error) {
+      console.error("Championship bracket load failed:", error);
+      setChampionshipGames([]);
+      setChampionshipScores([]);
+      return;
+    }
+
+    const scheduleIds = (scheduleRows || []).map((game) => game.id).filter(Boolean);
+    const { data: scores } = scheduleIds.length
+      ? await supabase.from("game_scores").select("*").in("schedule_id", scheduleIds)
+      : { data: [] };
+
+    setChampionshipGames(scheduleRows || []);
+    setChampionshipScores(dedupeScoresByScheduleId(scores || []));
+  };
+
   const updateSetting = async (field, value) => {
     const { error } = await supabase.from("app_settings").update({ [field]: value }).eq("id", 1);
     if (error) {
@@ -95,6 +129,19 @@ export default function LiveScoreboardPage() {
   const scoreboardsOpen = settings?.live_scoreboards_open !== false;
   const masterIpadLink = `${origin}/scoreboard-master`;
   const publicScoreboardLink = `${origin}/scoreboard/live`;
+  const championshipDivisions = useMemo(() => (
+    ["all", ...new Set(championshipGames.map((game) => normalizeDivision(game.division)).filter(Boolean))]
+  ), [championshipGames]);
+  const scoreByScheduleId = useMemo(() => {
+    const map = {};
+    championshipScores.forEach((score) => {
+      map[score.schedule_id] = score;
+    });
+    return map;
+  }, [championshipScores]);
+  const bracketGroups = useMemo(() => (
+    buildChampionshipBracketGroups(championshipGames, scoreByScheduleId, championshipDivision)
+  ), [championshipDivision, championshipGames, scoreByScheduleId]);
 
   const printParentSign = () => {
     setShowParentSign(true);
@@ -128,6 +175,12 @@ export default function LiveScoreboardPage() {
           desc={`${fields.length} field controller groups`}
           active={view === "devices"}
           onClick={() => setView("devices")}
+        />
+        <ManagerTile
+          title="Live Championship Brackets"
+          desc={`${championshipGames.length} scheduled championship games`}
+          active={view === "brackets"}
+          onClick={() => setView("brackets")}
         />
       </div>
 
@@ -302,6 +355,47 @@ export default function LiveScoreboardPage() {
         </div>
       )}
 
+      {view === "brackets" && (
+        <div style={bracketPanel}>
+          <div style={bracketHeader}>
+            <div>
+              <div style={settingsTitle}>Live Championship Brackets</div>
+              <div style={settingsHint}>Updates from championship schedule rows and final scores.</div>
+            </div>
+            <div style={divisionFilterRow}>
+              {championshipDivisions.map((division) => (
+                <button
+                  key={division}
+                  type="button"
+                  style={{
+                    ...divisionFilterBtn,
+                    ...(championshipDivision === division ? divisionFilterActive : {}),
+                  }}
+                  onClick={() => setChampionshipDivision(division)}
+                >
+                  {division === "all" ? "All Divisions" : division}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!championshipGames.length && (
+            <div style={emptyBracket}>No championship games have been scheduled yet.</div>
+          )}
+
+          {bracketGroups.map((group) => (
+            <section key={group.division} style={bracketDivision}>
+              <div style={bracketDivisionTitle}>{group.division}</div>
+              <div style={bracketGrid}>
+                {group.games.map((game) => (
+                  <ChampionshipBracketCard key={game.id} game={game} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
       <style>
         {`
           @media print {
@@ -458,6 +552,56 @@ function LinkBox({ label, href }) {
   );
 }
 
+function ChampionshipBracketCard({ game }) {
+  const score = game.score;
+  const hasScore = !!score;
+  const homeScore = Number(score?.home_score || 0);
+  const awayScore = Number(score?.away_score || 0);
+  const winner = hasScore && homeScore !== awayScore
+    ? homeScore > awayScore ? game.team : game.opponent
+    : "";
+
+  return (
+    <article style={bracketCard}>
+      <div style={bracketCardTop}>
+        <div>
+          <div style={bracketGameNumber}>Game {game.gameNumber || "-"}</div>
+          <div style={bracketMeta}>
+            {formatBracketDate(game.event_date)} • {game.event_time || game.time || "Time TBD"} • {game.field || "Field TBD"}
+          </div>
+        </div>
+        <span style={{ ...bracketStatus, ...(hasScore ? bracketStatusFinal : bracketStatusScheduled) }}>
+          {hasScore ? "Final" : "Scheduled"}
+        </span>
+      </div>
+
+      <BracketTeamLine
+        name={game.team || "Team TBD"}
+        score={hasScore ? homeScore : null}
+        winner={winner && winner === game.team}
+      />
+      <BracketTeamLine
+        name={game.opponent || "Opponent TBD"}
+        score={hasScore ? awayScore : null}
+        winner={winner && winner === game.opponent}
+      />
+
+      {winner && (
+        <div style={winnerLine}>Winner: {winner}</div>
+      )}
+    </article>
+  );
+}
+
+function BracketTeamLine({ name, score, winner }) {
+  return (
+    <div style={{ ...bracketTeamLine, ...(winner ? bracketTeamWinner : {}) }}>
+      <span style={bracketTeamName}>{name}</span>
+      <span style={bracketTeamScore}>{score === null ? "-" : score}</span>
+    </div>
+  );
+}
+
 function groupPhysicalFields(fields) {
   const grouped = new Map();
 
@@ -498,6 +642,90 @@ function groupPhysicalFields(fields) {
 
 function cleanKey(value) {
   return (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function buildChampionshipBracketGroups(games, scoreByScheduleId, selectedDivision) {
+  const groups = {};
+
+  games.forEach((game) => {
+    const division = normalizeDivision(game.division);
+    if (selectedDivision !== "all" && division !== selectedDivision) return;
+    if (!groups[division]) groups[division] = [];
+    groups[division].push({
+      ...game,
+      gameNumber: getChampionshipGameNumber(game),
+      score: scoreByScheduleId[game.id],
+    });
+  });
+
+  return Object.entries(groups)
+    .sort(([a], [b]) => sortDivisions(a, b))
+    .map(([division, divisionGames]) => ({
+      division,
+      games: divisionGames.sort((a, b) => (
+        Number(a.gameNumber || 999) - Number(b.gameNumber || 999) ||
+        String(a.event_date || "").localeCompare(String(b.event_date || "")) ||
+        timeToMinutes(a.event_time || a.time) - timeToMinutes(b.event_time || b.time)
+      )),
+    }));
+}
+
+function getChampionshipGameNumber(game) {
+  const sourceMatch = String(game?.source || "").match(/game:(\d+)/i);
+  return sourceMatch ? Number(sourceMatch[1]) : null;
+}
+
+function dedupeScoresByScheduleId(scores) {
+  const byScheduleId = new Map();
+
+  scores.forEach((score) => {
+    if (!score.schedule_id) return;
+    const existing = byScheduleId.get(score.schedule_id);
+    if (!existing || new Date(score.created_at || 0) > new Date(existing.created_at || 0)) {
+      byScheduleId.set(score.schedule_id, score);
+    }
+  });
+
+  return [...byScheduleId.values()];
+}
+
+function normalizeDivision(value) {
+  const division = (value || "").toString().trim();
+  return division || "Unassigned";
+}
+
+function sortDivisions(a, b) {
+  const order = ["K-1", "K-1st", "2nd-3rd", "4th-5th", "6th-8th", "Unassigned"];
+  const indexA = order.indexOf(a);
+  const indexB = order.indexOf(b);
+  if (indexA !== -1 || indexB !== -1) {
+    return (indexA === -1 ? order.length : indexA) - (indexB === -1 ? order.length : indexB);
+  }
+  return String(a || "").localeCompare(String(b || ""));
+}
+
+function timeToMinutes(value) {
+  if (!value) return 0;
+  const text = value.toString().trim().toUpperCase();
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
+  if (!match) return 0;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  const meridiem = match[3];
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+  return hour * 60 + minute;
+}
+
+function formatBracketDate(value) {
+  if (!value) return "Date TBD";
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 const wrap = { display: "flex", flexDirection: "column", gap: 18 };
@@ -559,6 +787,27 @@ const qrLink = { color: "#2563eb", fontSize: 12, fontWeight: 900, textDecoration
 const linkBox = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, marginTop: 12, padding: 10 };
 const linkLabel = { color: "#475569", fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
 const linkText = { color: "#2563eb", display: "block", fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere", textDecoration: "none" };
+const bracketPanel = { background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(15,23,42,0.08)", padding: 16 };
+const bracketHeader = { alignItems: "flex-start", display: "flex", gap: 14, justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap" };
+const divisionFilterRow = { display: "flex", flexWrap: "wrap", gap: 8 };
+const divisionFilterBtn = { background: "#f8fafc", border: "1px solid #d1d5db", borderRadius: 999, color: "#334155", cursor: "pointer", fontWeight: 900, padding: "8px 11px" };
+const divisionFilterActive = { background: "#dcfce7", borderColor: "#16a34a", color: "#166534" };
+const emptyBracket = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, color: "#64748b", fontWeight: 800, padding: 18, textAlign: "center" };
+const bracketDivision = { marginTop: 16 };
+const bracketDivisionTitle = { color: "#0f172a", fontSize: 18, fontWeight: 900, marginBottom: 10 };
+const bracketGrid = { display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" };
+const bracketCard = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, boxSizing: "border-box", display: "grid", gap: 8, padding: 12 };
+const bracketCardTop = { alignItems: "flex-start", display: "flex", gap: 10, justifyContent: "space-between" };
+const bracketGameNumber = { color: "#0f172a", fontSize: 14, fontWeight: 900 };
+const bracketMeta = { color: "#64748b", fontSize: 12, fontWeight: 800, marginTop: 3 };
+const bracketStatus = { borderRadius: 999, fontSize: 11, fontWeight: 900, padding: "5px 8px", textTransform: "uppercase" };
+const bracketStatusFinal = { background: "#dcfce7", color: "#166534" };
+const bracketStatusScheduled = { background: "#e0f2fe", color: "#075985" };
+const bracketTeamLine = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, color: "#0f172a", display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) auto", padding: "10px 11px" };
+const bracketTeamWinner = { borderColor: "#16a34a", boxShadow: "inset 4px 0 0 #16a34a" };
+const bracketTeamName = { fontSize: 15, fontWeight: 900, overflowWrap: "anywhere" };
+const bracketTeamScore = { fontSize: 20, fontVariantNumeric: "tabular-nums", fontWeight: 900 };
+const winnerLine = { color: "#166534", fontSize: 12, fontWeight: 900, marginTop: 2 };
 const signOverlay = { alignItems: "center", background: "rgba(15,23,42,0.72)", display: "flex", inset: 0, justifyContent: "center", padding: 20, position: "fixed", zIndex: 3000 };
 const signPage = { alignItems: "center", background: "#fff", boxSizing: "border-box", display: "flex", flexDirection: "column", minHeight: "min(94vh, 980px)", maxWidth: 760, padding: "42px 46px", position: "relative", textAlign: "center", width: "min(94vw, 760px)" };
 const signActions = { display: "flex", gap: 10, position: "absolute", right: 18, top: 18 };

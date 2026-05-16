@@ -16,10 +16,6 @@ export default function ChampionshipMatchupsPage() {
   const [eliminationType, setEliminationType] = useState("single");
   const [matchupDrafts, setMatchupDrafts] = useState({});
   const [manualOverride, setManualOverride] = useState(false);
-  const [scheduleWeek, setScheduleWeek] = useState("");
-  const [newScheduleDate, setNewScheduleDate] = useState("");
-  const [activeScheduleDate, setActiveScheduleDate] = useState("");
-  const [championshipDates, setChampionshipDates] = useState([]);
   const [scheduleStatus, setScheduleStatus] = useState(null);
   const [activeView, setActiveView] = useState("overview");
 
@@ -60,7 +56,7 @@ export default function ChampionshipMatchupsPage() {
       .order("event_time", { ascending: true }), active);
 
     const currentScheduleIds = new Set((scheduleData || []).map((game) => game.id));
-    setScores((scoreData || []).filter((score) => currentScheduleIds.has(score.schedule_id)));
+    setScores(dedupeScoresByScheduleId((scoreData || []).filter((score) => currentScheduleIds.has(score.schedule_id))));
     setSchedule(scheduleData || []);
     setTeams(teamData || []);
     setNflTeams(nflTeamData || []);
@@ -198,23 +194,23 @@ export default function ChampionshipMatchupsPage() {
     buildTeamRankings(teams, nflTeams, players)
   ), [teams, nflTeams, players]);
 
+  useEffect(() => {
+    if (!championshipSchedule.length || !Object.keys(grouped).length) return;
+
+    setMatchupDrafts((current) => {
+      if (Object.values(current).some((drafts) => drafts.length)) return current;
+
+      const restored = restoreDraftsFromSchedule(championshipSchedule, grouped);
+      return Object.keys(restored).length ? restored : current;
+    });
+  }, [championshipSchedule, grouped]);
+
   const plannerUnlocked = regularGameStatus.ready || manualOverride;
   const scheduleFields = useMemo(() => {
-    const gameFields = fields.filter((field) => field.type === "game");
-    const championshipFields = gameFields.filter((field) => (field.season_phase || "regular") === "championship");
-    return championshipFields.length ? championshipFields : gameFields;
+    const playableFields = fields.filter(isPlayableField);
+    const championshipFields = playableFields.filter((field) => (field.season_phase || "regular") === "championship");
+    return championshipFields.length ? championshipFields : playableFields;
   }, [fields]);
-
-  const activeDateBlocks = useMemo(() => {
-    if (!activeScheduleDate) return [];
-    return scheduleFields.map((field) => ({
-      field,
-      times: fieldTimeBlocks
-        .filter((block) => block.field_id === field.id)
-        .map((block) => block.time)
-        .sort((a, b) => timeToMinutes(a) - timeToMinutes(b)),
-    }));
-  }, [activeScheduleDate, fieldTimeBlocks, scheduleFields]);
 
   const addMatchup = (division, rows) => {
     setMatchupDrafts((current) => ({
@@ -228,6 +224,46 @@ export default function ChampionshipMatchupsPage() {
         },
       ],
     }));
+  };
+
+  const addWinnersGame = (division, firstGameNumber, secondGameNumber) => {
+    setMatchupDrafts((current) => {
+      const drafts = current[division] || [];
+      const firstIndex = Math.max(0, Number(firstGameNumber || 1) - 1);
+      const secondIndex = Math.max(0, Number(secondGameNumber || 1) - 1);
+
+      return {
+        ...current,
+        [division]: [
+          ...drafts,
+          {
+            homeParticipant: drafts[firstIndex] ? getWinnerValue(firstIndex) : "",
+            awayParticipant: drafts[secondIndex] && secondIndex !== firstIndex ? getWinnerValue(secondIndex) : "",
+            winnerParticipant: "",
+          },
+        ],
+      };
+    });
+  };
+
+  const addLatestWinnersGame = (division) => {
+    setMatchupDrafts((current) => {
+      const drafts = current[division] || [];
+      const firstIndex = Math.max(0, drafts.length - 2);
+      const secondIndex = Math.max(0, drafts.length - 1);
+
+      return {
+        ...current,
+        [division]: [
+          ...drafts,
+          {
+            homeParticipant: drafts[firstIndex] ? getWinnerValue(firstIndex) : "",
+            awayParticipant: drafts[secondIndex] && secondIndex !== firstIndex ? getWinnerValue(secondIndex) : "",
+            winnerParticipant: "",
+          },
+        ],
+      };
+    });
   };
 
   const updateMatchup = (division, index, field, value) => {
@@ -279,69 +315,20 @@ export default function ChampionshipMatchupsPage() {
     setMatchupDrafts((current) => ({ ...current, ...nextDrafts }));
   };
 
-  const addChampionshipDate = () => {
+  const saveChampionshipSchedule = async (divisionToSave = "all") => {
     setScheduleStatus(null);
-    if (!newScheduleDate) {
-      setScheduleStatus({ type: "error", message: "Choose a date before adding it." });
-      return;
-    }
-
-    setChampionshipDates((current) => {
-      const next = [...new Set([...current, newScheduleDate])].sort();
-      return next;
-    });
-    setActiveScheduleDate(newScheduleDate);
-    setNewScheduleDate("");
-  };
-
-  const removeChampionshipDate = (date) => {
-    setChampionshipDates((current) => current.filter((item) => item !== date));
-    if (activeScheduleDate === date) {
-      const remaining = championshipDates.filter((item) => item !== date);
-      setActiveScheduleDate(remaining[0] || "");
-    }
-  };
-
-  const createChampionshipSchedule = async () => {
-    setScheduleStatus(null);
-
-    if (!scheduleWeek) {
-      setScheduleStatus({ type: "error", message: "Set the championship week before creating games." });
-      return;
-    }
-
-    if (!championshipDates.length) {
-      setScheduleStatus({ type: "error", message: "Add at least one championship date first." });
-      return;
-    }
 
     if (!scheduleFields.length) {
       setScheduleStatus({ type: "error", message: "No game fields are available. Add championship fields or regular game fields first." });
       return;
     }
 
-    const availableBlocks = championshipDates.flatMap((date) => (
-      scheduleFields.flatMap((field) => (
-        fieldTimeBlocks
-          .filter((block) => block.field_id === field.id)
-          .map((block) => ({ date, field, time: block.time }))
-      ))
-    )).sort((a, b) => (
-      a.date.localeCompare(b.date) ||
-      timeToMinutes(a.time) - timeToMinutes(b.time) ||
-      String(a.field.field_number || "").localeCompare(String(b.field.field_number || ""))
-    ));
-
-    if (!availableBlocks.length) {
-      setScheduleStatus({ type: "error", message: "Add time blocks to your championship fields in Field Manager before creating the schedule." });
-      return;
-    }
-
-    const divisionsToSchedule = selectedDivision === "all"
+    const divisionsToSchedule = divisionToSave === "all"
       ? Object.keys(matchupDrafts)
-      : [selectedDivision];
+      : [divisionToSave];
 
-    const rowsToInsert = [];
+    const scheduleRows = [];
+    const missingSlots = [];
 
     divisionsToSchedule.forEach((division) => {
       const drafts = matchupDrafts[division] || [];
@@ -350,14 +337,18 @@ export default function ChampionshipMatchupsPage() {
       drafts.forEach((draft, index) => {
         if (!draft.homeParticipant || !draft.awayParticipant) return;
 
-        const block = availableBlocks[rowsToInsert.length];
-        if (!block) return;
+        const block = getDraftScheduleBlock(draft, scheduleFields, fieldTimeBlocks);
+        if (!block || !draft.date || !draft.fieldId || !draft.time) {
+          missingSlots.push(`${division} Game ${index + 1}`);
+          return;
+        }
 
         const homeLabel = resolveParticipantLabel(draft.homeParticipant, seededRows, drafts);
         const awayLabel = resolveParticipantLabel(draft.awayParticipant, seededRows, drafts);
+        const source = `championship:${division}:game:${index + 1}`;
 
-        rowsToInsert.push({
-          week: Number(scheduleWeek),
+        scheduleRows.push({
+          week: null,
           field_id: block.field.id,
           time: block.time,
           event_time: block.time,
@@ -367,29 +358,60 @@ export default function ChampionshipMatchupsPage() {
           team: homeLabel,
           opponent: awayLabel,
           event_type: "championship game",
-          source: "championship",
+          source,
         });
       });
     });
 
-    if (!rowsToInsert.length) {
-      setScheduleStatus({ type: "error", message: "Add at least one seed matchup before creating the championship schedule." });
+    if (missingSlots.length) {
+      setScheduleStatus({ type: "error", message: `Add date, field, and time for: ${missingSlots.join(", ")}.` });
+      return;
+    }
+
+    if (!scheduleRows.length) {
+      setScheduleStatus({ type: "error", message: "Add at least one complete seed matchup before saving games." });
       return;
     }
 
     const active = await getActiveSeason();
-    const { error } = await supabase.from("schedule_master_auto").insert(rowsToInsert.map((row) => ({
-      ...row,
-      season_id: active.seasonId,
-    })));
+    const sourceIds = scheduleRows.map((row) => row.source);
+    const { data: existingRows, error: existingError } = await applyUuidSeasonFilter(supabase
+      .from("schedule_master_auto")
+      .select("id,source")
+      .in("source", sourceIds), active);
 
-    if (error) {
-      console.error("Championship schedule create failed:", error);
-      setScheduleStatus({ type: "error", message: `Could not create championship schedule: ${error.message}` });
+    if (existingError) {
+      console.error("Championship schedule lookup failed:", existingError);
+      setScheduleStatus({ type: "error", message: `Could not check existing games: ${existingError.message}` });
       return;
     }
 
-    setScheduleStatus({ type: "success", message: `${rowsToInsert.length} championship game${rowsToInsert.length === 1 ? "" : "s"} added to the schedule.` });
+    const existingBySource = new Map((existingRows || []).map((row) => [row.source, row]));
+    const inserts = [];
+    const updates = [];
+
+    scheduleRows.forEach((row) => {
+      const existing = existingBySource.get(row.source);
+      if (existing?.id) {
+        updates.push(supabase.from("schedule_master_auto").update(row).eq("id", existing.id));
+      } else {
+        inserts.push({ ...row, season_id: active.seasonId });
+      }
+    });
+
+    const insertResults = inserts.length ? [await supabase.from("schedule_master_auto").insert(inserts)] : [];
+    const updateResults = await Promise.all(updates);
+    const results = [...insertResults, ...updateResults];
+    const saveError = results.find((result) => result.error)?.error;
+
+    if (saveError) {
+      console.error("Championship schedule save failed:", saveError);
+      setScheduleStatus({ type: "error", message: `Could not save championship games: ${saveError.message}` });
+      return;
+    }
+
+    const savedCount = inserts.length + updates.length;
+    setScheduleStatus({ type: "success", message: `${savedCount} championship game${savedCount === 1 ? "" : "s"} saved to the schedule.` });
     loadData();
   };
 
@@ -416,16 +438,10 @@ export default function ChampionshipMatchupsPage() {
           onClick={() => setActiveView("seeding")}
         />
         <ToolTile
-          title="Create Matchups"
-          text="Choose single or double elimination and build seed pairings."
+          title="Create Matchups and Schedule"
+          text="Build seed pairings, set date, field, and time, then save games."
           active={activeView === "matchups"}
           onClick={() => setActiveView("matchups")}
-        />
-        <ToolTile
-          title="Create Championship Schedule"
-          text="Post championship games into the schedule for scoring and live scoreboard."
-          active={activeView === "schedule"}
-          onClick={() => setActiveView("schedule")}
         />
       </div>
 
@@ -446,7 +462,7 @@ export default function ChampionshipMatchupsPage() {
           </div>
 
           <div style={overviewCopy}>
-            Start with <strong>Championship Seeding</strong> to confirm rankings. Use <strong>Create Matchups</strong> to pair seeds and set placeholders. Then use <strong>Create Championship Schedule</strong> to post those games into the regular schedule so they can be scored and run on the live scoreboard.
+            Start with <strong>Championship Seeding</strong> to confirm rankings. Use <strong>Create Matchups</strong> to pair seeds, set each game date, field, and time, then save those games into the regular schedule so they can be scored and run on the live scoreboard.
           </div>
         </section>
       )}
@@ -511,8 +527,22 @@ export default function ChampionshipMatchupsPage() {
           >
             Suggest All Divisions
           </button>
+          <button
+            type="button"
+            style={{ ...createScheduleBtn, ...(!plannerUnlocked ? disabledBtn : {}) }}
+            disabled={!plannerUnlocked}
+            onClick={() => saveChampionshipSchedule("all")}
+          >
+            Save All Games
+          </button>
         </div>
       </div>
+      )}
+
+      {activeView === "matchups" && scheduleStatus && (
+        <div style={{ ...scheduleStatusBox, ...(scheduleStatus.type === "error" ? scheduleErrorBox : scheduleSuccessBox) }}>
+          {scheduleStatus.message}
+        </div>
       )}
 
       {activeView !== "overview" && (
@@ -591,6 +621,22 @@ export default function ChampionshipMatchupsPage() {
                   >
                     Add Matchup
                   </button>
+                  <button
+                    type="button"
+                    style={{ ...smallBtn, ...(!plannerUnlocked ? disabledBtn : {}) }}
+                    disabled={!plannerUnlocked}
+                    onClick={() => addLatestWinnersGame(division)}
+                  >
+                    Add Winners Game
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...createScheduleBtn, ...(!plannerUnlocked ? disabledBtn : {}) }}
+                    disabled={!plannerUnlocked}
+                    onClick={() => saveChampionshipSchedule(division)}
+                  >
+                    Save Division Games
+                  </button>
                 </div>
               </div>
 
@@ -605,6 +651,8 @@ export default function ChampionshipMatchupsPage() {
                   matchup={matchup}
                   rows={rows}
                   divisionDrafts={divisionDrafts}
+                  scheduleFields={scheduleFields}
+                  fieldTimeBlocks={fieldTimeBlocks}
                   updateMatchup={(field, value) => updateMatchup(division, index, field, value)}
                   removeMatchup={() => removeMatchup(division, index)}
                 />
@@ -632,143 +680,6 @@ export default function ChampionshipMatchupsPage() {
           </section>
         );
       })}
-
-      {activeView === "schedule" && (
-      <section style={section}>
-        <div style={sectionHeader}>
-          <div>
-            <div style={divisionTitle}>Championship Schedule Creator</div>
-            <div style={sectionSub}>
-              Creates championship games from the seed matchup planner and adds them to the regular schedule, score management, referee scheduling, and live scoreboard.
-            </div>
-          </div>
-        </div>
-
-        {scheduleStatus && (
-          <div style={{ ...scheduleStatusBox, ...(scheduleStatus.type === "error" ? scheduleErrorBox : scheduleSuccessBox) }}>
-            {scheduleStatus.message}
-          </div>
-        )}
-
-        <div style={creatorGrid}>
-          <label style={creatorField}>
-            <span style={creatorLabel}>Schedule Week</span>
-            <input
-              type="number"
-              value={scheduleWeek}
-              onChange={(event) => setScheduleWeek(event.target.value)}
-              style={creatorInput}
-            />
-          </label>
-        </div>
-
-        <div style={scheduleSetupGrid}>
-          <div style={setupCard}>
-            <div style={setupTitle}>1. Championship Dates</div>
-            <div style={sectionSub}>Create the dates first, then build field time blocks for each day.</div>
-
-            <div style={dateAddRow}>
-              <input
-                type="date"
-                value={newScheduleDate}
-                onChange={(event) => setNewScheduleDate(event.target.value)}
-                style={{ ...creatorInput, flex: "1 1 160px" }}
-              />
-              <button type="button" style={addSmallBtn} onClick={addChampionshipDate}>
-                Add Date
-              </button>
-            </div>
-
-            <div style={dateTileGrid}>
-              {championshipDates.map((date) => {
-                const blockCount = scheduleFields.reduce((total, field) => (
-                  total + fieldTimeBlocks.filter((block) => block.field_id === field.id).length
-                ), 0);
-
-                return (
-                  <div
-                    key={date}
-                    style={{
-                      ...dateTileRow,
-                      ...(activeScheduleDate === date ? activeDateTile : {}),
-                    }}
-                  >
-                    <button type="button" style={dateSelectBtn} onClick={() => setActiveScheduleDate(date)}>
-                      {formatDisplayDate(date)}
-                      <span style={dateTileSub}>{blockCount} field block{blockCount === 1 ? "" : "s"}</span>
-                    </button>
-                    <button type="button" style={dateRemoveBtn} onClick={() => removeChampionshipDate(date)}>
-                      Remove
-                    </button>
-                  </div>
-                );
-              })}
-
-              {!championshipDates.length && (
-                <div style={plannerEmpty}>No championship dates added yet.</div>
-              )}
-            </div>
-          </div>
-
-          <div style={setupCard}>
-            <div style={setupTitle}>2. Championship Field Time Blocks</div>
-            <div style={sectionSub}>
-              {scheduleFields.length
-                ? `${scheduleFields.length} championship field${scheduleFields.length === 1 ? "" : "s"} loaded from Field Manager`
-                : "No championship fields found"}
-            </div>
-
-            {activeScheduleDate ? (
-              <>
-                <div style={fieldBlockGrid}>
-                  {activeDateBlocks.map(({ field, times }) => (
-                    <div key={field.id} style={fieldBlockCard}>
-                      <div style={fieldBlockTitle}>
-                        {field.name}
-                        {field.field_number ? ` #${field.field_number}` : ""}
-                      </div>
-                      <div style={timeChipRow}>
-                        {times.map((time) => (
-                          <span key={`${field.id}-${time}`} style={timeChip}>
-                            {time}
-                          </span>
-                        ))}
-                      </div>
-                      {!times.length && <div style={mutedSmall}>No time blocks set in Field Manager yet.</div>}
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div style={plannerEmpty}>Add or select a championship date to set field time blocks.</div>
-            )}
-          </div>
-        </div>
-
-        <div style={creatorHint}>
-          Dates are created here. Fields and field time blocks come from Field Manager. Games are saved as championship games so they appear in the public schedule, score management, ref scheduling, and field live scoreboard.
-        </div>
-
-        <button type="button" style={wideCreateScheduleBtn} onClick={createChampionshipSchedule}>
-          Create Championship Schedule
-        </button>
-
-        {!!championshipSchedule.length && (
-          <div style={existingScheduleList}>
-            {championshipSchedule.map((game) => (
-              <div key={game.id} style={existingScheduleRow}>
-                <div>
-                  <strong>{game.team}</strong> vs <strong>{game.opponent}</strong>
-                  <div style={sectionSub}>
-                    {game.division} • Week {game.week || "-"} • {game.event_date || "Date TBD"} • {game.event_time || game.time || "Time TBD"} • {game.field || "Field TBD"}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-      )}
     </div>
   );
 }
@@ -820,45 +731,30 @@ const matchupTitle = { fontWeight: 800 };
 const matchupActions = { display: "flex", gap: 8, flexWrap: "wrap" };
 const smallBtn = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 10, color: "#111827", cursor: "pointer", fontWeight: 800, padding: "8px 10px" };
 const plannerEmpty = { color: "#64748b", fontSize: 13, marginTop: 12 };
-const matchupRow = { alignItems: "center", display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 };
-const seedSelect = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 10, minWidth: 0, padding: "9px 10px", width: "100%" };
-const vsText = { color: "#64748b", fontSize: 12, fontWeight: 800 };
-const removeBtn = { background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 10, color: "#be123c", cursor: "pointer", fontWeight: 800, padding: "8px 10px" };
+const matchupRow = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, boxSizing: "border-box", display: "grid", gap: 10, marginTop: 12, padding: 12 };
+const matchupRowHeader = { alignItems: "flex-start", display: "flex", gap: 10, justifyContent: "space-between" };
+const matchupTeamsGrid = { alignItems: "end", display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)" };
+const matchupTeamsGridCompact = { gridTemplateColumns: "minmax(0, 1fr)" };
+const seedSelect = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 10, boxSizing: "border-box", color: "#0f172a", fontWeight: 800, minHeight: 42, minWidth: 0, padding: "9px 10px", width: "100%" };
+const vsText = { alignSelf: "center", color: "#64748b", fontSize: 12, fontWeight: 900, paddingBottom: 11, textTransform: "uppercase" };
+const vsTextCompact = { paddingBottom: 0, textAlign: "center" };
+const removeBtn = { background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 10, color: "#be123c", cursor: "pointer", flex: "0 0 auto", fontWeight: 800, padding: "8px 10px" };
 const doubleNote = { background: "#fff7ed", borderRadius: 10, color: "#9a3412", fontSize: 12, fontWeight: 700, marginTop: 12, padding: 10 };
 const overrideNote = { background: "#fffbeb", borderRadius: 10, color: "#92400e", fontSize: 12, fontWeight: 800, marginTop: 12, padding: 10 };
-const creatorGrid = { alignItems: "end", display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginTop: 14 };
-const creatorField = { display: "grid", gap: 6 };
-const creatorLabel = { color: "#334155", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
-const creatorInput = { background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 10, color: "#0f172a", fontWeight: 800, minHeight: 42, padding: "9px 10px" };
 const createScheduleBtn = { background: "#16a34a", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 900, minHeight: 42, padding: "10px 12px" };
-const wideCreateScheduleBtn = { ...createScheduleBtn, marginTop: 14, width: "100%" };
-const creatorHint = { background: "#f8fafc", borderRadius: 10, color: "#64748b", fontSize: 12, fontWeight: 700, marginTop: 12, padding: 10 };
-const scheduleSetupGrid = { display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", marginTop: 14 };
-const setupCard = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 14 };
-const setupTitle = { color: "#0f172a", fontSize: 16, fontWeight: 900, marginBottom: 4 };
-const dateAddRow = { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 };
-const addSmallBtn = { background: "#0f172a", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontWeight: 900, minHeight: 42, padding: "10px 12px" };
-const dateTileGrid = { display: "grid", gap: 8, marginTop: 12 };
-const dateTileRow = { alignItems: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, display: "flex", gap: 8, justifyContent: "space-between", padding: 8 };
-const activeDateTile = { background: "#ecfdf3", borderColor: "#16a34a" };
-const dateSelectBtn = { background: "transparent", border: "none", color: "#0f172a", cursor: "pointer", flex: "1 1 auto", fontWeight: 900, minWidth: 0, padding: 2, textAlign: "left" };
-const dateTileSub = { color: "#64748b", display: "block", fontSize: 11, fontWeight: 800, marginTop: 2 };
-const dateRemoveBtn = { background: "#fee2e2", border: "none", borderRadius: 8, color: "#991b1b", cursor: "pointer", fontWeight: 800, padding: "7px 8px" };
-const fieldBlockGrid = { display: "grid", gap: 10, marginTop: 12 };
-const fieldBlockCard = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 };
-const fieldBlockTitle = { color: "#0f172a", fontWeight: 900 };
-const timeChipRow = { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 };
-const timeChip = { alignItems: "center", background: "#e0f2fe", borderRadius: 999, color: "#0369a1", display: "inline-flex", fontSize: 12, fontWeight: 900, gap: 5, padding: "6px 8px" };
-const mutedSmall = { color: "#94a3b8", fontSize: 12, fontWeight: 800, marginTop: 8 };
 const scheduleStatusBox = { borderRadius: 10, fontSize: 13, fontWeight: 800, marginTop: 12, padding: 10 };
 const scheduleSuccessBox = { background: "#dcfce7", color: "#166534" };
 const scheduleErrorBox = { background: "#fee2e2", color: "#991b1b" };
 const existingScheduleList = { display: "grid", gap: 10, marginTop: 14 };
 const existingScheduleRow = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 };
-const gameLabel = { color: "#334155", flex: "0 0 70px", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
-const participantCell = { flex: "1 1 180px", minWidth: 0 };
-const winnerCell = { display: "flex", flex: "1 1 190px", flexDirection: "column", gap: 4, minWidth: 0 };
+const gameLabel = { color: "#334155", fontSize: 13, fontWeight: 900, lineHeight: 1.1, textTransform: "uppercase" };
+const participantCell = { display: "grid", gap: 5, minWidth: 0 };
+const winnerCell = { display: "grid", gap: 4, minWidth: 0 };
+const scheduleCell = { display: "grid", gap: 5, minWidth: 0 };
+const scheduleSlotGrid = { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" };
+const scheduleSlotGridCompact = { gridTemplateColumns: "minmax(0, 1fr)" };
 const winnerLabel = { color: "#64748b", fontSize: 11, fontWeight: 800 };
+const gameLabelSub = { color: "#64748b", display: "block", fontSize: 10, fontWeight: 800, lineHeight: 1.15, marginTop: 3, textTransform: "none" };
 const resolvedText = { color: "#166534", flex: "1 0 100%", fontSize: 12, fontWeight: 800, marginTop: 2 };
 const rankingRow = { alignItems: "center", display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" };
 const rankingPill = { background: "#eef2ff", borderRadius: 999, color: "#3730a3", fontSize: 11, fontWeight: 900, padding: "5px 8px" };
@@ -878,18 +774,6 @@ function timeToMinutes(value) {
   if (meridiem === "AM" && hour === 12) hour = 0;
 
   return hour * 60 + minute;
-}
-
-function formatDisplayDate(value) {
-  if (!value) return "Date TBD";
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return value;
-
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function ToolTile({ title, text, active, onClick }) {
@@ -946,73 +830,117 @@ function MatchupPlannerRow({
   matchup,
   rows,
   divisionDrafts,
+  scheduleFields,
+  fieldTimeBlocks,
   updateMatchup,
   removeMatchup,
 }) {
-  const participantOptions = buildParticipantOptions(rows, divisionDrafts, index);
-  const winnerOptions = buildWinnerOptions(matchup, rows, divisionDrafts);
+  const participantOptions = addSelectedParticipantOptions(
+    buildParticipantOptions(rows, divisionDrafts, index),
+    [matchup.homeParticipant, matchup.awayParticipant]
+  );
+  const selectedField = scheduleFields.find((field) => field.id === matchup.fieldId);
+  const availableTimes = selectedField
+    ? fieldTimeBlocks
+      .filter((block) => block.field_id === selectedField.id)
+      .map((block) => block.time)
+      .sort((a, b) => timeToMinutes(a) - timeToMinutes(b))
+    : [];
+  const compact = typeof window !== "undefined" && window.innerWidth <= 720;
 
   return (
     <div style={matchupRow}>
-      <div style={gameLabel}>Game {index + 1}</div>
-
-      <div style={participantCell}>
-        <select
-          value={matchup.homeParticipant || ""}
-          onChange={(e) => updateMatchup("homeParticipant", e.target.value)}
-          style={seedSelect}
-        >
-          <option value="">Team / placeholder</option>
-          {participantOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <span style={vsText}>vs</span>
-
-      <div style={participantCell}>
-        <select
-          value={matchup.awayParticipant || ""}
-          onChange={(e) => updateMatchup("awayParticipant", e.target.value)}
-          style={seedSelect}
-        >
-          <option value="">Team / placeholder</option>
-          {participantOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div style={winnerCell}>
-        <span style={winnerLabel}>Winner moves on</span>
-        <select
-          value={matchup.winnerParticipant || ""}
-          onChange={(e) => updateMatchup("winnerParticipant", e.target.value)}
-          style={seedSelect}
-        >
-          <option value="">Waiting for result</option>
-          {winnerOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <button type="button" style={removeBtn} onClick={removeMatchup}>
-        Remove
-      </button>
-
-      {matchup.winnerParticipant && (
-        <div style={resolvedText}>
-          Winner of Game {index + 1}: {resolveParticipantLabel(matchup.winnerParticipant, rows, divisionDrafts)}
+      <div style={matchupRowHeader}>
+        <div style={gameLabel}>
+          Game {index + 1}
+          <span style={gameLabelSub}>Use Winner of Game {index + 1} in later games</span>
         </div>
-      )}
+        <button type="button" style={removeBtn} onClick={removeMatchup}>
+          Remove
+        </button>
+      </div>
+
+      <div style={{ ...matchupTeamsGrid, ...(compact ? matchupTeamsGridCompact : {}) }}>
+        <div style={participantCell}>
+          <span style={winnerLabel}>Team / placeholder</span>
+          <select
+            value={matchup.homeParticipant || ""}
+            onChange={(e) => updateMatchup("homeParticipant", e.target.value)}
+            style={seedSelect}
+          >
+            <option value="">Select team</option>
+            {participantOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <span style={{ ...vsText, ...(compact ? vsTextCompact : {}) }}>vs</span>
+
+        <div style={participantCell}>
+          <span style={winnerLabel}>Team / placeholder</span>
+          <select
+            value={matchup.awayParticipant || ""}
+            onChange={(e) => updateMatchup("awayParticipant", e.target.value)}
+            style={seedSelect}
+          >
+            <option value="">Select team</option>
+            {participantOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style={scheduleCell}>
+        <span style={winnerLabel}>Schedule slot</span>
+        <div style={{ ...scheduleSlotGrid, ...(compact ? scheduleSlotGridCompact : {}) }}>
+          <input
+            type="date"
+            value={matchup.date || ""}
+            onChange={(e) => updateMatchup("date", e.target.value)}
+            style={seedSelect}
+          />
+
+          <select
+            value={matchup.fieldId || ""}
+            onChange={(e) => {
+              updateMatchup("fieldId", e.target.value);
+              updateMatchup("time", "");
+            }}
+            style={seedSelect}
+          >
+            <option value="">Auto field</option>
+            {scheduleFields.map((field) => (
+              <option key={field.id} value={field.id}>
+                {field.name}{field.field_number ? ` #${field.field_number}` : ""}
+              </option>
+            ))}
+          </select>
+
+          <input
+            list={`championship-times-${index}`}
+            value={matchup.time || ""}
+            onChange={(e) => updateMatchup("time", e.target.value)}
+            placeholder={matchup.fieldId ? "Time" : "Choose field first"}
+            style={seedSelect}
+            disabled={!matchup.fieldId}
+          />
+          <datalist id={`championship-times-${index}`}>
+            {availableTimes.map((time) => (
+              <option key={`${matchup.fieldId}-${time}`} value={time} />
+            ))}
+          </datalist>
+        </div>
+      </div>
+
+      <div style={resolvedText}>
+        Game {index + 1}: {resolveParticipantLabel(matchup.homeParticipant, rows, divisionDrafts) || "TBD"} vs {resolveParticipantLabel(matchup.awayParticipant, rows, divisionDrafts) || "TBD"}
+      </div>
     </div>
   );
 }
@@ -1024,21 +952,85 @@ function buildParticipantOptions(rows, divisionDrafts, currentIndex) {
   }));
 
   const winnerOptions = divisionDrafts
-    .slice(0, currentIndex)
     .map((_, index) => ({
       value: getWinnerValue(index),
       label: `Winner of Game ${index + 1}`,
-    }));
+    }))
+    .filter((option) => option.value !== getWinnerValue(currentIndex));
 
   return [...seedOptions, ...winnerOptions];
 }
 
-function buildWinnerOptions(matchup, rows, divisionDrafts) {
-  const values = [matchup.homeParticipant, matchup.awayParticipant].filter(Boolean);
-  return values.map((value) => ({
-    value,
-    label: resolveParticipantLabel(value, rows, divisionDrafts),
-  }));
+function addSelectedParticipantOptions(options, values) {
+  const existingValues = new Set(options.map((option) => option.value));
+  const extras = values
+    .filter(Boolean)
+    .filter((value) => !existingValues.has(value))
+    .map((value) => ({ value, label: value }));
+
+  return [...options, ...extras];
+}
+
+function restoreDraftsFromSchedule(championshipSchedule, grouped) {
+  const restored = {};
+
+  championshipSchedule.forEach((game) => {
+    const sourceMatch = String(game.source || "").match(/^championship:(.*):game:(\d+)$/i);
+    if (!sourceMatch) return;
+
+    const division = game.division || sourceMatch[1];
+    const index = Number(sourceMatch[2]) - 1;
+    if (index < 0) return;
+
+    if (!restored[division]) restored[division] = [];
+    restored[division][index] = {
+      homeParticipant: getParticipantValueFromLabel(game.team, grouped[division] || []),
+      awayParticipant: getParticipantValueFromLabel(game.opponent, grouped[division] || []),
+      winnerParticipant: "",
+      date: game.event_date || "",
+      fieldId: game.field_id || "",
+      time: game.event_time || game.time || "",
+    };
+  });
+
+  Object.keys(restored).forEach((division) => {
+    restored[division] = restored[division].filter(Boolean);
+  });
+
+  return restored;
+}
+
+function getParticipantValueFromLabel(label, rows) {
+  const cleanLabel = String(label || "").replace(/\s+/g, " ").trim();
+  const winnerMatch = cleanLabel.match(/^winner of game\s+(\d+)$/i);
+  if (winnerMatch) return getWinnerValue(Number(winnerMatch[1]) - 1);
+
+  const seedMatch = cleanLabel.match(/^#(\d+)\s+/);
+  if (seedMatch) return getSeedValue(Number(seedMatch[1]));
+
+  const row = rows.find((item) => item.team.toLowerCase() === cleanLabel.toLowerCase());
+  return row ? getSeedValue(row.seed) : cleanLabel;
+}
+
+function getDraftScheduleBlock(draft, scheduleFields, fieldTimeBlocks) {
+  if (!draft?.date && !draft?.fieldId && !draft?.time) return null;
+
+  const date = draft.date;
+  const field = scheduleFields.find((item) => item.id === draft.fieldId);
+  if (!date || !field) return null;
+
+  if (draft.time) {
+    return { date, field, time: draft.time };
+  }
+
+  const fieldTimes = fieldTimeBlocks
+    .filter((block) => block.field_id === field.id)
+    .map((block) => block.time)
+    .sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+  const time = fieldTimes[0];
+
+  if (!time) return null;
+  return { date, field, time };
 }
 
 function resolveParticipantLabel(value, rows, divisionDrafts) {
@@ -1052,10 +1044,6 @@ function resolveParticipantLabel(value, rows, divisionDrafts) {
 
   if (value.startsWith("winner:")) {
     const index = Number(value.replace("winner:", ""));
-    const source = divisionDrafts[index];
-    if (source?.winnerParticipant) {
-      return resolveParticipantLabel(source.winnerParticipant, rows, divisionDrafts);
-    }
     return `Winner of Game ${index + 1}`;
   }
 
@@ -1071,9 +1059,19 @@ function getWinnerValue(index) {
 }
 
 function isRegularSeasonGame(game) {
+  const source = (game.source || "").toLowerCase();
   const eventType = (game.event_type || "").toLowerCase();
+  if (source === "scoreboard-test" || game.is_scoreboard_test) return false;
+  if (eventType.includes("test")) return false;
   if (eventType.includes("champ")) return false;
   if (eventType.includes("practice")) return false;
+  return true;
+}
+
+function isPlayableField(field) {
+  const type = (field?.type || "").toString().trim().toLowerCase();
+  if (!type) return true;
+  if (type.includes("practice")) return false;
   return true;
 }
 
@@ -1089,6 +1087,20 @@ function normalizeDivision(value) {
   if (compact === "68" || compact === "6th8th" || compact === "6th8" || compact === "678" || compact === "6th7th8th") return "6th-8th";
 
   return division;
+}
+
+function dedupeScoresByScheduleId(scores) {
+  const byScheduleId = new Map();
+
+  scores.forEach((score) => {
+    if (!score.schedule_id) return;
+    const existing = byScheduleId.get(score.schedule_id);
+    if (!existing || new Date(score.created_at || 0) > new Date(existing.created_at || 0)) {
+      byScheduleId.set(score.schedule_id, score);
+    }
+  });
+
+  return [...byScheduleId.values()];
 }
 
 function sortDivisions(a, b) {
