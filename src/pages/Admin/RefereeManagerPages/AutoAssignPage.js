@@ -3,11 +3,36 @@ import { supabase } from "../../../supabase";
 import { applyPersonSeasonFilter, applyUuidSeasonFilter, getActiveSeason } from "../../../utils/season";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
+const CHAMPIONSHIP_WEEK = "championships";
+
+const isChampionshipGame = (game) => {
+  const eventType = String(game?.event_type || "").toLowerCase();
+  const source = String(game?.source || "").toLowerCase();
+  return eventType.includes("champ") || source.startsWith("championship");
+};
+
+const getWeekLabel = (week) => (
+  week === CHAMPIONSHIP_WEEK ? "Championships" : `Week ${week}`
+);
+
+const sortWeekValues = (a, b) => {
+  const orderA = a === CHAMPIONSHIP_WEEK ? 999 : Number(a) || 0;
+  const orderB = b === CHAMPIONSHIP_WEEK ? 999 : Number(b) || 0;
+  if (orderA !== orderB) return orderA - orderB;
+  return String(a).localeCompare(String(b));
+};
+
+const timeToMinutes = (value) => {
+  const match = String(value || "").match(/^(\d{1,2})(?::(\d{2}))?/);
+  if (!match) return 0;
+  return Number(match[1]) * 60 + Number(match[2] || 0);
+};
 
 export default function AutoAssignPage() {
   const [step, setStep] = useState(1);
   const [weeks, setWeeks] = useState([]);
   const [weekDates, setWeekDates] = useState({});
+  const [weekSlots, setWeekSlots] = useState({});
   const [selectedWeek, setSelectedWeek] = useState(null);
 
   const [refs, setRefs] = useState([]);
@@ -68,16 +93,29 @@ export default function AutoAssignPage() {
     return getGameTimeOptions(game)[0] || null;
   };
 
+  const getGameAvailabilityKeys = (game) => {
+    const gameTimes = getGameTimeOptions(game);
+    const date = game?.event_date;
+    if (selectedWeek === CHAMPIONSHIP_WEEK && date) {
+      return gameTimes.map((time) => `${date}|${time}`);
+    }
+
+    return gameTimes;
+  };
+
   const isRefAvailableForGame = (refId, game) => {
     const refAvailability = availability?.[refId];
     if (!refAvailability) return false;
 
-    const gameTimes = getGameTimeOptions(game);
-    if (!gameTimes.length) return false;
+    const gameKeys = getGameAvailabilityKeys(game);
+    if (!gameKeys.length) return false;
 
-    return gameTimes.some((gameTime) => (
+    return gameKeys.some((gameKey) => (
       Object.entries(refAvailability).some(([timeBlock, isAvailable]) => (
-        isAvailable === true && normalizeTime(timeBlock) === gameTime
+        isAvailable === true && (
+          timeBlock === gameKey ||
+          (!String(timeBlock).includes("|") && !String(gameKey).includes("|") && normalizeTime(timeBlock) === normalizeTime(gameKey))
+        )
       ))
     ));
   };
@@ -141,37 +179,73 @@ export default function AutoAssignPage() {
     return `${formatDate(first)} - ${formatDate(last)}`;
   };
 
+  const getAvailabilitySlotKey = (game) => {
+    const time = getGameTime(game);
+    if (!time) return null;
+    if (isChampionshipGame(game) && game.event_date) return `${game.event_date}|${time}`;
+    return time;
+  };
+
+  const formatAvailabilitySlot = (slot) => {
+    if (!slot) return "";
+    const [date, time] = String(slot).includes("|") ? String(slot).split("|") : [null, slot];
+    return date ? `${formatDate(parseDate(date))} ${time}` : time;
+  };
+
+  const getAvailabilitySlots = () => (
+    weekSlots[selectedWeek]?.length ? weekSlots[selectedWeek] : TIMES
+  );
+
   /* ---------------- LOAD ---------------- */
 
   const loadWeeks = async () => {
     const active = await getActiveSeason();
     const { data } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
-      .select("week,event_date,event_type"), active);
+      .select("week,event_date,event_time,time,starts_at,event_type,source"), active);
 
-    const scheduledWeeks = [...new Set((data || [])
+    const regularWeeks = [...new Set((data || [])
       .filter((game) => {
         const eventType = (game.event_type || "").toLowerCase();
-        return eventType.includes("game") || eventType.includes("champ");
+        return eventType.includes("game") && !isChampionshipGame(game);
       })
       .map((game) => game.week)
       .filter(Boolean))]
-      .sort((a, b) => Number(a) - Number(b));
+      .sort(sortWeekValues);
+    const hasChampionships = (data || []).some(isChampionshipGame);
+    const scheduledWeeks = hasChampionships
+      ? [...regularWeeks, CHAMPIONSHIP_WEEK]
+      : regularWeeks;
     const dateMap = {};
+    const slotMap = {};
 
     (data || []).forEach((game) => {
       const eventType = game.event_type?.toLowerCase() || "";
-      if (!eventType.includes("game") && !eventType.includes("champ")) return;
+      if (!eventType.includes("game") && !isChampionshipGame(game)) return;
 
-      const key = game.week;
+      const key = isChampionshipGame(game) ? CHAMPIONSHIP_WEEK : game.week;
 
       if (!key || !scheduledWeeks.includes(key)) return;
       if (!dateMap[key]) dateMap[key] = [];
       if (game.event_date) dateMap[key].push(game.event_date);
+
+      const slot = getAvailabilitySlotKey(game);
+      if (!slot) return;
+      if (!slotMap[key]) slotMap[key] = [];
+      if (!slotMap[key].includes(slot)) slotMap[key].push(slot);
+    });
+
+    Object.keys(slotMap).forEach((key) => {
+      slotMap[key].sort((a, b) => {
+        const [dateA, timeA] = String(a).includes("|") ? String(a).split("|") : ["", a];
+        const [dateB, timeB] = String(b).includes("|") ? String(b).split("|") : ["", b];
+        return String(dateA).localeCompare(String(dateB)) || timeToMinutes(timeA) - timeToMinutes(timeB);
+      });
     });
 
     setWeeks(scheduledWeeks);
     setWeekDates(dateMap);
+    setWeekSlots(slotMap);
     if (!selectedWeek && scheduledWeeks.length) setSelectedWeek(scheduledWeeks[0]);
     if (selectedWeek && !scheduledWeeks.includes(selectedWeek)) setSelectedWeek(scheduledWeeks[0] || null);
   };
@@ -189,12 +263,17 @@ export default function AutoAssignPage() {
   const loadGames = async () => {
     let query = supabase
       .from("schedule_master_auto")
-      .select("*")
-      .or("event_type.ilike.%game%,event_type.ilike.%champ%");
+      .select("*");
     const active = await getActiveSeason();
     query = applyUuidSeasonFilter(query, active);
 
-    query = query.eq("week", selectedWeek);
+    if (selectedWeek === CHAMPIONSHIP_WEEK) {
+      query = query.or("event_type.ilike.%champ%,source.ilike.championship:%");
+    } else {
+      query = query
+        .or("event_type.ilike.%game%,event_type.ilike.%champ%")
+        .eq("week", selectedWeek);
+    }
 
     const { data } = await query;
 
@@ -214,7 +293,8 @@ export default function AutoAssignPage() {
 
     data?.forEach((a) => {
       if (!map[a.referee_id]) map[a.referee_id] = {};
-      map[a.referee_id][normalizeTime(a.time_block)] = a.available;
+      const key = String(a.time_block || "").includes("|") ? a.time_block : normalizeTime(a.time_block);
+      map[a.referee_id][key] = a.available;
     });
 
     setAvailability(map);
@@ -237,8 +317,10 @@ export default function AutoAssignPage() {
 
     const errors = [];
 
+    const slots = getAvailabilitySlots();
+
     for (let refId in availability) {
-      for (let time of TIMES) {
+      for (let time of slots) {
         const { error } = await supabase.from("ref_availability").upsert(
           {
             referee_id: refId,
@@ -460,7 +542,7 @@ export default function AutoAssignPage() {
         <div style={grid}>
           {weeks.map((w) => (
             <div key={w} style={tile} onClick={() => { setSelectedWeek(w); setStep(2); }}>
-              <div>{typeof w === "number" ? `Week ${w}` : w}</div>
+              <div>{getWeekLabel(w)}</div>
               <div style={weekDateText}>
                 {formatDateRange(weekDates[w]) || "No games scheduled"}
               </div>
@@ -479,7 +561,7 @@ export default function AutoAssignPage() {
                 </div>
 
                 <div style={timeRow}>
-                  {TIMES.map((t) => (
+                  {getAvailabilitySlots().map((t) => (
                     <button
                       key={t}
                       style={{
@@ -491,7 +573,7 @@ export default function AutoAssignPage() {
                       }}
                       onClick={() => toggleAvailability(ref.id, t)}
                     >
-                      {t}
+                      {formatAvailabilitySlot(t)}
                     </button>
                   ))}
                 </div>
@@ -550,7 +632,7 @@ export default function AutoAssignPage() {
                 </div>
 
                 <div style={gameMeta}>
-                  {a.game.division} • {getGameTime(a.game) || "No time"} •{" "}
+                  {a.game.division} • {getWeekLabel(selectedWeek)} • {getGameTime(a.game) || "No time"} •{" "}
                   {a.availableCount} available
                 </div>
                 <div style={timeMatchMeta}>
@@ -657,8 +739,8 @@ const tile = { padding: 16, borderRadius: 16, background: "#fff", boxShadow: "0 
 const weekDateText = { color: "#64748b", fontSize: 12, fontWeight: 600, marginTop: 6 };
 const card = { padding: 16, borderRadius: 16, background: "#fff", boxShadow: "0 6px 18px rgba(0,0,0,0.08)" };
 const name = { fontWeight: 700, marginBottom: 10 };
-const timeRow = { display: "flex", gap: 6 };
-const timeBtn = { padding: 6, borderRadius: 6, border: "none", cursor: "pointer" };
+const timeRow = { display: "flex", gap: 6, flexWrap: "wrap" };
+const timeBtn = { padding: 6, borderRadius: 6, border: "none", cursor: "pointer", minWidth: 64 };
 const actionRow = { display: "flex", gap: 10, marginTop: 20, alignItems: "center", flexWrap: "wrap" };
 const primaryBtn = { padding: 10, borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" };
 const secondaryBtn = { padding: 10, borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", color: "#334155", cursor: "pointer" };

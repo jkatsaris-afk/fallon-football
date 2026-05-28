@@ -385,7 +385,7 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       schedule_master_auto: normalizeScoreboardGame(scheduleById[row.schedule_id]),
     }));
 
-    const active = hydratedRows.find((row) => fieldIds.includes(row.schedule_master_auto?.field_id));
+    const active = findActiveLiveGameForController(hydratedRows, fieldIds, liveGame);
     if (!active) {
       if (scoreOnly && liveGame && isBreakStatus(liveGame.status) && Number(previousDisplayClockRef.current || 0) <= 2) {
         const hornKey = `${liveGame.id}-${liveGame.status}-closed`;
@@ -2268,6 +2268,27 @@ function getScoreboardGameGroup(game) {
   const week = String(game?.week || "");
   if (week) return { value: week, label: `Week ${week}`, order: Number(game.week) || 0 };
   return { value: "schedule", label: "Schedule", order: 1000 };
+}
+
+function findActiveLiveGameForController(rows, fieldIds, currentLiveGame) {
+  const activeStatuses = new Set(LIVE_GAME_STATUSES);
+  const currentStillActive = rows.find((row) => (
+    currentLiveGame?.id &&
+    row.id === currentLiveGame.id &&
+    activeStatuses.has(row.status)
+  ));
+
+  if (currentStillActive) return currentStillActive;
+
+  const currentScheduleStillActive = rows.find((row) => (
+    currentLiveGame?.schedule_id &&
+    row.schedule_id === currentLiveGame.schedule_id &&
+    activeStatuses.has(row.status)
+  ));
+
+  if (currentScheduleStillActive) return currentScheduleStillActive;
+
+  return rows.find((row) => fieldIds.includes(row.schedule_master_auto?.field_id));
 }
 
 function buildDisplayBracketGroups(games, scoreByScheduleId) {

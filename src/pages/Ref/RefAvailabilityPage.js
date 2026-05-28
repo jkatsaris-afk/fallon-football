@@ -3,15 +3,74 @@ import { supabase } from "../../supabase";
 import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
+const CHAMPIONSHIP_WEEK = "championships";
+
+const isChampionshipGame = (game) => {
+  const eventType = String(game?.event_type || "").toLowerCase();
+  const source = String(game?.source || "").toLowerCase();
+  return eventType.includes("champ") || source.startsWith("championship");
+};
+
+const getWeekLabel = (week) => (
+  week === CHAMPIONSHIP_WEEK ? "Championships" : week
+);
+
+const sortWeekValues = (a, b) => {
+  const orderA = a === CHAMPIONSHIP_WEEK ? 999 : Number(a) || 0;
+  const orderB = b === CHAMPIONSHIP_WEEK ? 999 : Number(b) || 0;
+  if (orderA !== orderB) return orderA - orderB;
+  return String(a).localeCompare(String(b));
+};
 
 const normalizeTime = (t) => {
   if (!t) return null;
-  return t.toString().replace(" AM", "").replace(" PM", "").trim();
+  const cleaned = t
+    .toString()
+    .replace(/\s+/g, " ")
+    .replace(/\s?AM/i, "")
+    .replace(/\s?PM/i, "")
+    .trim();
+
+  const match = cleaned.match(/^0?(\d{1,2})(?::(\d{1,2}))?/);
+  if (!match) return cleaned;
+
+  const hour = String(Number(match[1]));
+  const minute = String(Number(match[2] || 0)).padStart(2, "0");
+  return `${hour}:${minute}`;
+};
+
+const getGameTimeOptions = (game) => {
+  const times = [
+    game.event_time,
+    game.time,
+    game.starts_at && new Date(game.starts_at).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+  ];
+
+  return [...new Set(times.map(normalizeTime).filter(Boolean))];
+};
+
+const getGameTime = (game) => getGameTimeOptions(game)[0] || null;
+
+const getAvailabilitySlotKey = (game) => {
+  const time = getGameTime(game);
+  if (!time) return null;
+  if (isChampionshipGame(game) && game.event_date) return `${game.event_date}|${time}`;
+  return time;
+};
+
+const timeToMinutes = (value) => {
+  const match = String(value || "").match(/^(\d{1,2})(?::(\d{2}))?/);
+  if (!match) return 0;
+  return Number(match[1]) * 60 + Number(match[2] || 0);
 };
 
 export default function RefAvailabilityPage() {
   const [weeks, setWeeks] = useState([]);
   const [weekDates, setWeekDates] = useState({});
+  const [weekSlots, setWeekSlots] = useState({});
   const [selectedWeek, setSelectedWeek] = useState(null);
 
   const [refId, setRefId] = useState(null);
@@ -35,31 +94,50 @@ export default function RefAvailabilityPage() {
     const active = await getActiveSeason();
     const { data } = await applyUuidSeasonFilter(supabase
       .from("schedule_master_auto")
-      .select("week,event_date,event_type"), active);
+      .select("week,event_date,event_time,time,starts_at,event_type,source"), active);
 
-    const dbWeeks = [...new Set((data || [])
+    const regularWeeks = [...new Set((data || [])
       .filter((g) => {
         const eventType = (g.event_type || "").toLowerCase();
-        return eventType.includes("game") || eventType.includes("champ");
+        return eventType.includes("game") && !isChampionshipGame(g);
       })
       .map((g) => g.week)
       .filter(Boolean))];
+    const hasChampionships = (data || []).some(isChampionshipGame);
     const dateMap = {};
+    const slotMap = {};
 
     (data || []).forEach((game) => {
       const eventType = game.event_type?.toLowerCase() || "";
-      if (!eventType.includes("game") && !eventType.includes("champ")) return;
+      if (!eventType.includes("game") && !isChampionshipGame(game)) return;
 
-      const key = game.week;
+      const key = isChampionshipGame(game) ? CHAMPIONSHIP_WEEK : game.week;
       if (!key) return;
       if (!dateMap[key]) dateMap[key] = [];
       if (game.event_date) dateMap[key].push(game.event_date);
+
+      const slot = getAvailabilitySlotKey(game);
+      if (!slot) return;
+      if (!slotMap[key]) slotMap[key] = [];
+      if (!slotMap[key].includes(slot)) slotMap[key].push(slot);
     });
 
-    const sorted = dbWeeks.sort((a, b) => Number(a) - Number(b));
+    Object.keys(slotMap).forEach((key) => {
+      slotMap[key].sort((a, b) => {
+        const [dateA, timeA] = String(a).includes("|") ? String(a).split("|") : ["", a];
+        const [dateB, timeB] = String(b).includes("|") ? String(b).split("|") : ["", b];
+        return String(dateA).localeCompare(String(dateB)) || timeToMinutes(timeA) - timeToMinutes(timeB);
+      });
+    });
+
+    const sorted = [
+      ...regularWeeks.sort(sortWeekValues),
+      ...(hasChampionships ? [CHAMPIONSHIP_WEEK] : []),
+    ];
 
     setWeeks(sorted);
     setWeekDates(dateMap);
+    setWeekSlots(slotMap);
 
     if (!selectedWeek && sorted.length) setSelectedWeek(sorted[0]);
     if (selectedWeek && !sorted.includes(selectedWeek)) setSelectedWeek(sorted[0] || null);
@@ -89,7 +167,8 @@ export default function RefAvailabilityPage() {
 
     const map = {};
     data?.forEach((a) => {
-      map[normalizeTime(a.time_block)] = a.available;
+      const key = String(a.time_block || "").includes("|") ? a.time_block : normalizeTime(a.time_block);
+      map[key] = a.available;
     });
 
     setAvailability(map);
@@ -113,7 +192,7 @@ export default function RefAvailabilityPage() {
           {
             referee_id: refId,
             week: selectedWeek,
-            time_block: normalizeTime(time),
+            time_block: String(time).includes("|") ? time : normalizeTime(time),
             available: newValue,
         },
       ],
@@ -126,11 +205,12 @@ export default function RefAvailabilityPage() {
   /* ---------------- BULK ---------------- */
 
   const setAll = async (value) => {
+    const slots = getAvailabilitySlots();
     const updates = {};
-    TIMES.forEach((t) => (updates[t] = value));
+    slots.forEach((t) => (updates[t] = value));
     setAvailability(updates);
 
-    for (let t of TIMES) {
+    for (let t of slots) {
       await supabase.from("ref_availability").upsert(
         [
           {
@@ -190,6 +270,16 @@ export default function RefAvailabilityPage() {
       : `${formatDate(first)} - ${formatDate(last)}`;
   };
 
+  const getAvailabilitySlots = () => (
+    weekSlots[selectedWeek]?.length ? weekSlots[selectedWeek] : TIMES
+  );
+
+  const formatAvailabilitySlot = (slot) => {
+    if (!slot) return "";
+    const [date, time] = String(slot).includes("|") ? String(slot).split("|") : [null, slot];
+    return date ? `${formatDate(parseDate(date))} ${time}` : time;
+  };
+
   /* ---------------- UI ---------------- */
 
   return (
@@ -207,7 +297,7 @@ export default function RefAvailabilityPage() {
 
         <div style={weekTile}>
           <div style={weekLabel}>Week</div>
-          <div style={weekNumber}>{selectedWeek}</div>
+          <div style={weekNumber}>{getWeekLabel(selectedWeek)}</div>
           {formatDateRange(weekDates[selectedWeek]) && (
             <div style={weekDate}>{formatDateRange(weekDates[selectedWeek])}</div>
           )}
@@ -226,7 +316,7 @@ export default function RefAvailabilityPage() {
       </div>
 
       <div style={timeGrid}>
-        {TIMES.map((t) => {
+        {getAvailabilitySlots().map((t) => {
           const value = availability?.[t];
 
           let style = { ...timeTile };
@@ -235,7 +325,7 @@ export default function RefAvailabilityPage() {
 
           return (
             <div key={t} style={style} onClick={() => toggle(t)}>
-              {t}
+              {formatAvailabilitySlot(t)}
             </div>
           );
         })}

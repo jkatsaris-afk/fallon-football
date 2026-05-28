@@ -33,6 +33,29 @@ const TEAM_LOGOS = {
   Ravens: LogoRavens,
 };
 
+const CHAMPIONSHIP_WEEK = "championships";
+
+const isChampionshipGame = (game) => {
+  const eventType = String(game?.event_type || "").toLowerCase();
+  const source = String(game?.source || "").toLowerCase();
+  return eventType.includes("champ") || source.startsWith("championship");
+};
+
+const getGameWeekGroup = (game) => (
+  isChampionshipGame(game) ? CHAMPIONSHIP_WEEK : game.week
+);
+
+const getWeekLabel = (weekValue) => (
+  weekValue === CHAMPIONSHIP_WEEK ? "Championships" : `Week ${weekValue}`
+);
+
+const sortWeekValues = (a, b) => {
+  const orderA = a === CHAMPIONSHIP_WEEK ? 999 : Number(a) || 0;
+  const orderB = b === CHAMPIONSHIP_WEEK ? 999 : Number(b) || 0;
+  if (orderA !== orderB) return orderA - orderB;
+  return String(a).localeCompare(String(b));
+};
+
 export default function RefereeSchedulePage({ setPage }) {
   const [games, setGames] = useState([]);
   const [refs, setRefs] = useState([]);
@@ -80,8 +103,8 @@ export default function RefereeSchedulePage({ setPage }) {
   }, [assignments]);
 
   const weeks = [
-    ...new Set(games.map((g) => g.week).filter(Boolean)),
-  ].sort((a, b) => Number(a) - Number(b));
+    ...new Set(games.map(getGameWeekGroup).filter(Boolean)),
+  ].sort(sortWeekValues);
 
   const parseDate = (date) => {
     if (!date) return null;
@@ -97,7 +120,7 @@ export default function RefereeSchedulePage({ setPage }) {
 
   const getWeekDateRange = (weekValue) => {
     const dates = games
-      .filter((game) => String(game.week) === String(weekValue) && game.event_date)
+      .filter((game) => String(getGameWeekGroup(game)) === String(weekValue) && game.event_date)
       .map((game) => parseDate(game.event_date))
       .filter(Boolean)
       .sort((a, b) => a - b);
@@ -132,7 +155,7 @@ export default function RefereeSchedulePage({ setPage }) {
     }
 
     if (week !== "all") {
-      filtered = filtered.filter((g) => String(g.week) === String(week));
+      filtered = filtered.filter((g) => String(getGameWeekGroup(g)) === String(week));
     }
 
     return filtered;
@@ -190,7 +213,7 @@ export default function RefereeSchedulePage({ setPage }) {
         {weeks.map((w)=>(
           <WeekTile
             key={w}
-            label={`Week ${w}`}
+            label={getWeekLabel(w)}
             date={getWeekDateRange(w)}
             active={String(week)===String(w)}
             onClick={()=>setWeek(w)}
@@ -218,7 +241,7 @@ export default function RefereeSchedulePage({ setPage }) {
               </div>
 
               <div style={gameMeta}>
-                Week {game.week} • {game.time} • {game.field}
+                {getWeekLabel(getGameWeekGroup(game))} • {game.time || game.event_time} • {game.field}
               </div>
 
               <div style={divisionBadge}>
