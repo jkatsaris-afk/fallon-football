@@ -147,7 +147,7 @@ export default function AdminLayout({
         )}
 
         <div
-          style={{ ...content, paddingBottom: isMobile ? 92 : 80 }}
+          style={{ ...content, paddingBottom: isMobile ? "calc(112px + env(safe-area-inset-bottom))" : 80 }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >

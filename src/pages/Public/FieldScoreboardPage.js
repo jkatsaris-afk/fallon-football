@@ -72,6 +72,11 @@ export default function FieldScoreboardPage({ mode = "control" }) {
   const lastDisplayHornKeyRef = useRef("");
   const controllerClockAnchorRef = useRef({ seconds: DEFAULT_SETTINGS.scoreboard_game_minutes * 60, startedAt: Date.now() });
   const lastControllerClockPersistRef = useRef(null);
+  const liveGameRef = useRef(null);
+
+  useEffect(() => {
+    liveGameRef.current = liveGame;
+  }, [liveGame]);
 
   useEffect(() => {
     loadData();
@@ -380,15 +385,21 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       scheduleById[game.id] = game;
     });
 
-    const hydratedRows = (data || []).map((row) => ({
-      ...row,
-      schedule_master_auto: normalizeScoreboardGame(scheduleById[row.schedule_id]),
-    }));
+    const currentLiveGame = liveGameRef.current;
+    const hydratedRows = (data || []).map((row) => {
+      const scheduledGame = scheduleById[row.schedule_id]
+        || (currentLiveGame?.schedule_id === row.schedule_id ? currentLiveGame.schedule_master_auto : null);
 
-    const active = findActiveLiveGameForController(hydratedRows, fieldIds, liveGame);
+      return {
+        ...row,
+        schedule_master_auto: normalizeScoreboardGame(scheduledGame),
+      };
+    });
+
+    const active = findActiveLiveGameForController(hydratedRows, fieldIds, currentLiveGame);
     if (!active) {
-      if (scoreOnly && liveGame && isBreakStatus(liveGame.status) && Number(previousDisplayClockRef.current || 0) <= 2) {
-        const hornKey = `${liveGame.id}-${liveGame.status}-closed`;
+      if (scoreOnly && currentLiveGame && isBreakStatus(currentLiveGame.status) && Number(previousDisplayClockRef.current || 0) <= 2) {
+        const hornKey = `${currentLiveGame.id}-${currentLiveGame.status}-closed`;
         if (lastDisplayHornKeyRef.current !== hornKey) {
           lastDisplayHornKeyRef.current = hornKey;
           playClockTone();
@@ -1915,9 +1926,31 @@ function formatAssignedRefs(refs = []) {
 }
 
 function getLogo(team) {
-  const key = cleanTeamName(team).toLowerCase();
+  const key = getLogoKey(team);
   if (key.includes("49")) return TEAM_LOGOS["49ers"];
+  if (key.includes("niner")) return TEAM_LOGOS["49ers"];
+  if (key.includes("san francisco")) return TEAM_LOGOS["49ers"];
+  if (key.includes("bill")) return TEAM_LOGOS.bills;
+  if (key.includes("bengal")) return TEAM_LOGOS.bengals;
+  if (key.includes("bronco")) return TEAM_LOGOS.broncos;
+  if (key.includes("lion")) return TEAM_LOGOS.lions;
+  if (key.includes("colt")) return TEAM_LOGOS.colts;
+  if (key.includes("chief")) return TEAM_LOGOS.chiefs;
+  if (key.includes("raider")) return TEAM_LOGOS.raiders;
+  if (key.includes("ram")) return TEAM_LOGOS.rams;
+  if (key.includes("jet")) return TEAM_LOGOS.jets;
+  if (key.includes("eagle")) return TEAM_LOGOS.eagles;
+  if (key.includes("steeler")) return TEAM_LOGOS.steelers;
+  if (key.includes("raven")) return TEAM_LOGOS.ravens;
   return TEAM_LOGOS[key] || null;
+}
+
+function getLogoKey(team) {
+  return cleanTeamName(team)
+    .replace(/^#?\d+\s+/, "")
+    .replace(/^seed\s+\d+\s*/i, "")
+    .replace(/^winner\s+of\s+game\s+\d+\s*/i, "")
+    .toLowerCase();
 }
 
 function isTestGame(game) {

@@ -4,6 +4,7 @@ import { applyUuidSeasonFilter, getActiveSeason } from "../../utils/season";
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 const CHAMPIONSHIP_WEEK = "championships";
+const CHAMPIONSHIP_AVAILABILITY_WEEK = 999;
 
 const isChampionshipGame = (game) => {
   const eventType = String(game?.event_type || "").toLowerCase();
@@ -21,6 +22,10 @@ const sortWeekValues = (a, b) => {
   if (orderA !== orderB) return orderA - orderB;
   return String(a).localeCompare(String(b));
 };
+
+const getAvailabilityWeekKey = (week) => (
+  week === CHAMPIONSHIP_WEEK ? CHAMPIONSHIP_AVAILABILITY_WEEK : week
+);
 
 const normalizeTime = (t) => {
   if (!t) return null;
@@ -163,7 +168,7 @@ export default function RefAvailabilityPage() {
       .from("ref_availability")
       .select("*")
       .eq("referee_id", refId)
-      .eq("week", selectedWeek);
+      .eq("week", getAvailabilityWeekKey(selectedWeek));
 
     const map = {};
     data?.forEach((a) => {
@@ -191,13 +196,13 @@ export default function RefAvailabilityPage() {
       [
           {
             referee_id: refId,
-            week: selectedWeek,
+            week: getAvailabilityWeekKey(selectedWeek),
             time_block: String(time).includes("|") ? time : normalizeTime(time),
             available: newValue,
         },
       ],
       {
-        onConflict: ["referee_id", "week", "time_block"],
+        onConflict: "referee_id,week,time_block",
       }
     );
   };
@@ -215,13 +220,13 @@ export default function RefAvailabilityPage() {
         [
           {
             referee_id: refId,
-            week: selectedWeek,
+            week: getAvailabilityWeekKey(selectedWeek),
             time_block: t,
             available: value,
           },
         ],
         {
-          onConflict: ["referee_id", "week", "time_block"],
+          onConflict: "referee_id,week,time_block",
         }
       );
     }

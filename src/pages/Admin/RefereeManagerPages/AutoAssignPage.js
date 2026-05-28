@@ -4,6 +4,7 @@ import { applyPersonSeasonFilter, applyUuidSeasonFilter, getActiveSeason } from 
 
 const TIMES = ["9:30", "10:30", "11:30", "12:30"];
 const CHAMPIONSHIP_WEEK = "championships";
+const CHAMPIONSHIP_AVAILABILITY_WEEK = 999;
 
 const isChampionshipGame = (game) => {
   const eventType = String(game?.event_type || "").toLowerCase();
@@ -21,6 +22,10 @@ const sortWeekValues = (a, b) => {
   if (orderA !== orderB) return orderA - orderB;
   return String(a).localeCompare(String(b));
 };
+
+const getAvailabilityWeekKey = (week) => (
+  week === CHAMPIONSHIP_WEEK ? CHAMPIONSHIP_AVAILABILITY_WEEK : week
+);
 
 const timeToMinutes = (value) => {
   const match = String(value || "").match(/^(\d{1,2})(?::(\d{2}))?/);
@@ -285,7 +290,7 @@ export default function AutoAssignPage() {
       .from("ref_availability")
       .select("*");
 
-    query = query.eq("week", selectedWeek);
+    query = query.eq("week", getAvailabilityWeekKey(selectedWeek));
 
     const { data } = await query;
 
@@ -324,7 +329,7 @@ export default function AutoAssignPage() {
         const { error } = await supabase.from("ref_availability").upsert(
           {
             referee_id: refId,
-            week: selectedWeek,
+            week: getAvailabilityWeekKey(selectedWeek),
             time_block: time,
             available: availability[refId]?.[time] || false,
           },
