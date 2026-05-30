@@ -343,8 +343,8 @@ export default function ChampionshipMatchupsPage() {
           return;
         }
 
-        const homeLabel = resolveParticipantLabel(draft.homeParticipant, seededRows, drafts);
-        const awayLabel = resolveParticipantLabel(draft.awayParticipant, seededRows, drafts);
+        const homeLabel = resolveParticipantLabel(draft.homeParticipant, seededRows, drafts, championshipSchedule, scoreByScheduleId, division);
+        const awayLabel = resolveParticipantLabel(draft.awayParticipant, seededRows, drafts, championshipSchedule, scoreByScheduleId, division);
         const source = `championship:${division}:game:${index + 1}`;
 
         scheduleRows.push({
@@ -651,6 +651,9 @@ export default function ChampionshipMatchupsPage() {
                   matchup={matchup}
                   rows={rows}
                   divisionDrafts={divisionDrafts}
+                  championshipSchedule={championshipSchedule}
+                  scoreByScheduleId={scoreByScheduleId}
+                  division={division}
                   scheduleFields={scheduleFields}
                   fieldTimeBlocks={fieldTimeBlocks}
                   updateMatchup={(field, value) => updateMatchup(division, index, field, value)}
@@ -830,6 +833,9 @@ function MatchupPlannerRow({
   matchup,
   rows,
   divisionDrafts,
+  championshipSchedule,
+  scoreByScheduleId,
+  division,
   scheduleFields,
   fieldTimeBlocks,
   updateMatchup,
@@ -939,7 +945,7 @@ function MatchupPlannerRow({
       </div>
 
       <div style={resolvedText}>
-        Game {index + 1}: {resolveParticipantLabel(matchup.homeParticipant, rows, divisionDrafts) || "TBD"} vs {resolveParticipantLabel(matchup.awayParticipant, rows, divisionDrafts) || "TBD"}
+        Game {index + 1}: {resolveParticipantLabel(matchup.homeParticipant, rows, divisionDrafts, championshipSchedule, scoreByScheduleId, division) || "TBD"} vs {resolveParticipantLabel(matchup.awayParticipant, rows, divisionDrafts, championshipSchedule, scoreByScheduleId, division) || "TBD"}
       </div>
     </div>
   );
@@ -1033,7 +1039,7 @@ function getDraftScheduleBlock(draft, scheduleFields, fieldTimeBlocks) {
   return { date, field, time };
 }
 
-function resolveParticipantLabel(value, rows, divisionDrafts) {
+function resolveParticipantLabel(value, rows, divisionDrafts, championshipSchedule = [], scoreByScheduleId = {}, division = "") {
   if (!value) return "";
 
   if (value.startsWith("seed:")) {
@@ -1044,10 +1050,52 @@ function resolveParticipantLabel(value, rows, divisionDrafts) {
 
   if (value.startsWith("winner:")) {
     const index = Number(value.replace("winner:", ""));
+    const winner = getResolvedWinnerName(index, division, championshipSchedule, scoreByScheduleId);
+    if (winner) return winner;
     return `Winner of Game ${index + 1}`;
   }
 
   return value;
+}
+
+function getResolvedWinnerName(index, division, championshipSchedule, scoreByScheduleId, depth = 0) {
+  if (depth > 8) return "";
+
+  const game = championshipSchedule.find((item) => {
+    const gameNumber = getChampionshipGameNumber(item);
+    return gameNumber === index + 1 && normalizeDivision(item.division) === normalizeDivision(division);
+  });
+  if (!game) return "";
+
+  const score = scoreByScheduleId[game.id];
+  if (
+    !score ||
+    score.home_score === null ||
+    score.home_score === undefined ||
+    score.away_score === null ||
+    score.away_score === undefined
+  ) {
+    return "";
+  }
+
+  const homeScore = Number(score.home_score || 0);
+  const awayScore = Number(score.away_score || 0);
+  if (homeScore === awayScore) return "";
+
+  const winnerName = homeScore > awayScore
+    ? score.home_team || game.team
+    : score.away_team || game.opponent;
+  const winnerMatch = String(winnerName || "").trim().match(/^winner of game\s+(\d+)$/i);
+  if (winnerMatch) {
+    return getResolvedWinnerName(Number(winnerMatch[1]) - 1, division, championshipSchedule, scoreByScheduleId, depth + 1) || winnerName;
+  }
+
+  return winnerName;
+}
+
+function getChampionshipGameNumber(game) {
+  const sourceMatch = String(game?.source || "").match(/game:(\d+)/i);
+  return sourceMatch ? Number(sourceMatch[1]) : null;
 }
 
 function getSeedValue(seed) {

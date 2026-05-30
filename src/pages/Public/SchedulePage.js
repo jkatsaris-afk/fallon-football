@@ -39,6 +39,7 @@ export default function SchedulePage({ setPage }) {
   const [nflTeams, setNflTeams] = useState([]);
   const [players, setPlayers] = useState([]);
   const [coaches, setCoaches] = useState([]);
+  const [scores, setScores] = useState([]);
   const [mode, setMode] = useState("week");
   const [selectedWeek, setSelectedWeek] = useState("all");
   const [selectedTeamKey, setSelectedTeamKey] = useState("all");
@@ -81,7 +82,14 @@ export default function SchedulePage({ setPage }) {
       applyPersonSeasonFilter(supabase.from("coaches").select("id,first_name,last_name,email"), active),
     ]);
 
-    setGames(scheduleData || []);
+    const scheduleRows = scheduleData || [];
+    const scheduleIds = scheduleRows.map((game) => game.id).filter(Boolean);
+    const { data: scoreData } = scheduleIds.length
+      ? await supabase.from("game_scores").select("*").in("schedule_id", scheduleIds)
+      : { data: [] };
+
+    setGames(scheduleRows);
+    setScores(dedupeScoresByScheduleId(scoreData || []));
     setTeams(teamData || []);
     setNflTeams(nflData || []);
     setPlayers(playerData || []);
@@ -147,8 +155,20 @@ export default function SchedulePage({ setPage }) {
     return map;
   }, [coaches, teamCards]);
 
+  const scoreByScheduleId = useMemo(() => {
+    const map = {};
+    scores.forEach((score) => {
+      if (score.schedule_id) map[score.schedule_id] = score;
+    });
+    return map;
+  }, [scores]);
+
+  const displayGames = useMemo(() => (
+    resolveScheduleGames(games, scoreByScheduleId)
+  ), [games, scoreByScheduleId]);
+
   const scheduleRows = useMemo(() => (
-    games
+    displayGames
       .filter((game) => isPublicEvent(game))
       .map((game) => ({
         ...game,
@@ -165,7 +185,7 @@ export default function SchedulePage({ setPage }) {
         String(a.cleanDate || "").localeCompare(String(b.cleanDate || "")) ||
         toTime(a.event_time || a.time) - toTime(b.event_time || b.time)
       ))
-  ), [games]);
+  ), [displayGames]);
 
   const weeks = useMemo(() => {
     const byWeek = {};
@@ -396,6 +416,84 @@ function isChampionshipEvent(game) {
   const type = String(game.event_type || "").toLowerCase();
   const source = String(game.source || "").toLowerCase();
   return type.includes("champ") || source.startsWith("championship");
+}
+
+function resolveScheduleGames(games, scoreByScheduleId) {
+  const byDivision = new Map();
+  const resolvedChampionships = new Map();
+
+  games.filter(isChampionshipEvent).forEach((game) => {
+    const division = normalizeDivision(game.division);
+    if (!byDivision.has(division)) byDivision.set(division, []);
+    byDivision.get(division).push(game);
+  });
+
+  byDivision.forEach((divisionGames) => {
+    const sortedGames = [...divisionGames].sort((a, b) => (
+      Number(getChampionshipGameNumber(a) || 999) - Number(getChampionshipGameNumber(b) || 999) ||
+      String(a.event_date || "").localeCompare(String(b.event_date || "")) ||
+      toTime(a.event_time || a.time) - toTime(b.event_time || b.time)
+    ));
+    const winnerByNumber = new Map();
+
+    sortedGames.forEach((game) => {
+      const gameNumber = getChampionshipGameNumber(game);
+      const homeTeam = resolveChampionshipParticipant(game.team, winnerByNumber);
+      const awayTeam = resolveChampionshipParticipant(game.opponent, winnerByNumber);
+      const score = scoreByScheduleId[game.id];
+
+      resolvedChampionships.set(game.id, {
+        ...game,
+        team: homeTeam,
+        opponent: awayTeam,
+      });
+
+      if (!score) return;
+
+      const homeScore = Number(score.home_score || 0);
+      const awayScore = Number(score.away_score || 0);
+      if (homeScore === awayScore) return;
+
+      winnerByNumber.set(gameNumber, homeScore > awayScore ? homeTeam : awayTeam);
+    });
+  });
+
+  return games.map((game) => {
+    if (resolvedChampionships.has(game.id)) return resolvedChampionships.get(game.id);
+    return {
+      ...game,
+      team: stripSeedPrefix(game.team),
+      opponent: stripSeedPrefix(game.opponent),
+    };
+  });
+}
+
+function getChampionshipGameNumber(game) {
+  const sourceMatch = String(game?.source || "").match(/game:(\d+)/i);
+  return sourceMatch ? Number(sourceMatch[1]) : null;
+}
+
+function resolveChampionshipParticipant(value, winnerByNumber) {
+  const winnerMatch = clean(value).match(/^winner of game\s+(\d+)$/i);
+  if (!winnerMatch) return stripSeedPrefix(value);
+
+  return winnerByNumber.get(Number(winnerMatch[1])) || clean(value);
+}
+
+function stripSeedPrefix(value) {
+  return clean(value).replace(/^#\d+\s+/, "");
+}
+
+function dedupeScoresByScheduleId(scoreRows) {
+  const byScheduleId = new Map();
+  scoreRows.forEach((score) => {
+    if (!score.schedule_id) return;
+    const existing = byScheduleId.get(score.schedule_id);
+    if (!existing || new Date(score.created_at || 0) > new Date(existing.created_at || 0)) {
+      byScheduleId.set(score.schedule_id, score);
+    }
+  });
+  return [...byScheduleId.values()];
 }
 
 function getWeekGroup(game) {

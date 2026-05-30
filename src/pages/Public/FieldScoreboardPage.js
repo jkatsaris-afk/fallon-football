@@ -457,6 +457,20 @@ export default function FieldScoreboardPage({ mode = "control" }) {
     setLiveGameLoaded(true);
   };
 
+  const championshipScoreByScheduleId = useMemo(() => {
+    const map = {};
+    championshipScores.forEach((score) => {
+      map[score.schedule_id] = score;
+    });
+    return map;
+  }, [championshipScores]);
+  const displayGames = useMemo(() => (
+    resolveScoreboardGameList(games, championshipGames.length ? championshipGames : games, championshipScoreByScheduleId)
+  ), [championshipGames, championshipScoreByScheduleId, games]);
+  const displayBracketGroups = useMemo(() => (
+    buildDisplayBracketGroups(championshipGames, championshipScoreByScheduleId)
+  ), [championshipGames, championshipScoreByScheduleId]);
+
   const weeks = useMemo(() => (
     [...new Map(games.map((game) => {
       const group = getScoreboardGameGroup(game);
@@ -465,18 +479,8 @@ export default function FieldScoreboardPage({ mode = "control" }) {
       .sort((a, b) => a.order - b.order || String(a.value).localeCompare(String(b.value)))
   ), [games]);
 
-  const weekGames = games.filter((game) => getScoreboardGameGroup(game).value === selectedWeek);
-  const displayWeekGames = useMemo(() => getDisplayWeekGames(games), [games]);
-  const championshipScoreByScheduleId = useMemo(() => {
-    const map = {};
-    championshipScores.forEach((score) => {
-      map[score.schedule_id] = score;
-    });
-    return map;
-  }, [championshipScores]);
-  const displayBracketGroups = useMemo(() => (
-    buildDisplayBracketGroups(championshipGames, championshipScoreByScheduleId)
-  ), [championshipGames, championshipScoreByScheduleId]);
+  const weekGames = displayGames.filter((game) => getScoreboardGameGroup(game).value === selectedWeek);
+  const displayWeekGames = useMemo(() => getDisplayWeekGames(displayGames), [displayGames]);
   const scoreboardsOpen = settings.live_scoreboards_open !== false;
 
   const startGame = async (game) => {
@@ -2327,7 +2331,9 @@ function findActiveLiveGameForController(rows, fieldIds, currentLiveGame) {
 function buildDisplayBracketGroups(games, scoreByScheduleId) {
   const groups = {};
 
-  games.forEach((game) => {
+  const resolvedGames = resolveScoreboardGameList(games, games, scoreByScheduleId);
+
+  resolvedGames.forEach((game) => {
     const division = normalizeDisplayDivision(game.division);
     if (!groups[division]) groups[division] = [];
     groups[division].push({
@@ -2347,6 +2353,75 @@ function buildDisplayBracketGroups(games, scoreByScheduleId) {
         timeToMinutes(a.event_time || a.time) - timeToMinutes(b.event_time || b.time)
       )),
     }));
+}
+
+function resolveScoreboardGameList(games, championshipGames, scoreByScheduleId) {
+  const resolvedChampionships = resolveChampionshipGames(championshipGames, scoreByScheduleId);
+  const resolvedById = new Map(resolvedChampionships.map((game) => [game.id, game]));
+
+  return games.map((game) => {
+    if (resolvedById.has(game.id)) return resolvedById.get(game.id);
+    return {
+      ...game,
+      team: stripSeedPrefix(game.team),
+      opponent: stripSeedPrefix(game.opponent),
+    };
+  });
+}
+
+function resolveChampionshipGames(games, scoreByScheduleId) {
+  const byDivision = new Map();
+  const resolved = [];
+
+  games.filter(isChampionshipGame).forEach((game) => {
+    const division = normalizeDisplayDivision(game.division);
+    if (!byDivision.has(division)) byDivision.set(division, []);
+    byDivision.get(division).push(game);
+  });
+
+  byDivision.forEach((divisionGames) => {
+    const sortedGames = [...divisionGames].sort((a, b) => (
+      Number(getChampionshipGameNumber(a) || 999) - Number(getChampionshipGameNumber(b) || 999) ||
+      String(a.event_date || "").localeCompare(String(b.event_date || "")) ||
+      timeToMinutes(a.event_time || a.time) - timeToMinutes(b.event_time || b.time)
+    ));
+    const winnerByNumber = new Map();
+
+    sortedGames.forEach((game) => {
+      const gameNumber = getChampionshipGameNumber(game);
+      const homeTeam = resolveChampionshipParticipant(game.team, winnerByNumber);
+      const awayTeam = resolveChampionshipParticipant(game.opponent, winnerByNumber);
+      const score = scoreByScheduleId[game.id];
+
+      resolved.push({
+        ...game,
+        team: homeTeam,
+        opponent: awayTeam,
+      });
+
+      if (!score) return;
+
+      const homeScore = Number(score.home_score || 0);
+      const awayScore = Number(score.away_score || 0);
+      if (homeScore === awayScore) return;
+
+      winnerByNumber.set(gameNumber, homeScore > awayScore ? homeTeam : awayTeam);
+    });
+  });
+
+  return resolved;
+}
+
+function resolveChampionshipParticipant(value, winnerByNumber) {
+  const winnerMatch = cleanTeamName(value).match(/^winner of game\s+(\d+)$/i);
+  if (!winnerMatch) return stripSeedPrefix(value);
+
+  const winner = winnerByNumber.get(Number(winnerMatch[1]));
+  return winner || cleanTeamName(value);
+}
+
+function stripSeedPrefix(value) {
+  return cleanTeamName(value).replace(/^#\d+\s+/, "").trim();
 }
 
 function isChampionshipDisplayWindow(groups) {

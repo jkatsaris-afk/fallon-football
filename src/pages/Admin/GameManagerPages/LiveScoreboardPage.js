@@ -660,19 +660,51 @@ function buildChampionshipBracketGroups(games, scoreByScheduleId, selectedDivisi
 
   return Object.entries(groups)
     .sort(([a], [b]) => sortDivisions(a, b))
-    .map(([division, divisionGames]) => ({
-      division,
-      games: divisionGames.sort((a, b) => (
+    .map(([division, divisionGames]) => {
+      const sortedGames = divisionGames.sort((a, b) => (
         Number(a.gameNumber || 999) - Number(b.gameNumber || 999) ||
         String(a.event_date || "").localeCompare(String(b.event_date || "")) ||
         timeToMinutes(a.event_time || a.time) - timeToMinutes(b.event_time || b.time)
-      )),
-    }));
+      ));
+
+      return {
+        division,
+        games: sortedGames.map((game) => ({
+          ...game,
+          team: resolveBracketParticipantName(game.score?.home_team || game.team, sortedGames),
+          opponent: resolveBracketParticipantName(game.score?.away_team || game.opponent, sortedGames),
+        })),
+      };
+    });
 }
 
 function getChampionshipGameNumber(game) {
   const sourceMatch = String(game?.source || "").match(/game:(\d+)/i);
   return sourceMatch ? Number(sourceMatch[1]) : null;
+}
+
+function resolveBracketParticipantName(name, games, depth = 0) {
+  if (depth > 8) return stripSeedPrefix(name);
+
+  const winnerMatch = String(name || "").trim().match(/^winner of game\s+(\d+)$/i);
+  if (!winnerMatch) return stripSeedPrefix(name);
+
+  const sourceGameNumber = Number(winnerMatch[1]);
+  const sourceGame = games.find((game) => Number(game.gameNumber) === sourceGameNumber);
+  if (!sourceGame?.score) return stripSeedPrefix(name);
+
+  const homeScore = Number(sourceGame.score.home_score || 0);
+  const awayScore = Number(sourceGame.score.away_score || 0);
+  if (homeScore === awayScore) return stripSeedPrefix(name);
+
+  const winnerName = homeScore > awayScore
+    ? sourceGame.score.home_team || sourceGame.team
+    : sourceGame.score.away_team || sourceGame.opponent;
+  return resolveBracketParticipantName(winnerName, games, depth + 1);
+}
+
+function stripSeedPrefix(name) {
+  return String(name || "").replace(/\s+/g, " ").trim().replace(/^#\d+\s+/, "").replace(/^seed\s+\d+\s*/i, "");
 }
 
 function dedupeScoresByScheduleId(scores) {
